@@ -16,7 +16,7 @@ public:
     const uint32_t denominator;
 
     StepScale(uint32_t n, uint32_t d);
-    uint16_t to_index(uint16_t tick);
+    uint64_t scale(uint64_t tick);
 
 private:
 
@@ -25,7 +25,7 @@ private:
 
 };
 
-const auto unit_step = StepScale(1, 1);
+const auto unit_scale = StepScale(1, 1);
 
 
 class Wavetable {
@@ -33,8 +33,8 @@ class Wavetable {
 public:
 
     Wavetable();
-    uint16_t at_uint16_t(uint16_t tick, StepScale scale);
-    float at_float(uint16_t tick, StepScale scale);
+    uint16_t at_uint16_t(uint64_t tick, StepScale scale);
+    float at_float(uint64_t tick, StepScale scale);
 
 private:
 
