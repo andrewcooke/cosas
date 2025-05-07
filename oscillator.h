@@ -19,8 +19,8 @@ public:
 
   Wavetable();
   virtual uint16_t next(int64_t tick, int32_t phi) const override;
-  uint16_t at_uint16_t(uint64_t tick, StepScale scale) const;
-  float at_float(uint64_t tick, StepScale scale) const;
+  uint16_t at_uint16_t(uint64_t tick, const Multiplier& mult) const;
+  float at_float(uint64_t tick, const Multiplier& mult) const;
 
 private:
 
@@ -36,16 +36,16 @@ class Oscillator : public Source {
 
 public:
 
-  Oscillator(Wavetable wave, AmpScale vol, uint16_t freq, Multiplier mult);
-  Oscillator(Wavetable wave, AmpScale vol, uint16_t fund);
+  Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq, const Multiplier& mult);
+  Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t fund);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
-  Wavetable wavetable;
-  AmpScale volume;
-  uint16_t frequency;
-  Multiplier multiplier;
+  const Wavetable& wavetable;
+  const Amplitude& amplitude;
+  uint16_t& frequency;
+  const Multiplier& multiplier;
   
-}
+};
 
 #endif

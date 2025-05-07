@@ -30,7 +30,8 @@ class Source {
 
   // need to be signed because phi can be negative and we need to add the two
   virtual uint16_t next(int64_t tick, int32_t phi) const = 0;
-
+  //  uint16_t next(int64_t tick) const {return next(tick, 0);}  WHY NOT WORK?
+  
 };
 
 
@@ -63,13 +64,13 @@ uint16_t clip(uint32_t inter);
 uint16_t clip(int32_t inter);
 
 
-class AmpScale {
+class Amplitude {
 
 public:
 
   const float factor;
   
-  AmpScale(float factor);
+  Amplitude(float factor);
   uint16_t scale(uint16_t amp) const;
   
 private:
@@ -77,6 +78,27 @@ private:
   uint16_t norm;
   
 };
+
+const auto unit_amp = Amplitude(1);
+
+
+class Balance {
+
+public:
+
+  const float wet;
+  
+  Balance(float wet);
+  uint16_t combine(uint16_t wet, uint16_t dry) const;
+
+private:
+
+  uint16_t wet_weight, dry_weight;
+  
+};
+
+const auto dry_bal = Balance(0);
+const auto wet_bal = Balance(1);
 
 
 #endif

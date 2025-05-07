@@ -9,35 +9,19 @@ using namespace std;
 #include "source.h"
 
 
-class Balance {
-
-public:
-
-  const float wet;
-  
-  Balance(float wet);
-  uint16_t combine(uint16_t wet, uint16_t dry);
-
-private:
-
-  uint16_t wet_weight, dry_weight;
-  
-};
-
-
 class Mixer : public Source {
     
 public:
     
-  Mixer(Source src1, Source src2, AmpScale vol, Balance bal);
+  Mixer(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
 
-  Source source1;
-  Source source2;
-  AmpScale volume;
-  Balance balance;
+  const Source& source1;
+  const Source& source2;
+  const Amplitude& amplitude;
+  const Balance& balance;
   
 };
 
@@ -46,14 +30,14 @@ class FM : public Source {
 
 public:
 
-  FM(Source car, Source mod, AmpScale vol, Balance bal);
+  FM(const Source& car, const Source& mod, const Amplitude& amp, const Balance& bal);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
 
-  Source carrier;
-  Source modulation;
-  Mixer mixer;
+  class FMImpl;
+  const FMImpl& fm;
+  const Mixer& mixer;
   
 };
   
@@ -62,14 +46,15 @@ class AM : public Source {
 
 public:
 
-  AM(Source car, Source mod, AmpScale vol, Balance bal);
+  // note that this is not symmetric - src1 is mized against the ring mod output
+  AM(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
 
-  Source carrier;
-  Source modulation;
-  Mixer mixer;
+  class AMImpl;
+  const AMImpl& am;
+  const Mixer& mixer;
   
 };
   

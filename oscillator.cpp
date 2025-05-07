@@ -22,19 +22,21 @@ uint16_t Wavetable::next(int64_t tick, int32_t phi) const {
 
 // these were used in early testing but are maybe not needed later
 
-uint16_t Wavetable::at_uint16_t(uint64_t tick, StepScale scale) const {
-  return next(scale.scale(tick), 0);
+uint16_t Wavetable::at_uint16_t(uint64_t tick, const Multiplier& mult) const {
+  return next(mult.scale(tick), 0);
 }
 
-float Wavetable::at_float(uint64_t tick, StepScale scale) const {
-  return ((at_uint16_t(tick, scale) - sample_zero) / (float)sample_zero);
+float Wavetable::at_float(uint64_t tick, const Multiplier& mult) const {
+  return ((at_uint16_t(tick, mult) - sample_zero) / (float)sample_zero);
 }
 
 
-Oscillator::Oscillator(Wavetable wave, AmpScale vol, uint16_t freq, Multiplier mult) : wavetable(wave), volume(vol), frequency(freq), multiplier(mult);
+Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq, const Multiplier& mult)
+  : wavetable(wave), amplitude(amp), frequency(freq), multiplier(mult) {};
 
-Oscillator::Oscillator(Wavetable wave, AmpScale vol, uint16_t freq) : wavetable(wave), volume(vol), frequency(freq), multiplier(unit_mult);
+Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq)
+  : wavetable(wave), amplitude(amp), frequency(freq), multiplier(unit_mult) {};
 
-Oscillator uint16_t next(int64_t tick, int32_t phi) const override {
-  return amplitude.scale(wavetable.next(tick * multiplier.scale(frequency) + phi));
+uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
+  return amplitude.scale(wavetable.next(tick * multiplier.scale(frequency), phi));
 }

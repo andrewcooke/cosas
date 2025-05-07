@@ -6,7 +6,7 @@ using namespace std;
 #include "source.h"
 
 
-FreqScale::FreqScale(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
+Multiplier::Multiplier(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
   three = (d % 3) == 0;
   if (three) d /= 3;
   bits = 0;
@@ -16,10 +16,10 @@ FreqScale::FreqScale(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
   }
 };
 
-uint16_t FreqScale::scale(uint16_t freq) const {
+uint16_t Multiplier::scale(uint16_t freq) const {
   uint32_t t = freq * numerator;
   if (three) t /= 3;  // https://stackoverflow.com/a/171369
-  return uclip(t >> bits);
+  return clip(t >> bits);
 }
 
 
@@ -44,10 +44,15 @@ uint16_t clip(int32_t inter) {
 const int one_bits = 8;
 const uint32_t one = 1 << one_bits;
 
-AmpScale::AmpScale(float factor) : factor(factor), norm(factor * one) {};
+Amplitude::Amplitude(float factor) : factor(factor), norm(factor * one) {};
 
-uint16_t AmpScale::scale(uint16_t amp) const {
-  return uclip(((uint32_t)amp * norm) >> one_bits);
+uint16_t Amplitude::scale(uint16_t amp) const {
+  return clip(((uint32_t)amp * norm) >> one_bits);
 };
 
 
+Balance::Balance(float wet) : wet(wet), wet_weight(wet * one), dry_weight((1 - wet) * one) {};
+
+uint16_t Balance::combine(uint16_t wet, uint16_t dry) const {
+  return clip((wet_weight * wet + dry_weight * dry) >> one_bits);
+}
