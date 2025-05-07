@@ -6,40 +6,46 @@ import std;
 using namespace std;
 
 #include "constants.h"
+#include "source.h"
 
 
-class StepScale {
+// since fp is slow we use a lookup table for waveforms.
+// eventually we may support multiple waveforms (triangular, square, noise), but for now just sine
+// we only store the first quadrant, 16 bits unsigned.
 
-public:
-
-    const uint32_t numerator;
-    const uint32_t denominator;
-
-    StepScale(uint32_t n, uint32_t d);
-    uint64_t scale(uint64_t tick);
-
-private:
-
-    uint8_t bits;
-    bool three;
-
-};
-
-const auto unit_scale = StepScale(1, 1);
-
-
-class Wavetable {
+class Wavetable : public Source {
 
 public:
 
-    Wavetable();
-    uint16_t at_uint16_t(uint64_t tick, StepScale scale);
-    float at_float(uint64_t tick, StepScale scale);
+  Wavetable();
+  virtual uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t at_uint16_t(uint64_t tick, StepScale scale) const;
+  float at_float(uint64_t tick, StepScale scale) const;
 
 private:
 
-    array<uint16_t, table_size> quarter_table;
+  array<uint16_t, table_size> quarter_table;
 
 };
+
+
+// it turns out that a wavetable isn't a good abstraction for a source.
+// it's better to bundle a wavetable with an amplitude and frequency, where the frequecy can be scaled.
+
+class Oscillator : public Source {
+
+public:
+
+  Oscillator(Wavetable wave, AmpScale vol, uint16_t freq, Multiplier mult);
+  Oscillator(Wavetable wave, AmpScale vol, uint16_t fund);
+  uint16_t next(int64_t tick, int32_t phi) const override;
+
+private:
+  Wavetable wavetable;
+  AmpScale volume;
+  uint16_t frequency;
+  Multiplier multiplier;
+  
+}
 
 #endif
