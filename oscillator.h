@@ -100,11 +100,12 @@ protected:
 };
 
 
-class WhiteNoise : public FullWtable {
+class Noise : public FullWtable {
 
 public:
 
-  WhiteNoise();
+  Noise() : Noise(1) {};
+  Noise(int smooth);
 
 };
 

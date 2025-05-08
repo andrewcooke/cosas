@@ -37,6 +37,10 @@ uint16_t clip(int32_t inter) {
   return (uint16_t)inter;
 }
 
+uint16_t clip(float inter) {
+  return clip((int32_t)inter);
+}
+
 
 // amplitude scaling factor is converted to 16 bits where the top 8 bits are integer and the bottom 8 fractional
 // after multiplying the result is right shifted 8 bits to drop the fractional part
