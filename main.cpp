@@ -8,26 +8,22 @@ using namespace std;
 #include "model.h"
 
 int main() {
-    Sine s1 = Sine();
-    Sine s2 = Sine(0.01);
-    Triangle t = Triangle();
-    Square q1 = Square();
-    Square q2 = Square(0.1);
-    Saw sw1 = Saw(0.5);
-    Saw sw2 = Saw(0);
-    Saw sw3 = Saw(1);
-    Noise n1 = Noise();
-    Noise n2 = Noise(5);
-    Oscillator car = Oscillator(s1, unit_amp, 440, unit_mult);
-    Oscillator mod = Oscillator(s2, unit_amp, 660, unit_mult);
-    MixedFM fm = MixedFM(car, mod, unit_amp, wet_bal);
 
-    for (int i = 0; i < 1000; i++) {
-      //cout << i << " " << q1.next(i*440, 0) << endl;
-      //cout << i << " " << n1.next(i, 0) << endl;
-      cout << i << " " << n2.next(i, 0) << endl;
-      //cout << i << " " << sw2.next(i*100, 0) << endl;
-      //cout << i << " " << sw2.next(i*100, 0) << endl;
-      // cout << i << " " << fm.next(i, 0) << endl;
-    }
+  int root = 440;
+  Square q1 = Square();
+  Sine s1 = Sine();
+  Oscillator o1 = Oscillator(q1, unit_amp, root);
+  Multiplier m = Multiplier(1, 80);
+  Amplitude a = Amplitude(1);
+  Oscillator o2 = Oscillator(s1, a, root, m);
+  MixedFM fm = MixedFM(o1, o2, unit_amp, wet_bal);
+
+  Square q2 = Square();
+  Oscillator o3 = Oscillator(q2, unit_amp, root);
+  Balance b = Balance(0.5);
+  Mixer x = Mixer(fm, o3, unit_amp, b);
+  
+  for (int i = 0; i < 1000; i++) {
+    cout << i << " " << x.next(i, 0) << endl;
+  }
 }

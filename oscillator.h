@@ -110,7 +110,7 @@ public:
 };
 
 
-// it turns out that a wavetable isn't a good abstraction for a source.
+// it turns out that a wavetable isn't a very practical abstraction for a source.
 // it's better to bundle a wavetable with an amplitude and frequency.
 
 class Oscillator : public Wavetable {
@@ -118,7 +118,8 @@ class Oscillator : public Wavetable {
 public:
 
   Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq, const Multiplier& mult);
-  Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t fund);
+  Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq)
+    : Oscillator(wave, amp, freq, unit_mult) {};
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:

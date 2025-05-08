@@ -97,9 +97,6 @@ Noise::Noise(int smooth) {
 Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq, const Multiplier& mult)
   : wavetable(wave), amplitude(amp), frequency(freq), multiplier(mult) {};
 
-Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq)
-  : wavetable(wave), amplitude(amp), frequency(freq), multiplier(unit_mult) {};
-
 uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
   return amplitude.scale(wavetable.next(tick * multiplier.scale(frequency), phi));
 }
