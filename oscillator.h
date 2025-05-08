@@ -9,9 +9,8 @@ using namespace std;
 #include "source.h"
 
 
-// since fp is slow we use a lookup table for waveforms.
-// eventually we may support multiple waveforms (triangular, square, noise), but for now just sine
-// we only store the first quadrant, 16 bits unsigned.
+// since fp is slow we use lookup tables for waveforms.
+// note that we can use fp to generate tables because it's done up-front (even, we could load from disc).
 
 class Wavetable : public Source {
 

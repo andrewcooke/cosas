@@ -6,10 +6,6 @@ using namespace std;
 #include "oscillator.h"
 
 
-// note that we can use fp here because it's done up-front
-// (even, we could load from disc)
-
-
 uint16_t QuarterWtable::next(int64_t tick, int32_t phi) const {
   size_t quarter_table_size = quarter_table.size();
   size_t full_idx = (tick + phi) % full_table_size;
