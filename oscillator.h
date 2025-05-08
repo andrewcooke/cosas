@@ -9,14 +9,23 @@ using namespace std;
 #include "source.h"
 
 
-// since fp is slow we use lookup tables for waveforms.
+// since fp is slow we generally use lookup tables for waveforms.
 // note that we can use fp to generate tables because it's done up-front (even, we could load from disc).
 
-class Wavetable : public Source {
+class Wavetable : public Source {};
+
+
+class Square : public Wavetable {
 
 public:
-  
-  virtual uint16_t raw(size_t i) const = 0;
+
+  Square() : Square(0.5) {};
+  Square(float duty);
+  uint16_t next(int64_t tick, int32_t phi) const override;
+
+private:
+
+  size_t duty_idx;
   
 };
 
@@ -26,7 +35,6 @@ class QuarterWtable : public Wavetable {
 public:
   
   uint16_t next(int64_t tick, int32_t phi) const override;
-  uint16_t raw(size_t i) const {return quarter_table.at(i);}
   
 protected:
 
@@ -45,15 +53,6 @@ public:
 };
 
 
-class Square : public QuarterWtable {
-
-public:
-
-  Square();
-
-};
-
-
 class Triangle : public QuarterWtable {
 
 public:
@@ -63,21 +62,11 @@ public:
 };
 
 
-class InterpQWtable : public QuarterWtable {
-
-public:
-
-  InterpQWtable(QuarterWtable& wtable1, QuarterWtable& wtable2, float weight1);
-
-};
-
-
 class HalfWtable : public Wavetable {
 
 public:
   
   uint16_t next(int64_t tick, int32_t phi) const override;
-  uint16_t raw(size_t i) const {return half_table.at(i);}
   
 protected:
 
@@ -98,12 +87,11 @@ public:
 };
 
 
-class FullWtable : public Wavetable {
+class FullWtable : public Source {
 
 public:
   
   uint16_t next(int64_t tick, int32_t phi) const override;
-  uint16_t raw(size_t i) const {return full_table.at(i);}
   
 protected:
 
@@ -124,7 +112,7 @@ public:
 // it turns out that a wavetable isn't a good abstraction for a source.
 // it's better to bundle a wavetable with an amplitude and frequency.
 
-class Oscillator : public Source {
+class Oscillator : public Wavetable {
 
 public:
 

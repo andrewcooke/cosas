@@ -6,6 +6,15 @@ using namespace std;
 #include "oscillator.h"
 
 
+Square::Square(float duty) : duty_idx(duty * full_table_size) {};
+
+uint16_t Square::next(int64_t tick, int32_t phi) const {
+  size_t full_idx = (tick + phi) % full_table_size;
+  if (full_idx <= duty_idx) return 1 << bit_depth - 1;
+  else return 0;
+};
+
+
 uint16_t QuarterWtable::next(int64_t tick, int32_t phi) const {
   size_t quarter_table_size = quarter_table.size();
   size_t full_idx = (tick + phi) % full_table_size;
@@ -26,27 +35,12 @@ Sine::Sine(float gamma) {
 };
 
 
-Square::Square() {
-  for (size_t i = 0; i < quarter_table.size(); i++) {
-    quarter_table.at(i) = sample_zero - 1;
-  }
-};
-
-
 Triangle::Triangle() {
   size_t quarter_table_size = quarter_table.size();
   for (size_t i = 0; i < quarter_table_size; i++) {
     quarter_table.at(i) = (sample_zero - 1) * (i / (float)quarter_table_size);
   }
 };
-
-
-InterpQWtable::InterpQWtable(QuarterWtable& wtable1, QuarterWtable& wtable2, float weight1) {
-  Balance b = Balance(weight1);
-  for (size_t i = 0; i < quarter_table.size(); i++) {
-    quarter_table.at(i) = b.combine(wtable1.raw(i), wtable2.raw(i));
-  }
-}
 
 
 uint16_t HalfWtable::next(int64_t tick, int32_t phi) const {
