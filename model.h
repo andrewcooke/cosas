@@ -27,14 +27,28 @@ class FM : public Source {
 
 public:
 
-  FM(const Source& car, const Source& mod, const Amplitude& amp, const Balance& bal);
+  FM(const Source& car, const Source& mod);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
 
-  class FMImpl;
-  const FMImpl& fm;
-  const Mixer& mixer;
+  const Source& carrier;
+  const Source& modulator;
+  
+};
+  
+
+class MixedFM : public Source {
+
+public:
+
+  MixedFM(const Source& car, const Source& mod, const Amplitude& amp, const Balance& bal);
+  uint16_t next(int64_t tick, int32_t phi) const override;
+
+private:
+
+  const FM fm;
+  const Mixer mixer;
   
 };
   
@@ -44,14 +58,28 @@ class AM : public Source {
 public:
 
   // note that this is not symmetric - src1 is mized against the ring mod output
-  AM(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal);
+  AM(const Source& src1, const Source& src2);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
 
-  class AMImpl;
-  const AMImpl& am;
-  const Mixer& mixer;
+  const Source& source1;
+  const Source& source2;
+  
+};
+  
+
+class MixedAM : public Source {
+
+public:
+
+  MixedAM(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal);
+  uint16_t next(int64_t tick, int32_t phi) const override;
+
+private:
+
+  const AM am;
+  const Mixer mixer;
   
 };
   
