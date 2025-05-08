@@ -2,9 +2,6 @@
 #ifndef FMCOSA_MODEL_H
 #define FMCOSA_MODEL_H
 
-import std;
-using namespace std;
-
 #include "constants.h"
 #include "source.h"
 

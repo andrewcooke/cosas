@@ -1,6 +1,5 @@
 
-import std;
-using namespace std;
+#include <stdexcept>
 
 #include "constants.h"
 #include "source.h"
@@ -11,7 +10,7 @@ Multiplier::Multiplier(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
   if (three) d /= 3;
   bits = 0;
   while (d > 1) {
-    if (d & 1) throw invalid_argument("denominator should be 2^n x [3,1]");
+    if (d & 1) throw std::invalid_argument("denominator should be 2^n x [3,1]");
     bits++; d >>= 1;
   }
 };

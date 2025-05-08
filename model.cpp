@@ -1,7 +1,4 @@
 
-import std;
-using namespace std;
-
 #include <cstdint>
 
 #include "constants.h"
@@ -23,8 +20,8 @@ public:
   FMImpl(const Source& car, const Source& mod) : carrier(car), modulator(mod) {};
 
   uint16_t next(int64_t tick, int32_t phi) const override {
-    uint16_t mod = modulator.next(tick, phi);
-    return carrier.next(tick, phi + ((int32_t)mod - sample_zero));
+    int32_t mod = modulator.next(tick, phi);
+    return carrier.next(tick, phi + mod - sample_zero);
   };
 
 private:

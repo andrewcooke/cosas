@@ -1,6 +1,5 @@
 
-import std;
-using namespace std;
+#include <iostream>
 
 #include "constants.h"
 #include "source.h"
@@ -13,7 +12,10 @@ int main() {
     Oscillator mod = Oscillator(w, unit_amp, 660, unit_mult);
     FM fm = FM(car, mod, unit_amp, wet_bal);
 
+    std::cout << "starting" << std::endl;
+    fm.next(0, 0);
+    std::cout << (uint16_t)3 << std::endl;
     for (int i = 0; i < 1000; i++) {
-      cout << i << " " << fm.next(i, 0) << endl;
+      std::cout << i << " " << fm.next(i, 0) << std::endl;
     }
 }

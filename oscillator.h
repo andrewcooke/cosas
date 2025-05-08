@@ -2,8 +2,7 @@
 #ifndef FMCOSA_OSCILLATOR_H
 #define FMCOSA_OSCILLATOR_H
 
-import std;
-using namespace std;
+#include <array>
 
 #include "constants.h"
 #include "source.h"
@@ -19,12 +18,10 @@ public:
 
   Wavetable();
   virtual uint16_t next(int64_t tick, int32_t phi) const override;
-  uint16_t at_uint16_t(uint64_t tick, const Multiplier& mult) const;
-  float at_float(uint64_t tick, const Multiplier& mult) const;
 
 private:
 
-  array<uint16_t, table_size> quarter_table;
+  std::array<uint16_t, sample_rate / 4> quarter_table;
 
 };
 
@@ -43,7 +40,7 @@ public:
 private:
   const Wavetable& wavetable;
   const Amplitude& amplitude;
-  uint16_t& frequency;
+  uint16_t frequency;
   const Multiplier& multiplier;
   
 };
