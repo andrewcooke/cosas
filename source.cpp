@@ -53,6 +53,6 @@ uint16_t Amplitude::scale(uint16_t amp) const {
 
 Balance::Balance(float wet) : wet(wet), wet_weight(wet * one), dry_weight((1 - wet) * one) {};
 
-uint16_t Balance::combine(uint16_t wet, uint16_t dry) const {
+uint16_t Balance::combine(uint16_t dry, uint16_t wet) const {
   return clip((wet_weight * wet + dry_weight * dry) >> one_bits);
 }

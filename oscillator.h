@@ -16,13 +16,49 @@ using namespace std;
 class Wavetable : public Source {
 
 public:
-
-  Wavetable();
-  virtual uint16_t next(int64_t tick, int32_t phi) const override;
-
-private:
+  
+  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t raw(size_t i) const {return quarter_table.at(i);}
+  
+protected:
 
   array<uint16_t, sample_rate / 4> quarter_table;
+
+};
+
+
+class Sine : public Wavetable {
+
+public:
+
+  Sine();
+
+};
+
+
+class Square : public Wavetable {
+
+public:
+
+  Square();
+
+};
+
+
+class Triangle : public Wavetable {
+
+public:
+
+  Triangle();
+
+};
+
+
+class InterpWtable : public Wavetable {
+
+public:
+
+  InterpWtable(Wavetable& wtable1, Wavetable& wtable2, float weight1);
 
 };
 

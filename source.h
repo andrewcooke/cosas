@@ -76,6 +76,7 @@ private:
   
 };
 
+const auto zero_amp = Amplitude(0);
 const auto unit_amp = Amplitude(1);
 
 

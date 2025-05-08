@@ -8,12 +8,17 @@ using namespace std;
 #include "model.h"
 
 int main() {
-    Wavetable w = Wavetable();
+    Sine s = Sine();
+    Triangle t = Triangle();
+    Wavetable w = InterpWtable(s, t, 0.5);
     Oscillator car = Oscillator(w, unit_amp, 440, unit_mult);
-    Oscillator mod = Oscillator(w, unit_amp, 660, unit_mult);
+    Oscillator mod = Oscillator(s, unit_amp, 660, unit_mult);
     MixedFM fm = MixedFM(car, mod, unit_amp, wet_bal);
 
     for (int i = 0; i < 1000; i++) {
-      cout << i << " " << fm.next(i, 0) << endl;
+      cout << i << " " << s.next(i*100, 0) << endl;
+      cout << i << " " << t.next(i*100, 0) << endl;
+      cout << i << " " << w.next(i*100, 0) << endl;
+      // cout << i << " " << fm.next(i, 0) << endl;
     }
 }
