@@ -19,7 +19,7 @@
 // for fm modulation we need to evaluate sin(omega t + phi)
 // this translates into wavetable[f tick + phi] in our units.
 // note that phi is independent of f, so we it is not simply a scaling of time/tick.
-// so we need both tick and phi in out interface below.
+// so we need both tick and phi in our interface below.
 
 class Source {
 
@@ -27,7 +27,6 @@ class Source {
 
   // need to be signed because phi can be negative and we need to add the two
   virtual uint16_t next(int64_t tick, int32_t phi) const = 0;
-  //  uint16_t next(int64_t tick) const {return next(tick, 0);}  WHY NOT WORK?
   
 };
 
