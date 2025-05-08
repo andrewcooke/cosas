@@ -34,7 +34,8 @@ class Source {
 // sub-oscillators run at frequencies that are multiples of the main oscillator.
 // this class encapsulates that scaling.
 // it's non-trivial because we want fractional scaling without division.
-// so we support division by powers of 2 (bit shifts) and, as a special case, 3.
+// so we support division by powers of 2 (bit shifts) and, as special cases, 3 and 5
+// (chosen so that we can handle major and minor chords).
 
 class Multiplier {
 
@@ -50,6 +51,7 @@ private:
 
   uint8_t bits;
   bool three;
+  bool five;
 
 };
 

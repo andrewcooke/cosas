@@ -7,11 +7,11 @@ using namespace std;
 
 
 Multiplier::Multiplier(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
-  three = (d % 3) == 0;
-  if (three) d /= 3;
+  three = (d % 3) == 0; if (three) d /= 3;
+  five = (d % 5) == 0; if (five) d /= 5;
   bits = 0;
   while (d > 1) {
-    if (d & 1) throw invalid_argument("denominator should be 2^n x [3,1]");
+    if (d & 1) throw invalid_argument("denominator should be 2^n x [3,1] x [5,1]");
     bits++; d >>= 1;
   }
 };
@@ -19,6 +19,7 @@ Multiplier::Multiplier(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
 uint16_t Multiplier::scale(uint16_t freq) const {
   uint32_t t = freq * numerator;
   if (three) t /= 3;  // https://stackoverflow.com/a/171369
+  if (five) t /= 5;
   return clip(t >> bits);
 }
 
