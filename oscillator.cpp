@@ -1,6 +1,6 @@
 
-#include <cmath>
-#include <numbers>
+import std;
+using namespace std;
 
 #include "constants.h"
 #include "oscillator.h"
@@ -8,7 +8,7 @@
 
 Wavetable::Wavetable() : quarter_table() {
   for (size_t i = 0; i < quarter_table.size(); i++) {
-    quarter_table.at(i) = (sample_zero - 1) * std::sin(2 * std::numbers::pi * i / sample_rate);
+    quarter_table.at(i) = (sample_zero - 1) * sin(2 * numbers::pi * i / sample_rate);
   }
 };
 

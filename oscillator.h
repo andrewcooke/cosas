@@ -2,7 +2,8 @@
 #ifndef FMCOSA_OSCILLATOR_H
 #define FMCOSA_OSCILLATOR_H
 
-#include <array>
+import std;
+using namespace std;
 
 #include "constants.h"
 #include "source.h"
@@ -21,7 +22,7 @@ public:
 
 private:
 
-  std::array<uint16_t, sample_rate / 4> quarter_table;
+  array<uint16_t, sample_rate / 4> quarter_table;
 
 };
 

@@ -1,5 +1,6 @@
 
-#include <iostream>
+import std;
+using namespace std;
 
 #include "constants.h"
 #include "source.h"
@@ -13,6 +14,6 @@ int main() {
     MixedFM fm = MixedFM(car, mod, unit_amp, wet_bal);
 
     for (int i = 0; i < 1000; i++) {
-      std::cout << i << " " << fm.next(i, 0) << std::endl;
+      cout << i << " " << fm.next(i, 0) << endl;
     }
 }
