@@ -98,6 +98,29 @@ public:
 };
 
 
+class FullWtable : public Wavetable {
+
+public:
+  
+  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t raw(size_t i) const {return full_table.at(i);}
+  
+protected:
+
+  array<uint16_t, sample_rate> full_table;
+
+};
+
+
+class WhiteNoise : public FullWtable {
+
+public:
+
+  WhiteNoise();
+
+};
+
+
 // it turns out that a wavetable isn't a good abstraction for a source.
 // it's better to bundle a wavetable with an amplitude and frequency.
 

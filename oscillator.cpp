@@ -72,6 +72,22 @@ Saw::Saw(float offset) {
 };
 
 
+uint16_t FullWtable::next(int64_t tick, int32_t phi) const {
+  size_t full_idx = (tick + phi) % full_table.size();
+  return full_table.at(full_idx);
+}
+
+
+WhiteNoise::WhiteNoise() {
+  random_device rd;
+  mt19937 gen(rd());
+  uniform_int_distribution<> distrib(0, 1 << bit_depth - 1);
+  for (size_t i = 0; i < full_table.size(); i++) {
+    full_table.at(i) = distrib(gen);
+  }
+};
+
+
 Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, uint16_t freq, const Multiplier& mult)
   : wavetable(wave), amplitude(amp), frequency(freq), multiplier(mult) {};
 
