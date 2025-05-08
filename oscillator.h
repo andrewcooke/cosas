@@ -17,6 +17,15 @@ class Wavetable : public Source {
 
 public:
   
+  virtual uint16_t raw(size_t i) const = 0;
+  
+};
+
+
+class QuarterWtable : public Wavetable {
+
+public:
+  
   uint16_t next(int64_t tick, int32_t phi) const override;
   uint16_t raw(size_t i) const {return quarter_table.at(i);}
   
@@ -27,7 +36,7 @@ protected:
 };
 
 
-class Sine : public Wavetable {
+class Sine : public QuarterWtable {
 
 public:
 
@@ -36,7 +45,7 @@ public:
 };
 
 
-class Square : public Wavetable {
+class Square : public QuarterWtable {
 
 public:
 
@@ -45,7 +54,7 @@ public:
 };
 
 
-class Triangle : public Wavetable {
+class Triangle : public QuarterWtable {
 
 public:
 
@@ -54,17 +63,43 @@ public:
 };
 
 
-class InterpWtable : public Wavetable {
+class InterpQWtable : public QuarterWtable {
 
 public:
 
-  InterpWtable(Wavetable& wtable1, Wavetable& wtable2, float weight1);
+  InterpQWtable(QuarterWtable& wtable1, QuarterWtable& wtable2, float weight1);
+
+};
+
+
+class HalfWtable : public Wavetable {
+
+public:
+  
+  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t raw(size_t i) const {return half_table.at(i);}
+  
+protected:
+
+  array<uint16_t, sample_rate / 2> half_table;
+
+};
+
+
+class Saw : public HalfWtable {
+
+public:
+
+  // a regular saw can be done with a quarter wavetable, but with a different unpacking logic.
+  // for full generalility, however, we need half (and even then it's complex).
+  // offset from -1 to 1.
+  Saw(float offset);
 
 };
 
 
 // it turns out that a wavetable isn't a good abstraction for a source.
-// it's better to bundle a wavetable with an amplitude and frequency, where the frequecy can be scaled.
+// it's better to bundle a wavetable with an amplitude and frequency.
 
 class Oscillator : public Source {
 
