@@ -17,9 +17,11 @@ uint16_t QuarterWtable::next(int64_t tick, int32_t phi) const {
 }
 
 
-Sine::Sine() {
+Sine::Sine(float gamma) {
   for (size_t i = 0; i < quarter_table.size(); i++) {
-    quarter_table.at(i) = (sample_zero - 1) * sin(2 * numbers::pi * i / full_table_size);
+    float shape = sin(2 * numbers::pi * i / full_table_size);
+    if (gamma != 1) {shape = pow(shape, gamma);}
+    quarter_table.at(i) = (sample_zero - 1) * shape;
   }
 };
 

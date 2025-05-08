@@ -39,7 +39,8 @@ class Sine : public QuarterWtable {
 
 public:
 
-  Sine();
+  Sine() : Sine(1) {};
+  Sine(float gamma);
 
 };
 
