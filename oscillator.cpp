@@ -100,3 +100,7 @@ Oscillator::Oscillator(const Wavetable& wave, unique_ptr<Amplitude> amp, unique_
 uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
   return amplitude->scale(wavetable.next(tick * frequency->get(), phi));
 }
+
+void Oscillator::set_frequency(unique_ptr<Frequency> freq) {
+  frequency = move(freq);
+}

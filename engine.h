@@ -92,11 +92,14 @@ class Manager {
   
 public:
   
-  Manager();
+  Manager(uint16_t freq);
   Oscillator& get_oscillator(size_t n);
-
+  void set_root(uint16_t freq);
+  uint16_t get_root();
+  
 private:
 
+  uint16_t root;
   vector<unique_ptr<Wavetable>> wavetables;
   vector<unique_ptr<Oscillator>> oscillators;
   void init_wavetables();
@@ -105,4 +108,3 @@ private:
 };
 
 #endif
-

@@ -119,11 +119,12 @@ public:
 
   Oscillator(const Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq);
   uint16_t next(int64_t tick, int32_t phi) const override;
+  void set_frequency(const unique_ptr<Frequency> freq);
 
 private:
   const Wavetable& wavetable;
-  const unique_ptr<Amplitude> amplitude;
-  const unique_ptr<Frequency> frequency;
+  unique_ptr<const Amplitude> amplitude;
+  unique_ptr<const Frequency> frequency;
   
 };
 
