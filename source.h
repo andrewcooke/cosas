@@ -37,25 +37,26 @@ class Source {
 // so we support division by powers of 2 (bit shifts) and, as special cases, 3 and 5
 // (chosen so that we can handle major and minor chords).
 
-class Multiplier {
+// alternatively, maybe we do want exact frequencies for dissonance, etc.
+// so support that too
 
+class Frequency {
+  
 public:
 
-  const uint16_t numerator;
-  const uint16_t denominator;
-
-  Multiplier(uint16_t n, uint16_t d);
-  uint16_t scale(uint16_t freq) const;
+  Frequency(uint16_t f, uint16_t n, uint16_t d);
+  Frequency(uint16_t f) : Frequency(f, 0, 0) {};
+  uint16_t get() const;
 
 private:
 
-  uint8_t bits;
-  bool three;
-  bool five;
+  uint16_t frequency;
+  uint16_t numerator;
+  uint8_t denom_bits = 0;
+  bool denom_three = false;
+  bool denom_five = false;
 
 };
-
-const auto unit_mult = Multiplier(1, 1);
 
 
 uint16_t clip(uint32_t inter);

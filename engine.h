@@ -84,5 +84,13 @@ private:
 };
   
 
+class Manager {
+  
+public:
+  
+  Manager();
+  
+};
+
 #endif
 

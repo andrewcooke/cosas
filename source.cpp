@@ -6,21 +6,28 @@ using namespace std;
 #include "source.h"
 
 
-Multiplier::Multiplier(uint16_t n, uint16_t d) : numerator(n), denominator(d) {
-  three = (d % 3) == 0; if (three) d /= 3;
-  five = (d % 5) == 0; if (five) d /= 5;
-  bits = 0;
-  while (d > 1) {
-    if (d & 1) throw invalid_argument("denominator should be 2^n x [3,1] x [5,1]");
-    bits++; d >>= 1;
+Frequency::Frequency(uint16_t freq, uint16_t num, uint16_t denom) :
+  frequency(freq), numerator(num) {
+  if (num != 0 && denom != 0) {
+    // TODO - remove common factors
+    denom_three = (denom % 3) == 0; if (denom_three) denom /= 3;
+    denom_five = (denom % 5) == 0; if (denom_five) denom /= 5;
+    denom_bits = 0;
+    while (denom > 1) {
+      if (denom & 1) throw invalid_argument("denominator should be 2^n x [3,1] x [5,1]");
+      denom_bits++; denom >>= 1;
+    }
   }
 };
 
-uint16_t Multiplier::scale(uint16_t freq) const {
-  uint32_t t = freq * numerator;
-  if (three) t /= 3;  // https://stackoverflow.com/a/171369
-  if (five) t /= 5;
-  return clip(t >> bits);
+uint16_t Frequency::get() const {
+  if (denom_bits == 0 && ! denom_three & ! denom_five) return frequency;
+  else {
+    uint32_t scaled = frequency * numerator;
+    if (denom_three) scaled /= 3;  // https://stackoverflow.com/a/171369
+    if (denom_five) scaled /= 5;
+    return clip(scaled >> denom_bits);
+  }
 }
 
 

@@ -2,7 +2,7 @@
 #include <cstdint>
 
 #include "constants.h"
-#include "model.h"
+#include "engine.h"
 
 
 Mixer::Mixer(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal)

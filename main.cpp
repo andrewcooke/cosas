@@ -5,23 +5,27 @@ using namespace std;
 #include "constants.h"
 #include "source.h"
 #include "oscillator.h"
-#include "model.h"
+#include "engine.h"
+
 
 int main() {
 
   int root = 440;
-  Square q1 = Square();
+
+  Frequency f1 = Frequency(root);
   Sine s1 = Sine();
-  Oscillator o1 = Oscillator(q1, unit_amp, root);
-  Multiplier m = Multiplier(1, 80);
-  Amplitude a = Amplitude(1);
-  Oscillator o2 = Oscillator(s1, a, root, m);
+  Oscillator o1 = Oscillator(s1, unit_amp, f1);
+
+  Sine s2 = Sine();
+  Frequency f2 = Frequency(root, 1, 80);
+  Oscillator o2 = Oscillator(s2, unit_amp, f2);
   MixedFM fm = MixedFM(o1, o2, unit_amp, wet_bal);
 
-  Square q2 = Square();
-  Oscillator o3 = Oscillator(q2, unit_amp, root);
-  Balance b = Balance(0.5);
-  Mixer x = Mixer(fm, o3, unit_amp, b);
+  Square q3 = Square(0.25);
+  Frequency f3 = Frequency(root, 2, 3);
+  Oscillator o3 = Oscillator(q3, unit_amp, f3);
+  Balance b3 = Balance(0.5);
+  Mixer x = Mixer(fm, o3, unit_amp, b3);
   
   for (int i = 0; i < 1000; i++) {
     cout << i << " " << x.next(i, 0) << endl;
