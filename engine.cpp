@@ -50,6 +50,15 @@ uint16_t MixedAM::next(int64_t tick, int32_t phi) const {
 
 Manager::Manager() {
   init_wavetables();
+  init_oscillators();
+}
+
+void Manager::init_wavetables() {
+  wavetables.push_back(make_unique<Sine>(Sine()));
+  wavetables.push_back(make_unique<Square>(Square()));
+}
+
+void Manager::init_oscillators() {
   uint16_t root = 440;
   for (int i = 0; i < max_oscillators; i++) {
     unique_ptr<Amplitude> amplitude = make_unique<Amplitude>(1);
@@ -61,7 +70,6 @@ Manager::Manager() {
   }
 }
 
-void Manager::init_wavetables() {
-  wavetables.push_back(make_unique<Sine>(Sine()));
-  wavetables.push_back(make_unique<Square>(Square()));
+Oscillator& Manager::get_oscillator(size_t n) {
+  return *oscillators.at(n);
 }

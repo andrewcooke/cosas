@@ -93,12 +93,14 @@ class Manager {
 public:
   
   Manager();
+  Oscillator& get_oscillator(size_t n);
 
 private:
 
   vector<unique_ptr<Wavetable>> wavetables;
   vector<unique_ptr<Oscillator>> oscillators;
   void init_wavetables();
+  void init_oscillators();
   
 };
 

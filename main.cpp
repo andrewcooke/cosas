@@ -9,6 +9,17 @@ using namespace std;
 
 
 int main() {
+
+  Manager manager;
+  Oscillator& o0 = manager.get_oscillator(0);
+  Oscillator& o1 = manager.get_oscillator(1);
+  MixedFM fm = MixedFM(o0, o1, unit_amp, wet_bal);
+
+  for (int i = 0; i < 1000; i++) {
+    cout << i << " " << fm.next(i, 0) << endl;
+  }
+  
+  
   /*
   int root = 440;
 
