@@ -10,10 +10,10 @@ using namespace std;
 
 int main() {
 
-  Manager manager(440);
+  Manager manager;
   Oscillator& o0 = manager.get_oscillator(0);
   Oscillator& o1 = manager.get_oscillator(1);
-  o1.set_frequency(make_unique<Frequency>(manager.get_root(), 1, 2));
+  o1.set_frequency(make_unique<RelativeFreq>(manager.get_root(), 1, 2));
   MixedFM fm = MixedFM(o0, o1, unit_amp, wet_bal);
 
   for (int i = 0; i < 1000; i++) {

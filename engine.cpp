@@ -48,7 +48,7 @@ uint16_t MixedAM::next(int64_t tick, int32_t phi) const {
 }
 
 
-Manager::Manager(uint16_t freq) : root(freq) {
+Manager::Manager() {
   init_wavetables();
   init_oscillators();
 }
@@ -59,26 +59,30 @@ void Manager::init_wavetables() {
 }
 
 void Manager::init_oscillators() {
-  for (int i = 0; i < max_oscillators; i++) {
+  for (size_t i = 0; i < max_oscillators; i++) {
     unique_ptr<Amplitude> amplitude = make_unique<Amplitude>(1);
     // the first frequency is absolute; the rest are relative
-    // TODO - need to abstract the first frequency to a shared object
-    unique_ptr<Frequency> frequency = make_unique<Frequency>(root, i ? 1 : 0, i ? 1 : 0);
-    unique_ptr<Oscillator> oscillator = make_unique<Oscillator>(*wavetables.at(0), move(amplitude), move(frequency));
-    oscillators.push_back(move(oscillator));
+    if (i == 0) {
+      oscillators.push_back(move(make_unique<Oscillator>
+				 (*wavetables.at(0), move(amplitude),
+				  move(make_unique<AbsoluteFreq>(440)))));
+							 
+    } else {
+      oscillators.push_back(move(make_unique<Oscillator>
+				 (*wavetables.at(0), move(amplitude),
+				  move(make_unique<RelativeFreq>(oscillators.at(0)->get_frequency(), 1, 1)))));
+    }
   }
 }
 
-Oscillator& Manager::get_oscillator(size_t n) {
+Oscillator& Manager::get_oscillator(size_t n) const {
   return *oscillators.at(n);
 }
 
 void Manager::set_root(uint16_t freq) {
-  for (auto&& osc : oscillators) {
-    // do something
-  }
+  // do something
 }
 
-uint16_t Manager::get_root() {
-  return root;
+const Frequency& Manager::get_root() const {
+  return oscillators.at(0)->get_frequency();
 }

@@ -94,7 +94,7 @@ Noise::Noise(int smooth) {
 };
 
 
-Oscillator::Oscillator(const Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq)
+Oscillator::Oscillator(Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq)
   : wavetable(wave), amplitude(move(amp)), frequency(move(freq)) {};
 
 uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
@@ -103,4 +103,8 @@ uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
 
 void Oscillator::set_frequency(unique_ptr<Frequency> freq) {
   frequency = move(freq);
+}
+
+const Frequency& Oscillator::get_frequency() {
+  return *frequency;
 }

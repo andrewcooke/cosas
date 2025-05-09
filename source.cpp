@@ -6,8 +6,15 @@ using namespace std;
 #include "source.h"
 
 
-Frequency::Frequency(uint16_t freq, uint16_t num, uint16_t denom) :
-  frequency(freq), numerator(num) {
+AbsoluteFreq::AbsoluteFreq(uint16_t freq) : frequency(freq) {};
+
+uint16_t AbsoluteFreq::get() const {
+  return frequency;
+}
+
+
+RelativeFreq::RelativeFreq(const Frequency& ref, uint16_t num, uint16_t denom) :
+  reference(ref), numerator(num) {
   if (num != 0 && denom != 0) {
     // TODO - remove common factors
     denom_three = (denom % 3) == 0; if (denom_three) denom /= 3;
@@ -20,14 +27,15 @@ Frequency::Frequency(uint16_t freq, uint16_t num, uint16_t denom) :
   }
 };
 
-uint16_t Frequency::get() const {
-  if (denom_bits == 0 && ! denom_three & ! denom_five) return frequency;
-  else {
-    uint32_t scaled = frequency * numerator;
-    if (denom_three) scaled /= 3;  // https://stackoverflow.com/a/171369
-    if (denom_five) scaled /= 5;
-    return clip(scaled >> denom_bits);
+uint16_t RelativeFreq::get() const {
+  uint16_t freq = reference.get();
+  if (denom_bits != 0 || denom_three || denom_five) {
+    freq *= numerator;
+    if (denom_three) freq /= 3;  // https://stackoverflow.com/a/171369
+    if (denom_five) freq /= 5;
+    freq = clip(freq >> denom_bits);
   }
+  return freq;
 }
 
 

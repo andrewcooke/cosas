@@ -16,7 +16,7 @@
 // in short, and exactly, omega is f.
 // this isn't by chance, it's because the wavetable has exactly the number of entries needed to "last" for one second.
 
-// for fm modulation we need to evaluate sin(omega t + phi)
+// for fm modulation we need to evaluate sin(omega t + phi) 1ze cxxw
 // this translates into wavetable[f tick + phi] in our units.
 // note that phi is independent of f, so we it is not simply a scaling of time/tick.
 // so we need both tick and phi in our interface below.
@@ -41,16 +41,39 @@ class Source {
 // so support that too
 
 class Frequency {
+
+public:
+  
+  virtual uint16_t get() const = 0;
+
+};
+
+
+class AbsoluteFreq : public Frequency {
   
 public:
 
-  Frequency(uint16_t f, uint16_t n, uint16_t d);
-  Frequency(uint16_t f) : Frequency(f, 0, 0) {};
-  uint16_t get() const;
+  AbsoluteFreq(uint16_t freq);
+  uint16_t get() const override;
 
 private:
 
   uint16_t frequency;
+
+};
+
+
+class RelativeFreq : public Frequency {
+  
+public:
+
+  // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
+  RelativeFreq(const Frequency& ref, uint16_t n, uint16_t d);
+  uint16_t get() const override;
+
+private:
+
+  const Frequency& reference;
   uint16_t numerator;
   uint8_t denom_bits = 0;
   bool denom_three = false;
