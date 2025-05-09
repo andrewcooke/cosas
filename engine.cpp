@@ -3,6 +3,7 @@
 
 #include "constants.h"
 #include "engine.h"
+#include "oscillator.h"
 
 
 Mixer::Mixer(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal)
@@ -44,4 +45,23 @@ MixedAM::MixedAM(const Source& src1, const Source& src2, const Amplitude& amp, c
 
 uint16_t MixedAM::next(int64_t tick, int32_t phi) const {
   return mixer.next(tick, phi);
+}
+
+
+Manager::Manager() {
+  init_wavetables();
+  uint16_t root = 440;
+  for (int i = 0; i < max_oscillators; i++) {
+    unique_ptr<Amplitude> amplitude = make_unique<Amplitude>(1);
+    // the first frequency is absolute; the rest are relative
+    // TODO - need to abstract this to a shared object
+    unique_ptr<Frequency> frequency = make_unique<Frequency>(root, i ? 1 : 0, i ? 1 : 0);
+    unique_ptr<Oscillator> oscillator = make_unique<Oscillator>(*wavetables.at(0), move(amplitude), move(frequency));
+    oscillators.push_back(move(oscillator));
+  }
+}
+
+void Manager::init_wavetables() {
+  wavetables.push_back(make_unique<Sine>(Sine()));
+  wavetables.push_back(make_unique<Square>(Square()));
 }

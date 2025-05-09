@@ -117,13 +117,13 @@ class Oscillator : public Wavetable {
 
 public:
 
-  Oscillator(const Wavetable& wave, const Amplitude& amp, const Frequency& freq);
+  Oscillator(const Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq);
   uint16_t next(int64_t tick, int32_t phi) const override;
 
 private:
   const Wavetable& wavetable;
-  const Amplitude& amplitude;
-  const Frequency& frequency;
+  const unique_ptr<Amplitude> amplitude;
+  const unique_ptr<Frequency> frequency;
   
 };
 

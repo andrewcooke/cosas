@@ -9,7 +9,7 @@ using namespace std;
 
 
 int main() {
-
+  /*
   int root = 440;
 
   Frequency f1 = Frequency(root);
@@ -30,4 +30,5 @@ int main() {
   for (int i = 0; i < 1000; i++) {
     cout << i << " " << x.next(i, 0) << endl;
   }
+  */
 }

@@ -2,8 +2,12 @@
 #ifndef FMCOSA_MODEL_H
 #define FMCOSA_MODEL_H
 
+import std;
+using namespace std;
+
 #include "constants.h"
 #include "source.h"
+#include "oscillator.h"
 
 
 class Mixer : public Source {
@@ -89,6 +93,12 @@ class Manager {
 public:
   
   Manager();
+
+private:
+
+  vector<unique_ptr<Wavetable>> wavetables;
+  vector<unique_ptr<Oscillator>> oscillators;
+  void init_wavetables();
   
 };
 

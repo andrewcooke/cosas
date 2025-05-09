@@ -10,7 +10,7 @@ Square::Square(float duty) : duty_idx(duty * full_table_size) {};
 
 uint16_t Square::next(int64_t tick, int32_t phi) const {
   size_t full_idx = (tick + phi) % full_table_size;
-  if (full_idx <= duty_idx) return 1 << bit_depth - 1;
+  if (full_idx <= duty_idx) return sample_max;
   else return 0;
 };
 
@@ -74,7 +74,7 @@ Noise::Noise(int smooth) {
   const size_t full_table_size = full_table.size();
   random_device rd;
   mt19937 gen(rd());
-  uniform_int_distribution<> distrib(0, (1 << bit_depth) - 1);
+  uniform_int_distribution<> distrib(0, sample_max);
   for (size_t i = 0; i < full_table_size; i++) {
     full_table.at(i) = distrib(gen);
   }
@@ -94,9 +94,9 @@ Noise::Noise(int smooth) {
 };
 
 
-Oscillator::Oscillator(const Wavetable& wave, const Amplitude& amp, const Frequency& freq)
-  : wavetable(wave), amplitude(amp), frequency(freq) {};
+Oscillator::Oscillator(const Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq)
+  : wavetable(wave), amplitude(move(amp)), frequency(move(freq)) {};
 
 uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
-  return amplitude.scale(wavetable.next(tick * frequency.get(), phi));
+  return amplitude->scale(wavetable.next(tick * frequency->get(), phi));
 }

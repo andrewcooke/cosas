@@ -31,15 +31,13 @@ uint16_t Frequency::get() const {
 }
 
 
-const uint32_t limit = (1 << bit_depth) - 1;
-
 uint16_t clip(uint32_t inter) {
-  if (inter > limit) inter = limit;
+  if (inter > sample_max) inter = sample_max;
   return (uint16_t)inter;
 }
 
 uint16_t clip(int32_t inter) {
-  if (inter > limit) inter = limit;
+  if (inter > sample_max) inter = sample_max;
   if (inter < 0) inter = 0;
   return (uint16_t)inter;
 }
