@@ -2,6 +2,7 @@
 #include <cstdint>
 
 #include "constants.h"
+#include "maths.h"
 #include "engine.h"
 #include "oscillator.h"
 
@@ -37,7 +38,7 @@ AM::AM(const Source& src1, const Source& src2)
 uint16_t AM::next(int64_t tick, int32_t phi) const {
   int32_t s1 = source1.next(tick, phi);
   int32_t s2 = source2.next(tick, phi);
-  return clip(((s1 - sample_zero) * (s2 - sample_zero)) / sample_zero + sample_zero);
+  return clip_u16(((s1 - sample_zero) * (s2 - sample_zero)) / sample_zero + sample_zero);
 };
 
 MixedAM::MixedAM(const Source& src1, const Source& src2, const Amplitude& amp, const Balance& bal)

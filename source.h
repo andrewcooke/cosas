@@ -83,11 +83,6 @@ private:
 };
 
 
-uint16_t clip(uint32_t inter);
-uint16_t clip(int32_t inter);
-uint16_t clip(float inter);
-
-
 class Amplitude {
 
 public:

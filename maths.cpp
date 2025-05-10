@@ -1,5 +1,22 @@
 
+#include "constants.h"
 #include "maths.h"
+
+
+uint16_t clip_u16(uint32_t inter) {
+  if (inter > sample_max) inter = sample_max;
+  return (uint16_t)inter;
+}
+
+uint16_t clip_u16(int32_t inter) {
+  if (inter > sample_max) inter = sample_max;
+  if (inter < 0) inter = 0;
+  return (uint16_t)inter;
+}
+
+uint16_t clip_u16(float inter) {
+  return clip_u16((int32_t)inter);
+}
 
 
 uint16_t gcd(uint16_t a, uint16_t b) {
@@ -12,34 +29,14 @@ uint16_t gcd(uint16_t a, uint16_t b) {
 SimpleRatio::SimpleRatio(uint16_t num, uint16_t denom) {
 };
 
-SimpleRatio::SimpleRatio(uint8_t b, uint8_t num, bool t, bool f)
-  : bits(bits), numerator(num), third(t), fifth(f);
+SimpleRatio::SimpleRatio(int16_t b, uint8_t s, bool t, bool f)
+  : bits(b), scale(s), third(t), fifth(f) {};
 
-SimpleRatio::as_float() {
-  float val = numerator * (1 << bits);
-  if (third) val /= 3;
-  if (fifth) val /= 5;
-  return val;
-}
-
-SimpleRatio::error(float other) {
+float SimpleRatio::error(float other) const {
   float val = as_float();
   if (val == other) return 0;
   if (val > other) return val / other - 1;
   return other / val - 1;
-}
-
-SimpleRatio::SimpleRatio(float val) {
-  SimpleRatio b = best(from_below(SimpleRatio(log2(val),     1, false, false)),
-		       from_above(SimpleRatio(log2(val) + 1, 1, false, false)))
-  bits = b.bits;
-  numerator = b.numerator;
-  third = b.third;
-  fifth = b.fifth;
-};
-
-SimpleRatio best(float target, SimpleRatio a, SimpleRatio b) {
-  return a.error(val) < b.error(val) ? a : b;
 }
 
 // there's some kind of optimisation possible here, where you do tests
@@ -48,30 +45,86 @@ SimpleRatio best(float target, SimpleRatio a, SimpleRatio b) {
 
 // or even a binary search...
 
-SimpleRatio from_below(SimpleRatio lo) {
+SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
+  return sr1.error(target) < sr2.error(target) ? sr1 : sr2;
+}
+
+SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
-     best(lo, SimpleRatio(lo.bits - 1,  3  false, false));  // x 3/2
-  b = best(b, SimpleRatio(lo.bits + 2,  1, true,  false));  // x 4/3
-  b = best(b, SimpleRatio(lo.bits,      5, true,  false));  // x 5/3
-  b = best(b, SimpleRatio(lo.bits - 2,  5, false, false));  // x 5/4
-  b = best(b, SimpleRatio(lo.bits - 2,  7, false, false));  // x 7/4
-  b = best(b, SimpleRatio(lo.bits + 1,  3, false, true));   // x 6/5
-  b = best(b, SimpleRatio(lo.bits,      7, false, true));   // x 7/5
-  b = best(b, SimpleRatio(lo.bits + 3,  1, false, true));   // x 8/5
-  b = best(b, SimpleRatio(lo.bits,      9, false, true));   // x 9/5
-  b = best(b, SimpleRatio(lo.bits - 1,  7, true,  false));  // x 7/6
-  b = best(b, SimpleRatio(lo.bits - 1, 11, true,  false));  // x 11/6
+     best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2
+  b = best(target, b, SimpleRatio(bits + 2,  1, true,  false));  // x 4/3
+  b = best(target, b, SimpleRatio(bits,      5, true,  false));  // x 5/3
+  b = best(target, b, SimpleRatio(bits - 2,  5, false, false));  // x 5/4
+  b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
+  b = best(target, b, SimpleRatio(bits + 1,  3, false, true));   // x 6/5
+  b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
+  b = best(target, b, SimpleRatio(bits + 3,  1, false, true));   // x 8/5
+  b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
+  b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
+  b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
   return b;
 }
 
-SimpleRatio from_above(SimpleRatio hi) {
+SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi) {
   // smaller, but no less that half
   SimpleRatio b =
-     best(hi, SimpleRatio(lo.bits + 1,  1  true,  false));  // x 2/3
-  b = best(b, SimpleRatio(lo.bits + 2,  1, false, true));   // x 4/5
-  b = best(b, SimpleRatio(lo.bits,      3, false, true));   // x 3/5
-  b = best(b, SimpleRatio(lo.bits - 1,  5, true,  false));  // x 5/6
+     best(target, hi, SimpleRatio(bits + 1,  1, true,  false));  // x 2/3
+  b = best(target, b, SimpleRatio(bits + 2,  1, false, true));   // x 4/5
+  b = best(target, b, SimpleRatio(bits,      3, false, true));   // x 3/5
+  b = best(target, b, SimpleRatio(bits - 1,  5, true,  false));  // x 5/6
   return b;
 };
 
+SimpleRatio::SimpleRatio(float target) {
+  if (target != 0) {
+    int16_t b = log2(target);
+    SimpleRatio sr = best(target,
+			  from_below(target, b, SimpleRatio(b,     1, false, false)),
+			  from_above(target, b, SimpleRatio(b + 1, 1, false, false)));
+    bits = sr.bits;
+    scale = sr.scale;
+    third = sr.third;
+    fifth = sr.fifth;
+  }
+};
+
+uint16_t SimpleRatio::get_numerator() const {
+  if (bits > 0) return scale * (1 << bits);
+  else return scale;
+}
+
+uint16_t SimpleRatio::get_denominator() const {
+  uint16_t d = bits < 0 ? 1 << -bits : 1;
+  if (third) d = d * 3;
+  if (fifth) d = d * 5;
+  return d;
+}
+
+float SimpleRatio::as_float() const {
+  return get_numerator() / (float)get_denominator();
+}
+
+uint16_t SimpleRatio::multiply(uint16_t val) const {
+  uint32_t tmp = val * scale;
+  if (third) tmp /= 3;
+  if (fifth) tmp /= 5;
+  tmp <<= bits;
+  return clip_u16(tmp);
+}
+
+ostream& operator<<(ostream& os, const SimpleRatio& sr) {
+  uint16_t n = sr.get_numerator();
+  uint16_t d = sr.get_denominator();
+  uint8_t k = gcd(n, d);
+  n /= k;
+  d /= k;
+  if (d == 1) cout << n;
+  else if (n > d) cout << (n / d) << " " << (n % d) << "/" << d;
+  else cout << n << "/" << d;
+  return os;
+}
+
+bool SimpleRatio::operator== (const SimpleRatio& other) const {
+  return other.bits == bits && other.scale == scale && other.third == third && other.fifth == fifth;
+}

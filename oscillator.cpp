@@ -3,6 +3,7 @@ import std;
 using namespace std;
 
 #include "constants.h"
+#include "maths.h"
 #include "oscillator.h"
 
 
@@ -30,7 +31,7 @@ Sine::Sine(float gamma) {
   for (size_t i = 0; i < quarter_table.size(); i++) {
     float shape = sin(2 * numbers::pi * i / full_table_size);
     if (gamma != 1) {shape = pow(shape, gamma);}
-    quarter_table.at(i) = clip(sample_zero * shape);
+    quarter_table.at(i) = clip_u16(sample_zero * shape);
   }
 };
 
@@ -38,7 +39,7 @@ Sine::Sine(float gamma) {
 Triangle::Triangle() {
   size_t quarter_table_size = quarter_table.size();
   for (size_t i = 0; i < quarter_table_size; i++) {
-    quarter_table.at(i) = clip(sample_zero * (i / (float)quarter_table_size));
+    quarter_table.at(i) = clip_u16(sample_zero * (i / (float)quarter_table_size));
   }
 };
 
@@ -56,10 +57,10 @@ Saw::Saw(float offset) {
   size_t half_table_size = half_table.size();
   size_t peak_index = half_table_size * (1 + offset) / 2;
   for (size_t i = 0; i < peak_index; i++) {
-    half_table.at(i) = clip(sample_zero * (i / (float)peak_index));
+    half_table.at(i) = clip_u16(sample_zero * (i / (float)peak_index));
   }
   for (size_t i = peak_index; i < half_table_size; i++) {
-    half_table.at(i) = clip(sample_zero * ((half_table_size - i) / (float)(half_table_size - 1 - peak_index)));
+    half_table.at(i) = clip_u16(sample_zero * ((half_table_size - i) / (float)(half_table_size - 1 - peak_index)));
   }
 };
 
@@ -88,7 +89,7 @@ Noise::Noise(int smooth) {
     }
     float norm = max(*max_element(smoothed.begin(), smoothed.end()), -1 * *min_element(smoothed.begin(), smoothed.end()));
     for (size_t i = 0; i < full_table_size; i++) {
-      full_table.at(i) = clip((sample_zero * (float)smoothed.at(i)) / norm + sample_zero);
+      full_table.at(i) = clip_u16((sample_zero * (float)smoothed.at(i)) / norm + sample_zero);
     }
   }
 };
