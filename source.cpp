@@ -4,6 +4,7 @@ using namespace std;
 
 #include "constants.h"
 #include "source.h"
+#include "maths.h"
 
 
 AbsoluteFreq::AbsoluteFreq(uint16_t freq) : frequency(freq) {};
@@ -20,7 +21,9 @@ void AbsoluteFreq::set(uint16_t freq) {
 RelativeFreq::RelativeFreq(const Frequency& ref, uint16_t num, uint16_t denom) :
   reference(ref), numerator(num) {
   if (num != 0 && denom != 0) {
-    // TODO - remove common factors
+    // remove common factors
+    uint16_t k = gcd(numerator, denom);
+    if (k > 1) {numerator /= k; denom /= k;}
     denom_three = (denom % 3) == 0; if (denom_three) denom /= 3;
     denom_five = (denom % 5) == 0; if (denom_five) denom /= 5;
     denom_bits = 0;
