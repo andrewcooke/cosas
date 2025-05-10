@@ -73,7 +73,7 @@ void Manager::init_oscillators() {
     } else {
       oscillators.push_back(move(make_unique<Oscillator>
 				 (*wavetables.at(0), move(amplitude),
-				  move(make_unique<RelativeFreq>(oscillators.at(0)->get_frequency(), 1, 1)))));
+				  move(make_unique<RelativeFreq>(oscillators.at(0)->get_frequency(), 1)))));
     }
   }
 }

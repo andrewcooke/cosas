@@ -18,31 +18,16 @@ void AbsoluteFreq::set(uint16_t freq) {
 }
 
 
-RelativeFreq::RelativeFreq(const Frequency& ref, uint16_t num, uint16_t denom) :
-  reference(ref), numerator(num) {
-  if (num != 0 && denom != 0) {
-    // remove common factors
-    uint16_t k = gcd(numerator, denom);
-    if (k > 1) {numerator /= k; denom /= k;}
-    denom_three = (denom % 3) == 0; if (denom_three) denom /= 3;
-    denom_five = (denom % 5) == 0; if (denom_five) denom /= 5;
-    denom_bits = 0;
-    while (denom > 1) {
-      if (denom & 1) throw invalid_argument("denominator should be 2^n x [3,1] x [5,1]");
-      denom_bits++; denom >>= 1;
-    }
-  }
+RelativeFreq::RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r) :
+  reference(ref), ratio(move(r)) {
+};
+
+RelativeFreq::RelativeFreq(const Frequency& ref, float r) :
+  reference(ref), ratio(move(make_unique<SimpleRatio>(r))) {
 };
 
 uint16_t RelativeFreq::get() const {
-  uint16_t freq = reference.get();
-  if (denom_bits != 0 || denom_three || denom_five) {
-    freq *= numerator;
-    if (denom_three) freq /= 3;  // https://stackoverflow.com/a/171369
-    if (denom_five) freq /= 5;
-    freq = clip_u16(freq >> denom_bits);
-  }
-  return freq;
+  return ratio->multiply(reference.get());
 }
 
 

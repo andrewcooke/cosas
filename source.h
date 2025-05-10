@@ -2,7 +2,11 @@
 #ifndef FMCOSA_SOURCE_H
 #define FMCOSA_SOURCE_H
 
+import std;
+using namespace std;
+
 #include "constants.h"
+#include "maths.h"
 
 
 // we measure time in ticks, one tick every 1/44100 s.
@@ -69,17 +73,15 @@ class RelativeFreq : public Frequency {
 public:
 
   // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
-  RelativeFreq(const Frequency& ref, uint16_t n, uint16_t d);
+  RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r);
+  RelativeFreq(const Frequency& ref, float r);
   uint16_t get() const override;
 
 private:
 
   const Frequency& reference;
-  uint16_t numerator;
-  uint8_t denom_bits = 0;
-  bool denom_three = false;
-  bool denom_five = false;
-
+  unique_ptr<SimpleRatio> ratio;
+  
 };
 
 
