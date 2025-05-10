@@ -49,30 +49,38 @@ SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
   return sr1.error(target) < sr2.error(target) ? sr1 : sr2;
 }
 
+// octave is implicit in the base 2 bits so does not need to be
+// included below.
+
+// currently restricted to common ratios only.  comments show some
+// other options.
+
 SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
-     best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2
-  b = best(target, b, SimpleRatio(bits + 2,  1, true,  false));  // x 4/3
-  b = best(target, b, SimpleRatio(bits,      5, true,  false));  // x 5/3
-  b = best(target, b, SimpleRatio(bits - 2,  5, false, false));  // x 5/4
-  b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
-  b = best(target, b, SimpleRatio(bits + 1,  3, false, true));   // x 6/5
-  b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
-  b = best(target, b, SimpleRatio(bits + 3,  1, false, true));   // x 8/5
-  b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
-  b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
-  b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
+     best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2 perfect fifth
+  b = best(target, b, SimpleRatio(bits + 2,  1, true,  false));  // x 4/3 perfect fourth
+  b = best(target, b, SimpleRatio(bits,      5, true,  false));  // x 5/3 major sixth
+  b = best(target, b, SimpleRatio(bits - 2,  5, false, false));  // x 5/4 major third
+  //  b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
+  b = best(target, b, SimpleRatio(bits + 1,  3, false, true));   // x 6/5 minor third
+  //  b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
+  b = best(target, b, SimpleRatio(bits + 3,  1, false, true));   // x 8/5 minor sixth
+  //  b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
+  //  b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
+  //  b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
   return b;
 }
 
 SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi) {
-  // smaller, but no less that half
+  // smaller, but no less than half
   SimpleRatio b =
-     best(target, hi, SimpleRatio(bits + 1,  1, true,  false));  // x 2/3
-  b = best(target, b, SimpleRatio(bits + 2,  1, false, true));   // x 4/5
-  b = best(target, b, SimpleRatio(bits,      3, false, true));   // x 3/5
-  b = best(target, b, SimpleRatio(bits - 1,  5, true,  false));  // x 5/6
+     best(target, hi, SimpleRatio(bits,      3, false, true));   // x 3/5 major sixth
+  b = best(target, b, SimpleRatio(bits - 3,  5, false, false));  // x 5/8 minor sixth
+  b = best(target, b, SimpleRatio(bits + 1,  1, true,  false));  // x 2/3 perfect fifth
+  b = best(target, b, SimpleRatio(bits + 2,  3, false, false));  // x 3/4 perfect fourth
+  b = best(target, b, SimpleRatio(bits + 2,  1, false, true));   // x 4/5 major third
+  b = best(target, b, SimpleRatio(bits - 1,  5, true,  false));  // x 5/6 minor third
   return b;
 };
 
