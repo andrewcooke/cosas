@@ -95,10 +95,11 @@ public:
   Manager();
   Oscillator& get_oscillator(size_t n) const;
   void set_root(uint16_t freq);
-  const Frequency& get_root() const;
+  const AbsoluteFreq& get_root() const;
   
 private:
 
+  AbsoluteFreq* root;
   vector<unique_ptr<Wavetable>> wavetables;
   vector<unique_ptr<Oscillator>> oscillators;
   void init_wavetables();

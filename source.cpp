@@ -12,6 +12,10 @@ uint16_t AbsoluteFreq::get() const {
   return frequency;
 }
 
+void AbsoluteFreq::set(uint16_t freq) {
+  frequency = freq;
+}
+
 
 RelativeFreq::RelativeFreq(const Frequency& ref, uint16_t num, uint16_t denom) :
   reference(ref), numerator(num) {

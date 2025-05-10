@@ -11,6 +11,7 @@ using namespace std;
 int main() {
 
   Manager manager;
+  manager.set_root(262);
   Oscillator& o0 = manager.get_oscillator(0);
   Oscillator& o1 = manager.get_oscillator(1);
   o1.set_frequency(make_unique<RelativeFreq>(manager.get_root(), 1, 2));
@@ -19,28 +20,5 @@ int main() {
   for (int i = 0; i < 1000; i++) {
     cout << i << " " << fm.next(i, 0) << endl;
   }
-  
-  
-  /*
-  int root = 440;
 
-  Frequency f1 = Frequency(root);
-  Sine s1 = Sine();
-  Oscillator o1 = Oscillator(s1, unit_amp, f1);
-
-  Sine s2 = Sine();
-  Frequency f2 = Frequency(root, 1, 80);
-  Oscillator o2 = Oscillator(s2, unit_amp, f2);
-  MixedFM fm = MixedFM(o1, o2, unit_amp, wet_bal);
-
-  Square q3 = Square(0.25);
-  Frequency f3 = Frequency(root, 2, 3);
-  Oscillator o3 = Oscillator(q3, unit_amp, f3);
-  Balance b3 = Balance(0.5);
-  Mixer x = Mixer(fm, o3, unit_amp, b3);
-  
-  for (int i = 0; i < 1000; i++) {
-    cout << i << " " << x.next(i, 0) << endl;
-  }
-  */
 }

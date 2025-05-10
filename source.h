@@ -55,6 +55,7 @@ public:
 
   AbsoluteFreq(uint16_t freq);
   uint16_t get() const override;
+  void set(uint16_t freq);
 
 private:
 

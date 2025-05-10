@@ -59,14 +59,16 @@ void Manager::init_wavetables() {
 }
 
 void Manager::init_oscillators() {
+  
   for (size_t i = 0; i < max_oscillators; i++) {
     unique_ptr<Amplitude> amplitude = make_unique<Amplitude>(1);
     // the first frequency is absolute; the rest are relative
     if (i == 0) {
+      unique_ptr<AbsoluteFreq> f = make_unique<AbsoluteFreq>(440);
+      root = &*f;  // saved here for ease of access, but not the owner
       oscillators.push_back(move(make_unique<Oscillator>
 				 (*wavetables.at(0), move(amplitude),
-				  move(make_unique<AbsoluteFreq>(440)))));
-							 
+				  move(f))));
     } else {
       oscillators.push_back(move(make_unique<Oscillator>
 				 (*wavetables.at(0), move(amplitude),
@@ -80,9 +82,12 @@ Oscillator& Manager::get_oscillator(size_t n) const {
 }
 
 void Manager::set_root(uint16_t freq) {
-  // do something
+  // unlike other frequencies / oscillators, the root (from which all
+  // relative values are calculated)  must stay the "same" instance.
+  // so it must be updated in-place so that relative changes work.
+  root->set(freq);
 }
 
-const Frequency& Manager::get_root() const {
-  return oscillators.at(0)->get_frequency();
+const AbsoluteFreq& Manager::get_root() const {
+  return *root;
 }
