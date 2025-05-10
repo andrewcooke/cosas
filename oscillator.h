@@ -119,7 +119,8 @@ public:
 
   Oscillator(Wavetable& wave, unique_ptr<Amplitude> amp, unique_ptr<Frequency> freq);
   uint16_t next(int64_t tick, int32_t phi) const override;
-  void set_frequency(unique_ptr<Frequency> freq);
+  void set_freq_abs(uint16_t freq);
+  void set_freq_ratio(const AbsoluteFreq& root, float ratio);
   const Frequency& get_frequency();
   
 private:

@@ -102,8 +102,12 @@ uint16_t Oscillator::next(int64_t tick, int32_t phi) const {
   return amplitude->scale(wavetable.next(tick * frequency->get(), phi));
 }
 
-void Oscillator::set_frequency(unique_ptr<Frequency> freq) {
-  frequency = move(freq);
+void Oscillator::set_freq_abs(uint16_t freq) {
+  frequency = move(make_unique<AbsoluteFreq>(freq));
+}
+
+void Oscillator::set_freq_ratio(const AbsoluteFreq& root, float ratio) {
+  frequency = move(make_unique<RelativeFreq>(root, ratio));
 }
 
 const Frequency& Oscillator::get_frequency() {
