@@ -93,6 +93,6 @@ const AbsoluteFreq& Manager::get_root() const {
   return *root;
 }
 
-bool Manager::get_extended() const {
+bool Manager::is_extended() const {
   return extended;
 }

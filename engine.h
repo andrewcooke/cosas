@@ -10,7 +10,10 @@ using namespace std;
 #include "oscillator.h"
 
 
-class Mixer : public Source {
+class Node : public Source {};
+
+
+class Mixer : public Node {
     
 public:
     
@@ -27,7 +30,7 @@ private:
 };
 
 
-class FM : public Source {
+class FM : public Node {
 
 public:
 
@@ -42,7 +45,7 @@ private:
 };
   
 
-class MixedFM : public Source {
+class MixedFM : public Node {
 
 public:
 
@@ -57,7 +60,7 @@ private:
 };
   
 
-class AM : public Source {
+class AM : public Node {
 
 public:
 
@@ -73,7 +76,7 @@ private:
 };
   
 
-class MixedAM : public Source {
+class MixedAM : public Node {
 
 public:
 
@@ -96,17 +99,21 @@ public:
   Oscillator& get_oscillator(size_t n) const;
   void set_root(uint16_t freq);
   const AbsoluteFreq& get_root() const;
-  bool get_extended() const;
+  bool is_extended() const;
+  vector<Source&> build_model(size_t n);
+
+  const size_t n_models = 0;
     
 private:
 
   bool extended;
   AbsoluteFreq* root;
   vector<unique_ptr<Wavetable>> wavetables;
-  vector<unique_ptr<Oscillator>> oscillators;
   void init_wavetables();
+  vector<unique_ptr<Oscillator>> oscillators;
   void init_oscillators();
-  
+  vector<unique_ptr<Node>> nodes;
+          
 };
 
 #endif

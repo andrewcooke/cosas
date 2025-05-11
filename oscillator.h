@@ -110,8 +110,8 @@ public:
 };
 
 
-// it turns out that a wavetable isn't a very practical abstraction for a source.
-// it's better to bundle a wavetable with an amplitude and frequency.
+// a wavetable isn't a very practical abstraction for a source.  it's
+// better to bundle a wavetable with an amplitude and frequency.
 
 class Oscillator : public Wavetable {
 
