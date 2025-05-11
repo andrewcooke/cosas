@@ -106,8 +106,8 @@ void Oscillator::set_freq_abs(uint16_t freq) {
   frequency = move(make_unique<AbsoluteFreq>(freq));
 }
 
-void Oscillator::set_freq_ratio(const AbsoluteFreq& root, float ratio) {
-  frequency = move(make_unique<RelativeFreq>(root, ratio));
+void Oscillator::set_freq_ratio(const AbsoluteFreq& root, float ratio, bool ext) {
+  frequency = move(make_unique<RelativeFreq>(root, ratio, ext));
 }
 
 const Frequency& Oscillator::get_frequency() {

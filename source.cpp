@@ -22,8 +22,8 @@ RelativeFreq::RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r) :
   reference(ref), ratio(move(r)) {
 };
 
-RelativeFreq::RelativeFreq(const Frequency& ref, float r) :
-  reference(ref), ratio(move(make_unique<SimpleRatio>(r))) {
+RelativeFreq::RelativeFreq(const Frequency& ref, float r, bool ext) :
+  reference(ref), ratio(move(make_unique<SimpleRatio>(r, ext))) {
 };
 
 uint16_t RelativeFreq::get() const {

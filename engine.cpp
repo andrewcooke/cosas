@@ -49,7 +49,7 @@ uint16_t MixedAM::next(int64_t tick, int32_t phi) const {
 }
 
 
-Manager::Manager() {
+Manager::Manager(bool ext) : extended(ext) {
   init_wavetables();
   init_oscillators();
 }
@@ -73,7 +73,7 @@ void Manager::init_oscillators() {
     } else {
       oscillators.push_back(move(make_unique<Oscillator>
 				 (*wavetables.at(0), move(amplitude),
-				  move(make_unique<RelativeFreq>(oscillators.at(0)->get_frequency(), 1)))));
+				  move(make_unique<RelativeFreq>(oscillators.at(0)->get_frequency(), 1, extended)))));
     }
   }
 }
@@ -91,4 +91,8 @@ void Manager::set_root(uint16_t freq) {
 
 const AbsoluteFreq& Manager::get_root() const {
   return *root;
+}
+
+bool Manager::get_extended() const {
+  return extended;
 }

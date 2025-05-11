@@ -74,7 +74,7 @@ public:
 
   // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
   RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r);
-  RelativeFreq(const Frequency& ref, float r);
+  RelativeFreq(const Frequency& ref, float r, bool ext);
   uint16_t get() const override;
 
 private:
