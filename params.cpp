@@ -4,7 +4,7 @@ using namespace std;
 
 #include "constants.h"
 #include "maths.h"
-#include "source.h"
+#include "params.h"
 
 
 AbsoluteFreq::AbsoluteFreq(uint16_t freq) : frequency(freq) {};

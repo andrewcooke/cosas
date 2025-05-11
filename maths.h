@@ -1,6 +1,6 @@
 
-#ifndef FMCOSA_MATHS_H
-#define FMCOSA_MATHS_H
+#ifndef COSA_MATHS_H
+#define COSA_MATHS_H
 
 import std;
 using namespace std;

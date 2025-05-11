@@ -1,6 +1,6 @@
 
-#ifndef FMCOSA_CONSTANTS_H
-#define FMCOSA_CONSTANTS_H
+#ifndef COSA_CONSTANTS_H
+#define COSA_CONSTANTS_H
 
 import std;
 using namespace std;
