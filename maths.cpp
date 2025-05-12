@@ -3,19 +3,30 @@
 #include "maths.h"
 
 
-uint16_t clip_u16(uint32_t inter) {
-  if (inter > sample_max) inter = sample_max;
-  return (uint16_t)inter;
+uint16_t clip_u16(uint32_t val) {
+  if (val > sample_max) val = sample_max;
+  return (uint16_t)val;
 }
 
-uint16_t clip_u16(int32_t inter) {
-  if (inter > sample_max) inter = sample_max;
-  if (inter < 0) inter = 0;
-  return (uint16_t)inter;
+uint16_t clip_u16(int32_t val) {
+  if (val > sample_max) val = sample_max;
+  if (val < 0) val = 0;
+  return (uint16_t)val;
 }
 
-uint16_t clip_u16(float inter) {
-  return clip_u16((int32_t)inter);
+uint16_t clip_u16(float val) {
+  return clip_u16((int32_t)val);
+}
+
+
+uint8_t clip_u8(int32_t val) {
+  if (val > half_sample_max) val = half_sample_max;
+  if (val < 0) val = 0;
+  return (uint16_t)val;
+}
+
+uint8_t clip_u8(float val) {
+  return clip_u16((int32_t)val);
 }
 
 

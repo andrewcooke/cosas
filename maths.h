@@ -8,9 +8,12 @@ using namespace std;
 #include <cstdint>
 
 
-uint16_t clip_u16(uint32_t inter);
-uint16_t clip_u16(int32_t inter);
-uint16_t clip_u16(float inter);
+uint16_t clip_u16(uint32_t val);
+uint16_t clip_u16(int32_t val);
+uint16_t clip_u16(float val);
+
+uint8_t clip_u8(int32_t val);
+uint8_t clip_u8(float val);
 
 
 uint16_t gcd(uint16_t a, uint16_t b);

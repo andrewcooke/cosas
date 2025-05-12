@@ -34,6 +34,8 @@ public:
 };
 
 
+// this is intended to avoid infinite loops in recursive networks
+
 class Latch : Source {
 
 public:
