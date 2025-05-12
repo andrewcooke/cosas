@@ -1,4 +1,4 @@
-
+\
 #ifndef COSA_ENGINE_H
 #define COSA_ENGINE_H
 
@@ -7,7 +7,7 @@ using namespace std;
 
 #include "params.h"
 #include "source.h"
-#include "wavetables.h"
+#include "lookup.h"
 #include "node.h"
 
 

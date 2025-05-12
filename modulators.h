@@ -16,7 +16,7 @@ class Gain : public Node {
     
 public:
     
-  Mixer(Node& nd, const Amplitude& amp);
+  Gain(Node& nd, const Amplitude& amp);
   uint16_t next(int64_t tick, int32_t phi) override;
 
 private:
@@ -31,7 +31,7 @@ class Merge : public Node {
     
 public:
     
-  Mixer(Node& nd1, Node& nd2, const Balance& bal);
+  Merge(Node& nd1, Node& nd2, const Balance& bal);
   uint16_t next(int64_t tick, int32_t phi) override;
 
 private:

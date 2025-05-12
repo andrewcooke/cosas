@@ -10,7 +10,7 @@ Gain::Gain(Node& nd, const Amplitude& amp)
   : node(nd), amplitude(amp) {};
 
 uint16_t Gain::next(int64_t tick, int32_t phi) {
-  return amplitude.scale(node.next(tick, phi)));
+  return amplitude.scale(node.next(tick, phi));
 }
 
 

@@ -6,7 +6,7 @@ import std;
 using namespace std;
 
 #include "constants.h"
-#include "wavetables.h"
+#include "lookup.h"
 #include "params.h"
 #include "node.h"
 
