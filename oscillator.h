@@ -24,7 +24,7 @@ public:
 
   Oscillator(Wavetable& wave, unique_ptr<Frequency> freq);
   Oscillator(Wavetable& wave, unique_ptr<Frequency> freq, unique_ptr<Amplitude> amp);
-  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t next(int64_t tick, int32_t phi) override;
   void set_freq_abs(uint16_t freq);
   void set_freq_ratio(const Manager&, float ratio);
   const Frequency& get_frequency();

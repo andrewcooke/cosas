@@ -21,7 +21,7 @@ public:
 
   Square() : Square(0.5) {};
   Square(float duty);
-  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
@@ -34,7 +34,7 @@ class QuarterWtable : public Wavetable {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 
@@ -66,7 +66,7 @@ class HalfWtable : public Wavetable {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 
@@ -91,7 +91,7 @@ class FullWtable : public Source {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) const override;
+  uint16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 

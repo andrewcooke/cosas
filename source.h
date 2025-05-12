@@ -5,6 +5,8 @@
 import std;
 using namespace std;
 
+#include "constants.h"
+
 
 // we measure time in ticks, one tick every 1/44100 s.
 // the wavetable (unpacked to four quadrants) has a 44100 samples per wavelength.
@@ -24,11 +26,41 @@ using namespace std;
 
 class Source {
 
- public:
-
+public:
+  
   // need to be signed because phi can be negative and we need to add the two
-  virtual uint16_t next(int64_t tick, int32_t phi) const = 0;
+  virtual uint16_t next(int64_t tick, int32_t phi) = 0;
   
 };
 
+
+class Latch : Source {
+
+public:
+
+  Latch(Source& s);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+  friend class On;
+
+private:
+
+  Source& source;
+  bool on = false;
+  uint16_t previous = sample_zero;
+  
+};
+
+
+class On {
+  
+public:
+  On(Latch& l);
+  ~On();
+  
+private:
+  Latch& latch;
+
+};
+  
 #endif
