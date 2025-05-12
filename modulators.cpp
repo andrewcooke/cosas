@@ -6,6 +6,22 @@
 #include "modulators.h"
 
 
+Gain::Gain(Node& nd, const Amplitude& amp)
+  : node(nd), amplitude(amp) {};
+
+uint16_t Gain::next(int64_t tick, int32_t phi) {
+  return amplitude.scale(node.next(tick, phi)));
+}
+
+
+Merge::Merge(Node& nd1, Node& nd2, const Balance& bal)
+  : node1(nd1), node2(nd2), balance(bal) {};
+
+uint16_t Merge::next(int64_t tick, int32_t phi) {
+  return balance.combine(node1.next(tick, phi), node2.next(tick, phi));
+}
+
+
 Mixer::Mixer(Node& nd1, Node& nd2, const Amplitude& amp, const Balance& bal)
   : node1(nd1), node2(nd2), amplitude(amp), balance(bal) {};
 

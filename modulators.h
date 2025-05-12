@@ -10,6 +10,39 @@ using namespace std;
 #include "node.h"
 
 
+// various combinations; typically with gain merged or not
+
+class Gain : public Node {
+    
+public:
+    
+  Mixer(Node& nd, const Amplitude& amp);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  Node& node;
+  const Amplitude& amplitude;
+  
+};
+
+
+class Merge : public Node {
+    
+public:
+    
+  Mixer(Node& nd1, Node& nd2, const Balance& bal);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  Node& node1;
+  Node& node2;
+  const Balance& balance;
+  
+};
+
+
 class Mixer : public Node {
     
 public:
