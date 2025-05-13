@@ -15,4 +15,37 @@ using namespace std;
 
 class Node : public Source {};
 
+
+// this is intended to avoid infinite loops in recursive networks
+
+class Latch : Node {
+
+public:
+
+  Latch(Source& s);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+  friend class On;
+
+private:
+
+  Source& source;
+  bool on = false;
+  uint16_t previous = sample_zero;
+  
+};
+
+
+class On {
+  
+public:
+  On(Latch& l);
+  ~On();
+  
+private:
+  Latch& latch;
+
+};
+
+
 #endif

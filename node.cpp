@@ -2,7 +2,7 @@
 import std;
 using namespace std;
 
-#include "source.h"
+#include "node.h"
 
 
 Latch::Latch(Source& s) : source(s) {};
