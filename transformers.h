@@ -37,5 +37,34 @@ private:
   
 };
 
+/*
+class Functional : public Transformer {
+
+public:
+
+  Functional(Node& nd, float k);
+  uint16_t next(int64_t tick, int32_t phi) override;
+  virtual float func(float k, float x);
+  
+private:
+
+  float constant;
+  
+};
+*/
+
+class Compander : public Transformer {
+
+public:
+
+  Compander(Node& nd, float g);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  float gamma;
+  
+};
+
 
 #endif

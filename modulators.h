@@ -12,6 +12,7 @@ using namespace std;
 
 
 // these have two inputs (transformers have one)
+// TODO : extract into superclass
 
 // various combinations; typically with gain merged or not
 
