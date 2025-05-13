@@ -44,7 +44,10 @@ public:
 
   OneParFunc(Node& nd, float k);
   uint16_t next(int64_t tick, int32_t phi) override;
-  virtual float func(float k, float x) const;
+
+protected:
+  
+  virtual float func(float k, float x) const = 0;
   
 private:
 
@@ -58,6 +61,9 @@ class Compander : public OneParFunc {
 public:
 
   Compander(Node& nd, float g);
+
+private:
+  
   float func(float k, float x) const override;
   
 };
@@ -68,6 +74,9 @@ class Folder : public OneParFunc {
 public:
 
   Folder(Node& nd, float g);
+
+private:
+  
   float func(float k, float x) const override;
   
 };
