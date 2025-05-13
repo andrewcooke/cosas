@@ -110,45 +110,4 @@ public:
 };
 
 
-// similar to wavetables, but not Source instances, transfer functions
-// map half-samples (+ve going).  classes that use this handle the
-// symmetric (or not) treatment of negative going.
-
-class Transfer {
-
-public:
-
-  virtual uint8_t lookup(uint8_t sample) const;
-
-};
-
-
-class TransferFn : public Transfer {
-
-public:
-  
-  TransferFn();
-  uint8_t lookup(uint8_t sample) const override;
-  virtual void init_table();
-
-protected:
-
-  unique_ptr<array<uint8_t, full_lookup_size>> table = make_unique<array<uint8_t, full_lookup_size>>();
-
-};
-
-
-class Gamma : public TransferFn {
-
-public:
-
-  Gamma(float g);
-  void init_table() override;
-
-private:
-
-  float gamma;
-
-};
-
 #endif

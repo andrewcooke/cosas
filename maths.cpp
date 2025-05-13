@@ -20,7 +20,7 @@ uint16_t clip_u16(float val) {
 
 
 uint8_t clip_u8(int32_t val) {
-  if (val > half_sample_max) val = half_sample_max;
+  if (val > half_max) val = half_max;
   if (val < 0) val = 0;
   return (uint16_t)val;
 }

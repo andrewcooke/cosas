@@ -94,20 +94,3 @@ Noise::Noise(int smooth) {
   }
 };
 
-
-TransferFn::TransferFn() {
-  init_table();
-}
-
-uint8_t TransferFn::lookup(uint8_t sample) const {
-  return table->at(sample);
-}
-
-
-Gamma::Gamma(float g) : gamma(g) {};
-
-void Gamma::init_table() {
-  for (size_t i = 0; i < full_lookup_size; i++) {
-    table->at(i) = clip_u8(full_lookup_size * pow(i / (float)full_lookup_size, gamma));
-  }
-}
