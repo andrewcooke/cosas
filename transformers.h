@@ -37,32 +37,38 @@ private:
   
 };
 
-/*
-class Functional : public Transformer {
+
+class OneParFunc : public Transformer {
 
 public:
 
-  Functional(Node& nd, float k);
+  OneParFunc(Node& nd, float k);
   uint16_t next(int64_t tick, int32_t phi) override;
-  virtual float func(float k, float x);
+  virtual float func(float k, float x) const;
   
 private:
 
   float constant;
   
 };
-*/
 
-class Compander : public Transformer {
+
+class Compander : public OneParFunc {
 
 public:
 
   Compander(Node& nd, float g);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  float func(float k, float x) const override;
+  
+};
 
-private:
 
-  float gamma;
+class Folder : public OneParFunc {
+
+public:
+
+  Folder(Node& nd, float g);
+  float func(float k, float x) const override;
   
 };
 
