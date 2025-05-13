@@ -1,17 +1,8 @@
 
 #include <cstdint>
 
-#include "constants.h"
 #include "maths.h"
 #include "modulators.h"
-
-
-Gain::Gain(Node& nd, const Amplitude& amp)
-  : node(nd), amplitude(amp) {};
-
-uint16_t Gain::next(int64_t tick, int32_t phi) {
-  return amplitude.scale(node.next(tick, phi));
-}
 
 
 Merge::Merge(Node& nd1, Node& nd2, const Balance& bal)

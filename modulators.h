@@ -7,24 +7,13 @@ using namespace std;
 
 #include "constants.h"
 #include "params.h"
+#include "transformers.h"
 #include "node.h"
 
 
+// these have two inputs (transformers have one)
+
 // various combinations; typically with gain merged or not
-
-class Gain : public Node {
-    
-public:
-    
-  Gain(Node& nd, const Amplitude& amp);
-  uint16_t next(int64_t tick, int32_t phi) override;
-
-private:
-
-  Node& node;
-  const Amplitude& amplitude;
-  
-};
 
 
 class Merge : public Node {
