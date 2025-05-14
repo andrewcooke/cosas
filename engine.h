@@ -58,8 +58,7 @@ public:
 private:
 
   void init_wavetables();
-  // TODO - templates
-  //Oscillator& add_oscillator<FType>(wave_idx, freq_params);
+  template<typename FreqType, typename Args> Oscillator& add_oscillator(size_t wave_idx, Args&& args);
   Node& build_simple_fm();
 
   size_t sine_start;
