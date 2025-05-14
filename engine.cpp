@@ -102,19 +102,23 @@ void Manager::init_wavetables() {
 
 }
 
-template<typename FreqType, typename... Args> Oscillator& Manager::add_oscillator(size_t wave_idx, Args... args) {
+template<typename FreqType, typename... Args> tuple<Oscillator&, FreqType&> Manager::add_oscillator(size_t wave_idx, Args... args) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   unique_ptr<FreqType> freq = make_unique<FreqType>(forward<Args>(args)...);
+  FreqType& freq_ref = *freq;
   unique_ptr<Oscillator> osc = make_unique<Oscillator>(wave, move(freq));
+  Oscillator& osc_ref = *osc;
   current_oscillators->push_back(move(osc));
-  // osc is empty now, so pull from list
-  return *current_oscillators->at(current_oscillators->size()-1);
+  // is this ok?  the unique_ptr are null.
+  return {osc_ref, freq_ref};
+	  
 }
 
 Node& Manager::build_simple_fm() {
-  Oscillator& car = add_oscillator<AbsoluteFreq>(sine_gamma_1, 440);
-  const Frequency& root = car.get_frequency();
-  Oscillator& mod = add_oscillator<RelativeFreq>(sine_gamma_1, root, 0.5, extended_oscillators);
+  auto car_root = add_oscillator<AbsoluteFreq>(sine_gamma_1, 440);
+  Oscillator& car = get<Oscillator&>(car_root);
+  AbsoluteFreq root = get<AbsoluteFreq&>(car_root);
+  Oscillator& mod = get<Oscillator&>(add_oscillator<RelativeFreq>(sine_gamma_1, root, 0.5, extended_oscillators));
   
   return *current_nodes->at(0);
 }
