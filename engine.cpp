@@ -102,9 +102,9 @@ void Manager::init_wavetables() {
 
 }
 
-template<typename FreqType, typename Args> Oscillator& Manager::add_oscillator(size_t wave_idx, Args&& args) {
+template<typename FreqType, typename... Args> Oscillator& Manager::add_oscillator(size_t wave_idx, Args... args) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
-  unique_ptr<FreqType> freq = make_unique<FreqType>(forward<Args>(args));
+  unique_ptr<FreqType> freq = make_unique<FreqType>(forward<Args>(args)...);
   unique_ptr<Oscillator> osc = make_unique<Oscillator>(wave, move(freq));
   current_oscillators->push_back(move(osc));
   // osc is empty now, so pull from list
@@ -112,8 +112,10 @@ template<typename FreqType, typename Args> Oscillator& Manager::add_oscillator(s
 }
 
 Node& Manager::build_simple_fm() {
-  Oscillator& root = add_oscillator<AbsoluteFreq>(sine_gamma_1, 440);
-
+  Oscillator& car = add_oscillator<AbsoluteFreq>(sine_gamma_1, 440);
+  const Frequency& root = car.get_frequency();
+  Oscillator& mod = add_oscillator<RelativeFreq>(sine_gamma_1, root, 0.5, extended_oscillators);
+  
   return *current_nodes->at(0);
 }
 
