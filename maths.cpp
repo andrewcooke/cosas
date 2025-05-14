@@ -53,7 +53,7 @@ SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
 // currently restricted to common ratios only.  comments show some
 // other options.
 
-SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo, bool ext) {
+SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
      best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2 perfect fifth
@@ -62,17 +62,18 @@ SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo, bool ext) {
   b = best(target, b, SimpleRatio(bits - 2,  5, false, false));  // x 5/4 major third
   b = best(target, b, SimpleRatio(bits + 1,  3, false, true));   // x 6/5 minor third
   b = best(target, b, SimpleRatio(bits + 3,  1, false, true));   // x 8/5 minor sixth
-  if (ext) {
-    b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
-    b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
-    b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
-    b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
-    b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
-  }
+
+  // extended range
+  b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
+  b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
+  b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
+  b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
+  b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
+
   return b;
 }
 
-SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi, bool ext) {
+SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi) {
   // smaller, but no less than half
   SimpleRatio b =
      best(target, hi, SimpleRatio(bits,      3, false, true));   // x 3/5 major sixth
@@ -81,23 +82,23 @@ SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi, bool ext) {
   b = best(target, b, SimpleRatio(bits + 2,  3, false, false));  // x 3/4 perfect fourth
   b = best(target, b, SimpleRatio(bits + 2,  1, false, true));   // x 4/5 major third
   b = best(target, b, SimpleRatio(bits - 1,  5, true,  false));  // x 5/6 minor third
-  if (ext) {
-    // matching values for those above are not possible (no seventh, ninth or eleventh)
-    b = best(target, b, SimpleRatio(bits - 4,  9, false, false));  // x 9/16
-    b = best(target, b, SimpleRatio(bits - 4, 11, false, false));  // x 11/16
-    b = best(target, b, SimpleRatio(bits - 4, 13, false, false));  // x 13/16
-    b = best(target, b, SimpleRatio(bits - 3,  7, false, false));  // x 7/8
-    b = best(target, b, SimpleRatio(bits - 4, 15, false, false));  // x 15/16
-  }
+
+  // matching values for those above are not possible (no seventh, ninth or eleventh)
+  b = best(target, b, SimpleRatio(bits - 4,  9, false, false));  // x 9/16
+  b = best(target, b, SimpleRatio(bits - 4, 11, false, false));  // x 11/16
+  b = best(target, b, SimpleRatio(bits - 4, 13, false, false));  // x 13/16
+  b = best(target, b, SimpleRatio(bits - 3,  7, false, false));  // x 7/8
+  b = best(target, b, SimpleRatio(bits - 4, 15, false, false));  // x 15/16
+
   return b;
 };
 
-SimpleRatio::SimpleRatio(float target, bool ext) {
+SimpleRatio::SimpleRatio(float target) {
   if (target != 0) {
     int16_t b = log2(target);
     SimpleRatio sr = best(target,
-			  from_below(target, b, SimpleRatio(b,     1, false, false), ext),
-			  from_above(target, b, SimpleRatio(b + 1, 1, false, false), ext));
+			  from_below(target, b, SimpleRatio(b,     1, false, false)),
+			  from_above(target, b, SimpleRatio(b + 1, 1, false, false)));
     bits = sr.bits;
     scale = sr.scale;
     third = sr.third;

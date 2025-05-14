@@ -20,7 +20,7 @@ class SimpleRatio {
 
  public:
   
-  SimpleRatio(float val, bool ext);
+  SimpleRatio(float val);
   SimpleRatio(int16_t bits, uint8_t scale, bool third, bool fifth);
   uint16_t get_numerator() const;
   uint16_t get_denominator() const;

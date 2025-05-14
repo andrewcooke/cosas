@@ -22,7 +22,7 @@ void Oscillator::set_freq_abs(uint16_t freq) {
 }
 
 void Oscillator::set_freq_ratio(const Manager& manager, float ratio) {
-  frequency = move(make_unique<RelativeFreq>(manager.get_root(), ratio, extended_oscillators));
+  frequency = move(make_unique<RelativeFreq>(manager.get_root(), ratio));
 }
 
 const Frequency& Oscillator::get_frequency() {

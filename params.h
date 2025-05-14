@@ -49,9 +49,10 @@ class RelativeFreq : public Frequency {
   
 public:
 
+  // TODO - can we get AbsoluteFreq here?
   // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
   RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r);
-  RelativeFreq(const Frequency& ref, float r, bool ext);
+  RelativeFreq(const Frequency& ref, float r);
   uint16_t get() const override;
 
 private:

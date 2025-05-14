@@ -22,7 +22,4 @@ const uint16_t half_max = sample_max >> 1;
 const size_t full_wavetable_size = sample_rate;
 const size_t full_lookup_size = 1 << (sample_depth / 2);
 
-//const uint8_t max_oscillators = 6;
-const bool extended_oscillators = true;
-
 #endif
