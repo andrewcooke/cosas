@@ -54,3 +54,4 @@ const AbsoluteFreq& Manager::get_root() const {
 bool Manager::is_extended() const {
   return extended;
 }
+

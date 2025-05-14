@@ -16,20 +16,22 @@ using namespace std;
 class Node : public Source {};
 
 
-// this is intended to avoid infinite loops in recursive networks
+// this is intended to avoid infinite loops in recursive networks.
+// the setter also allows loops to be constructed.
 
 class Latch : Node {
 
 public:
 
-  Latch(Source& s);
+  Latch();
+  void set_source(Source* s);
   uint16_t next(int64_t tick, int32_t phi) override;
 
   friend class On;
 
 private:
 
-  Source& source;
+  Source* source;
   bool on = false;
   uint16_t previous = sample_zero;
   
@@ -45,6 +47,22 @@ public:
 private:
   Latch& latch;
 
+};
+
+
+// useful for testing
+
+class Constant : public Node {
+
+public:
+
+  Constant(uint16_t v);
+  uint16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  uint16_t value;
+  
 };
 
 

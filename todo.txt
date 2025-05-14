@@ -1,0 +1,5 @@
+
+make parameters just pointers?
+
+knob interface
+
