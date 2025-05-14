@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -x
+rm -f *~
 shopt -s extglob
 rm -fr gcm.cache
 GLOBIGNORE='main.cpp'

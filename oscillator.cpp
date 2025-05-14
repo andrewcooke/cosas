@@ -2,6 +2,7 @@
 import std;
 using namespace std;
 
+#include "constants.h"
 #include "oscillator.h"
 #include "engine.h"
 
@@ -21,7 +22,7 @@ void Oscillator::set_freq_abs(uint16_t freq) {
 }
 
 void Oscillator::set_freq_ratio(const Manager& manager, float ratio) {
-  frequency = move(make_unique<RelativeFreq>(manager.get_root(), ratio, manager.is_extended()));
+  frequency = move(make_unique<RelativeFreq>(manager.get_root(), ratio, extended_oscillators));
 }
 
 const Frequency& Oscillator::get_frequency() {

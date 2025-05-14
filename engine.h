@@ -5,16 +5,19 @@
 import std;
 using namespace std;
 
-#include "params.h"
-#include "source.h"
-#include "lookup.h"
 #include "node.h"
+#include "oscillator.h"
+#include "params.h"
 
 
 // forward decl
 class Oscillator;
 
 
+// this needs to be simplified and then made more complex again where
+// it is required.
+
+/*
 class Manager {
   
 public:
@@ -37,6 +40,28 @@ private:
   vector<unique_ptr<Oscillator>> oscillators;
   void init_oscillators();
           
+};
+*/
+
+
+class Manager {
+
+public:
+
+  enum Engine {
+    SIMPLE_FM
+  };
+
+  Manager();
+  Node& build(Engine);
+  const Frequency& get_root() const;
+  
+  
+private:
+
+  unique_ptr<vector<Oscillator>> current_oscillators;
+  unique_ptr<vector<Node>> current_nodes;
+  
 };
 
 #endif

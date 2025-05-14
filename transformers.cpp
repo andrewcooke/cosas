@@ -60,7 +60,10 @@ TEST_CASE("Folder") {
   CHECK(f0_12.next(0, 0) == 1 << 12);
   Folder f1_12 = Folder(c12, 1);
   CHECK(f1_12.next(0, 0) == 513);  // not sure if correct, but more -ve
-
+  Constant c12x = Constant(sample_zero + (sample_zero - (uint16_t)(1 << 12)));
+  Folder f1_12x = Folder(c12x, 1);
+  CHECK(f1_12x.next(0, 0) == sample_max - 513 + 1);  // symmetrical (within a fudge)
+  
   Constant cmax = Constant(sample_max);  
   Folder f0_max = Folder(cmax, 0);
   CHECK(f0_max.next(0, 0) == sample_max);

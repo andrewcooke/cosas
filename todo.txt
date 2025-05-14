@@ -1,5 +1,7 @@
 
 make parameters just pointers?
 
+allow for mistuning of ratios
+
 knob interface
 

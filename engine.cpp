@@ -1,12 +1,8 @@
 
-#include <cstdint>
-
-#include "constants.h"
-#include "maths.h"
 #include "engine.h"
-#include "oscillator.h"
 
 
+/*
 Manager::Manager(bool ext) : extended(ext) {
   init_wavetables();
   init_oscillators();
@@ -54,4 +50,32 @@ const AbsoluteFreq& Manager::get_root() const {
 bool Manager::is_extended() const {
   return extended;
 }
+*/
+
+
+Node& build_simple_fm(vector<Oscillator>& current_oscillators, vector<Node>& current_nodes) {
+  return current_nodes.at(0);
+}
+
+
+Manager::Manager()
+  : current_oscillators(move(make_unique<vector<Oscillator>>())),
+    current_nodes(move(make_unique<vector<Node>>())) {};
+
+const Frequency& Manager::get_root() const {
+  // first oscillator is root
+  return current_oscillators->at(0).get_frequency();
+}
+
+Node& Manager::build(Manager::Engine engine) {
+  current_oscillators->clear();
+  current_nodes->clear();
+  switch(engine) {
+  case Manager::Engine::SIMPLE_FM:
+    return build_simple_fm(*current_oscillators, *current_nodes);
+  default:
+    throw domain_error("missing case in Manager::build?");
+  }
+}
+
 

@@ -42,6 +42,9 @@ private:
 };
 
 
+// this could be simplified maybe by keeping an instance of the
+// SimpleRatio rather than a smart pointer.
+
 class RelativeFreq : public Frequency {
   
 public:
