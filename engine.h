@@ -52,15 +52,28 @@ public:
     SIMPLE_FM
   };
 
-  Manager();
   Node& build(Engine);
   const Frequency& get_root() const;
   
-  
 private:
 
-  unique_ptr<vector<Oscillator>> current_oscillators;
-  unique_ptr<vector<Node>> current_nodes;
+  void init_wavetables();
+  // TODO - templates
+  //Oscillator& add_oscillator<FType>(wave_idx, freq_params);
+  Node& build_simple_fm();
+
+  size_t sine_start;
+  size_t sine_gamma_1;
+  size_t square_start;
+  size_t square_duty_05;
+  size_t saw_start;
+  size_t saw_offset_0;
+  size_t noise_start;
+  size_t noise_smooth_1;
+  
+  unique_ptr<vector<unique_ptr<Wavetable>>> all_wavetables;
+  unique_ptr<vector<unique_ptr<Oscillator>>> current_oscillators;
+  unique_ptr<vector<unique_ptr<Node>>> current_nodes;
   
 };
 

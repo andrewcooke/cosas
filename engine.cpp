@@ -53,18 +53,9 @@ bool Manager::is_extended() const {
 */
 
 
-Node& build_simple_fm(vector<Oscillator>& current_oscillators, vector<Node>& current_nodes) {
-  return current_nodes.at(0);
-}
-
-
-Manager::Manager()
-  : current_oscillators(move(make_unique<vector<Oscillator>>())),
-    current_nodes(move(make_unique<vector<Node>>())) {};
-
 const Frequency& Manager::get_root() const {
   // first oscillator is root
-  return current_oscillators->at(0).get_frequency();
+  return current_oscillators->at(0)->get_frequency();
 }
 
 Node& Manager::build(Manager::Engine engine) {
@@ -72,10 +63,53 @@ Node& Manager::build(Manager::Engine engine) {
   current_nodes->clear();
   switch(engine) {
   case Manager::Engine::SIMPLE_FM:
-    return build_simple_fm(*current_oscillators, *current_nodes);
+    return build_simple_fm();
   default:
     throw domain_error("missing case in Manager::build?");
   }
+}
+
+// these are calculated on strartup because large/slow
+
+void Manager::init_wavetables() {
+  
+  saw_start = all_wavetables->size();
+  // do we need both sides?
+  for (const auto& offset : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
+    if (offset == 0.0) saw_offset_0 = all_wavetables->size();
+    all_wavetables->push_back(move(make_unique<Saw>(offset)));
+  }
+  
+  sine_start = all_wavetables->size();
+  for (const auto& gamma : {4.0, 2.0, 1.0, 0.5, 0.25}) {
+    if (gamma == 1.0) sine_gamma_1 = all_wavetables->size();
+    all_wavetables->push_back(move(make_unique<Sine>(gamma)));
+  }
+
+  square_start = all_wavetables->size();
+  // do we need both sides?
+  for (const auto& duty : {0.1, 0.3, 0.5, 0.7, 0.9}) {
+    if (duty == 0.5) square_duty_05 = all_wavetables->size();
+    all_wavetables->push_back(move(make_unique<Square>(duty)));
+  }
+
+  noise_start = all_wavetables->size();
+  // no idea if these smooth values make sense
+  for (const auto& smooth : {1, 4, 16, 64, 256}) {
+    if (smooth == 1) noise_smooth_1 = all_wavetables->size();
+    all_wavetables->push_back(move(make_unique<Noise>(smooth)));
+  }  
+
+}
+
+
+Node& Manager::build_simple_fm() {
+  unique_ptr<Oscillator> root = make_unique<Oscillator>(*all_wavetables->at(sine_gamma_1),
+							make_unique<AbsoluteFreq>(440));
+  current_oscillators->push_back(move(root));
+  Oscillator& osc = *current_oscillators->at(current_oscillators->size()-1);
+
+  return *current_nodes->at(0);
 }
 
 

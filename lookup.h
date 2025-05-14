@@ -87,7 +87,7 @@ public:
 };
 
 
-class FullWtable : public Source {
+class FullWtable : public Wavetable {
 
 public:
   
