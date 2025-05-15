@@ -1,7 +1,4 @@
 
-import std;
-using namespace std;
-
 #include "constants.h"
 #include "maths.h"
 #include "params.h"
@@ -15,7 +12,7 @@ uint16_t AbsoluteFreq::get() const {
 
 
 RelativeFreq::RelativeFreq(const Frequency& ref, SimpleRatio r) :
-  reference(ref), ratio(move(r)) {
+  reference(ref), ratio(r) {
 };
 
 RelativeFreq::RelativeFreq(const Frequency& ref, float r) :
@@ -38,12 +35,12 @@ const uint32_t one = 1 << one_bits;
 Amplitude::Amplitude(float factor) : factor(factor), norm(factor * one) {};
 
 uint16_t Amplitude::scale(uint16_t amp) const {
-  return clip_u16(((uint32_t)amp * norm) >> one_bits);
+  return clip_16((amp * norm) >> one_bits);
 };
 
 
 Balance::Balance(float wet) : wet(wet), wet_weight(wet * one), dry_weight((1 - wet) * one) {};
 
 uint16_t Balance::combine(uint16_t dry, uint16_t wet) const {
-  return clip_u16((wet_weight * wet + dry_weight * dry) >> one_bits);
+  return clip_16((wet_weight * wet + dry_weight * dry) >> one_bits);
 }

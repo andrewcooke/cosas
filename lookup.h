@@ -2,8 +2,8 @@
 #ifndef COSA_LOOKUP_H
 #define COSA_LOOKUP_H
 
-import std;
-using namespace std;
+#include <cstdint>
+#include <array>
 
 #include "constants.h"
 #include "source.h"
@@ -21,7 +21,7 @@ public:
 
   Square() : Square(0.5) {};
   Square(float duty);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
@@ -34,11 +34,11 @@ class QuarterWtable : public Wavetable {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 
-  array<uint16_t, sample_rate / 4> quarter_table;
+  std::array<int16_t, sample_rate / 4> quarter_table;
 
 };
 
@@ -66,11 +66,11 @@ class HalfWtable : public Wavetable {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 
-  array<uint16_t, sample_rate / 2> half_table;
+  std::array<int16_t, sample_rate / 2> half_table;
 
 };
 
@@ -91,11 +91,11 @@ class FullWtable : public Wavetable {
 
 public:
   
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
   
 protected:
 
-  array<uint16_t, sample_rate> full_table;
+  std::array<int16_t, sample_rate> full_table;
 
 };
 

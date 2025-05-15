@@ -2,15 +2,12 @@
 #ifndef COSA_MATHS_H
 #define COSA_MATHS_H
 
-import std;
-using namespace std;
-
+#include <ostream>
 #include <cstdint>
 
 
-uint16_t clip_u16(uint32_t val);
-uint16_t clip_u16(int32_t val);
-uint16_t clip_u16(float val);
+int16_t clip_16(int32_t val);
+int16_t clip_16(float val);
 
 
 uint16_t gcd(uint16_t a, uint16_t b);
@@ -31,7 +28,7 @@ class SimpleRatio {
   
  private:
 
-  friend ostream& operator<<(ostream& os, const SimpleRatio& sr); 
+  friend std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr); 
   
   uint8_t scale = 1;
   int8_t bits = 0;

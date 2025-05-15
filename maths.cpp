@@ -1,22 +1,20 @@
 
+#include <cmath>
+#include <iostream>
+
 #include "doctest.h"
 #include "constants.h"
 #include "maths.h"
 
 
-uint16_t clip_u16(uint32_t val) {
-  if (val > sample_max) val = sample_max;
-  return (uint16_t)val;
+int16_t clip_16(int32_t val) {
+  if (val > sample_max) return sample_max;
+  if (val < sample_min) return sample_min;
+  return (int16_t)val;
 }
 
-uint16_t clip_u16(int32_t val) {
-  if (val > sample_max) val = sample_max;
-  if (val < 0) val = 0;
-  return (uint16_t)val;
-}
-
-uint16_t clip_u16(float val) {
-  return clip_u16((int32_t)val);
+int16_t clip_16(float val) {
+  return clip_16((int32_t)val);
 }
 
 
@@ -49,9 +47,6 @@ SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
 
 // octave is implicit in the base 2 bits so does not need to be
 // included below.
-
-// currently restricted to common ratios only.  comments show some
-// other options.
 
 SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
   // larger, but no more than double
@@ -123,23 +118,23 @@ float SimpleRatio::as_float() const {
 }
 
 uint16_t SimpleRatio::multiply(uint16_t val) const {
-  uint32_t tmp = val * scale;
+  int32_t tmp = val * scale;
   if (third) tmp /= 3;
   if (fifth) tmp /= 5;
   if (bits > 1) tmp <<= bits;
   else tmp >>= -bits;
-  return clip_u16(tmp);
+  return clip_16(tmp);
 }
 
-ostream& operator<<(ostream& os, const SimpleRatio& sr) {
+std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr) {
   uint16_t n = sr.get_numerator();
   uint16_t d = sr.get_denominator();
   uint8_t k = gcd(n, d);
   n /= k;
   d /= k;
-  if (d == 1) cout << n;
-  else if (n > d) cout << (n / d) << " " << (n % d) << "/" << d;
-  else cout << n << "/" << d;
+  if (d == 1) std::cout << n;
+  else if (n > d) std::cout << (n / d) << " " << (n % d) << "/" << d;
+  else std::cout << n << "/" << d;
   return os;
 }
 

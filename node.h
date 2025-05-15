@@ -2,9 +2,6 @@
 #ifndef COSA_NODE_H
 #define COSA_NODE_H
 
-import std;
-using namespace std;
-
 #include "source.h"
 
 
@@ -25,7 +22,7 @@ public:
 
   Latch();
   void set_source(Source* s);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
 
   friend class On;
 
@@ -33,7 +30,7 @@ private:
 
   Source* source;
   bool on = false;
-  uint16_t previous = sample_zero;
+  int16_t previous = 0;
   
 };
 
@@ -56,12 +53,12 @@ class Constant : public Node {
 
 public:
 
-  Constant(uint16_t v);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  Constant(int16_t v);
+  int16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
-  uint16_t value;
+  int16_t value;
   
 };
 

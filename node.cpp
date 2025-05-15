@@ -1,7 +1,4 @@
 
-import std;
-using namespace std;
-
 #include "node.h"
 
 
@@ -11,7 +8,7 @@ void Latch::set_source(Source* s) {
   source = s;
 }
 
-uint16_t Latch::next(int64_t tick, int32_t phi) {
+int16_t Latch::next(int64_t tick, int32_t phi) {
   if (! on) {
     On(*this);
     previous = source->next(tick, phi);
@@ -28,8 +25,8 @@ On::~On() {
 }
 
 
-Constant::Constant(uint16_t v) : value(v) {};
+Constant::Constant(int16_t v) : value(v) {};
 
-uint16_t Constant::next(int64_t tick, int32_t phi) {
+int16_t Constant::next(int64_t tick, int32_t phi) {
   return value;
 }

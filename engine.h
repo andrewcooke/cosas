@@ -1,9 +1,10 @@
-\
+
 #ifndef COSA_ENGINE_H
 #define COSA_ENGINE_H
 
-import std;
-using namespace std;
+#include <tuple>
+#include <vector>
+#include <memory>
 
 #include "node.h"
 #include "oscillator.h"
@@ -23,13 +24,11 @@ public:
   };
 
   Node& build(Engine);
-  // TODO - don't need this
-  const Frequency& get_root() const;
   
 private:
 
   void init_wavetables();
-  template<typename FreqType, typename... Args> tuple<Oscillator&, FreqType&> add_oscillator(size_t wave_idx, Args... args);
+  template<typename FreqType, typename... Args> std::tuple<Oscillator&, FreqType&> add_oscillator(size_t wave_idx, Args... args);
   Node& build_simple_fm();
 
   size_t sine_start;
@@ -41,9 +40,9 @@ private:
   size_t noise_start;
   size_t noise_smooth_1;
 
-  unique_ptr<vector<unique_ptr<Wavetable>>> all_wavetables;
-  unique_ptr<vector<unique_ptr<Oscillator>>> current_oscillators;
-  unique_ptr<vector<unique_ptr<Node>>> current_nodes;
+  std::unique_ptr<std::vector<std::unique_ptr<Wavetable>>> all_wavetables;
+  std::unique_ptr<std::vector<std::unique_ptr<Oscillator>>> current_oscillators;
+  std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
   
 };
 

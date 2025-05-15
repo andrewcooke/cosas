@@ -1,5 +1,6 @@
 
 #include <cstdint>
+#include <cmath>
 
 #include "doctest.h"
 #include "constants.h"
@@ -10,7 +11,7 @@
 Gain::Gain(Node& nd, const Amplitude& amp)
   : Transformer(nd), amplitude(amp) {};
 
-uint16_t Gain::next(int64_t tick, int32_t phi) {
+int16_t Gain::next(int64_t tick, int32_t phi) {
   return amplitude.scale(node.next(tick, phi));
 }
 
@@ -20,16 +21,13 @@ uint16_t Gain::next(int64_t tick, int32_t phi) {
 OneParFunc::OneParFunc(Node& nd, float k)
   : Transformer(nd), constant(k) {};
 
-uint16_t OneParFunc::next(int64_t tick, int32_t phi) {
-  uint16_t sample = node.next(tick, phi);
-  bool invert = !(sample & sample_zero);
-  uint16_t half = sample - sample_zero;
-  if (invert) half = sample_zero - sample;
-  float x = half / (float)half_max;
+int16_t OneParFunc::next(int64_t tick, int32_t phi) {
+  int16_t sample = node.next(tick, phi);
+  bool invert = sample < 0;
+  float x = abs(sample) / (float)sample_max;
   float y = func(constant, x);
-  half = (uint16_t)(half_max * y) & half_max;
-  if (invert) sample = sample_zero - half;
-  else sample = half + sample_zero;
+  sample = clip_16(sample_max * y);
+  if (invert) sample = -sample;
   return sample;
 }
 
@@ -55,14 +53,14 @@ float Folder::func(float k, float x) const {
 
 TEST_CASE("Folder") {
 
-  Constant c12 = Constant(1 << 12);  // random -ve value
-  Folder f0_12 = Folder(c12, 0);
-  CHECK(f0_12.next(0, 0) == 1 << 12);
-  Folder f1_12 = Folder(c12, 1);
+  Constant c1234 = Constant(1234);  // random -ve value
+  Folder f0_12 = Folder(c1234, 0);
+  CHECK(f0_12.next(0, 0) == 1234);
+  Folder f1_12 = Folder(c1234, 1);
   CHECK(f1_12.next(0, 0) == 513);  // not sure if correct, but more -ve
-  Constant c12x = Constant(sample_zero + (sample_zero - (uint16_t)(1 << 12)));
-  Folder f1_12x = Folder(c12x, 1);
-  CHECK(f1_12x.next(0, 0) == sample_max - 513 + 1);  // symmetrical (within a fudge)
+  Constant cm1234 = Constant(-1234);
+  Folder f1_12x = Folder(cm1234, 1);
+  CHECK(f1_12x.next(0, 0) == -513);  // symmetrical (within a fudge)
   
   Constant cmax = Constant(sample_max);  
   Folder f0_max = Folder(cmax, 0);
@@ -70,6 +68,6 @@ TEST_CASE("Folder") {
   Folder f1_max = Folder(cmax, 1);
   CHECK(f1_max.next(0, 0) == sample_max);
   Folder f2_max = Folder(cmax, 2);
-  CHECK(f2_max.next(0, 0) == sample_zero);
+  CHECK(f2_max.next(0, 0) == 0);
 
 }

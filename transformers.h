@@ -2,9 +2,6 @@
 #ifndef COSA_TRANSFORMERS_H
 #define COSA_TRANSFORMERS_H
 
-import std;
-using namespace std;
-
 #include "constants.h"
 #include "params.h"
 #include "node.h"
@@ -29,7 +26,7 @@ class Gain : public Transformer {
 public:
     
   Gain(Node& nd, const Amplitude& amp);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
@@ -43,7 +40,7 @@ class OneParFunc : public Transformer {
 public:
 
   OneParFunc(Node& nd, float k);
-  uint16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int64_t tick, int32_t phi) override;
 
 protected:
   

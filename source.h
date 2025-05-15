@@ -2,9 +2,6 @@
 #ifndef COSA_SOURCE_H
 #define COSA_SOURCE_H
 
-import std;
-using namespace std;
-
 #include "constants.h"
 
 
@@ -28,8 +25,9 @@ class Source {
 
 public:
   
-  // need to be signed because phi can be negative and we need to add the two
-  virtual uint16_t next(int64_t tick, int32_t phi) = 0;
+  // tick needs to be signed because phi can be negative and we need
+  // to add the two
+  virtual int16_t next(int64_t tick, int32_t phi) = 0;
   
 };
 

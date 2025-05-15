@@ -2,9 +2,6 @@
 #ifndef COSA_PARAMS_H
 #define COSA_PARAMS_H
 
-import std;
-using namespace std;
-
 #include "constants.h"
 #include "maths.h"
 
