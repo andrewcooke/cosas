@@ -9,14 +9,18 @@ using namespace std;
 #include "maths.h"
 
 
-// sub-oscillators run at frequencies that are multiples of the main oscillator.
-// this class encapsulates that scaling.
-// it's non-trivial because we want fractional scaling without division.
-// so we support division by powers of 2 (bit shifts) and, as special cases, 3 and 5
-// (chosen so that we can handle major and minor chords).
+// generally these are small enough to be treated as values without
+// worrying about piinters and references.
 
-// alternatively, maybe we do want exact frequencies for dissonance, etc.
-// so support that too
+// sub-oscillators run at frequencies that are multiples of the main
+// oscillator.  this class encapsulates that scaling.  it's
+// non-trivial because we want fractional scaling without division.
+// so we support division by powers of 2 (bit shifts) and, as special
+// cases, 3 and 5 (chosen so that we can handle major and minor
+// chords).
+
+// alternatively, maybe we do want exact frequencies for dissonance,
+// etc.  so support that too
 
 class Frequency {
 
@@ -33,7 +37,6 @@ public:
 
   AbsoluteFreq(uint16_t freq);
   uint16_t get() const override;
-  void set(uint16_t freq);
 
 private:
 
@@ -42,23 +45,20 @@ private:
 };
 
 
-// this could be simplified maybe by keeping an instance of the
-// SimpleRatio rather than a smart pointer.
-
 class RelativeFreq : public Frequency {
   
 public:
 
   // TODO - can we get AbsoluteFreq here?
   // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
-  RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r);
+  RelativeFreq(const Frequency& ref, SimpleRatio r);
   RelativeFreq(const Frequency& ref, float r);
   uint16_t get() const override;
 
 private:
 
   const Frequency& reference;
-  unique_ptr<SimpleRatio> ratio;
+  SimpleRatio ratio;
   
 };
 

@@ -13,26 +13,23 @@ uint16_t AbsoluteFreq::get() const {
   return frequency;
 }
 
-void AbsoluteFreq::set(uint16_t freq) {
-  frequency = freq;
-}
 
-
-RelativeFreq::RelativeFreq(const Frequency& ref, unique_ptr<SimpleRatio> r) :
+RelativeFreq::RelativeFreq(const Frequency& ref, SimpleRatio r) :
   reference(ref), ratio(move(r)) {
 };
 
 RelativeFreq::RelativeFreq(const Frequency& ref, float r) :
-  reference(ref), ratio(move(make_unique<SimpleRatio>(r))) {
+  reference(ref), ratio(SimpleRatio(r)) {
 };
 
 uint16_t RelativeFreq::get() const {
-  return ratio->multiply(reference.get());
+  return ratio.multiply(reference.get());
 }
 
 
-// amplitude scaling factor is converted to 16 bits where the top 8 bits are integer and the bottom 8 fractional
-// after multiplying the result is right shifted 8 bits to drop the fractional part
+// amplitude scaling factor is converted to 16 bits where the top 8
+// bits are integer and the bottom 8 fractional.  after multiplying
+// the result is right shifted 8 bits to drop the fractional part.
 // this is done in 32 bits to avoid clipping intermediate values
 
 const int one_bits = 8;

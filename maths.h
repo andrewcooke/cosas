@@ -34,7 +34,7 @@ class SimpleRatio {
   friend ostream& operator<<(ostream& os, const SimpleRatio& sr); 
   
   uint8_t scale = 1;
-  int16_t bits = 0;
+  int8_t bits = 0;
   bool third = false;
   bool fifth = false;
 

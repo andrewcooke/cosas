@@ -53,7 +53,7 @@ SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
 // currently restricted to common ratios only.  comments show some
 // other options.
 
-SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo) {
+SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
      best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2 perfect fifth
@@ -73,7 +73,7 @@ SimpleRatio from_below(float target, int16_t bits, SimpleRatio lo) {
   return b;
 }
 
-SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi) {
+SimpleRatio from_above(float target, int8_t bits, SimpleRatio hi) {
   // smaller, but no less than half
   SimpleRatio b =
      best(target, hi, SimpleRatio(bits,      3, false, true));   // x 3/5 major sixth
@@ -95,7 +95,7 @@ SimpleRatio from_above(float target, int16_t bits, SimpleRatio hi) {
 
 SimpleRatio::SimpleRatio(float target) {
   if (target != 0) {
-    int16_t b = log2(target);
+    int8_t b = log2(target);
     SimpleRatio sr = best(target,
 			  from_below(target, b, SimpleRatio(b,     1, false, false)),
 			  from_above(target, b, SimpleRatio(b + 1, 1, false, false)));
@@ -145,4 +145,12 @@ ostream& operator<<(ostream& os, const SimpleRatio& sr) {
 
 bool SimpleRatio::operator== (const SimpleRatio& other) const {
   return other.bits == bits && other.scale == scale && other.third == third && other.fifth == fifth;
+}
+
+TEST_CASE("SimpleRatio") {
+
+  CHECK(SimpleRatio(0.1) == SimpleRatio(-1, 1, false, true));
+  CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
+  CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
+
 }
