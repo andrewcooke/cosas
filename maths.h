@@ -6,6 +6,7 @@
 #include <cstdint>
 
 
+int16_t clip_16(int64_t val);
 int16_t clip_16(int32_t val);
 int16_t clip_16(float val);
 

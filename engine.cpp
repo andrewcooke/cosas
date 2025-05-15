@@ -23,7 +23,7 @@ void Manager::init_wavetables() {
   // do we need both sides?
   for (const auto& offset : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
     if (offset == 0.0) saw_offset_0 = all_wavetables->size();
-    all_wavetables->push_back(std::move(std::make_unique<Saw>(offset)));
+    all_wavetables->push_back(std::move(std::make_unique<WSaw>(offset)));
   }
   
   sine_start = all_wavetables->size();

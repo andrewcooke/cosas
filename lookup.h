@@ -53,14 +53,26 @@ public:
 };
 
 
-class Triangle : public QuarterWtable {
+// this uses a wavetable and a lot more memory
+class WTriangle : public QuarterWtable {
 
 public:
 
-  Triangle();
+  WTriangle();
 
 };
 
+
+// this uses division by multiplication and a lot less memory
+class Triangle : public Wavetable {
+
+public:
+
+  Triangle() = default;
+  int16_t next(int64_t tick, int32_t phi) override;
+
+};
+  
 
 class HalfWtable : public Wavetable {
 
@@ -75,17 +87,34 @@ protected:
 };
 
 
-class Saw : public HalfWtable {
+class WSaw : public HalfWtable {
 
 public:
 
   // a regular saw can be done with a quarter wavetable, but with a different unpacking logic.
   // for full generalility, however, we need half (and even then it's complex).
   // offset from -1 to 1.
-  Saw(float offset);
+  WSaw(float offset);
 
 };
 
+
+// this uses division by multiplication and a lot less memory
+class Saw : public Wavetable {
+
+public:
+
+  Saw(float offset);
+  int16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  size_t peak_idx;
+  int64_t k1;
+  int64_t k2;
+  
+};
+  
 
 class FullWtable : public Wavetable {
 

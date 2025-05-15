@@ -17,7 +17,9 @@ const int16_t sample_min = -sample_max;  // throw away one value because i don't
 //const uint16_t half_max = sample_max >> 1;
 
 // leads to omega = f (see source.h)
-const size_t full_wavetable_size = sample_rate;
+const size_t full_table_size = sample_rate;
+const size_t half_table_size = sample_rate / 2;
+const size_t quarter_table_size = sample_rate / 4;
 //const size_t full_lookup_size = 1 << (sample_depth / 2);
 
 #endif

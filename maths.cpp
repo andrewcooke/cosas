@@ -7,6 +7,12 @@
 #include "maths.h"
 
 
+int16_t clip_16(int64_t val) {
+  if (val > sample_max) return sample_max;
+  if (val < sample_min) return sample_min;
+  return (int16_t)val;
+}
+
 int16_t clip_16(int32_t val) {
   if (val > sample_max) return sample_max;
   if (val < sample_min) return sample_min;
