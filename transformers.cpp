@@ -53,14 +53,14 @@ float Folder::func(float k, float x) const {
 
 TEST_CASE("Folder") {
 
-  Constant c1234 = Constant(1234);  // random -ve value
+  Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);
   CHECK(f0_12.next(0, 0) == 1234);
   Folder f1_12 = Folder(c1234, 1);
-  CHECK(f1_12.next(0, 0) == 513);  // not sure if correct, but more -ve
+  CHECK(f1_12.next(0, 0) == 2421);  // not sure if correct, but more +ve
   Constant cm1234 = Constant(-1234);
   Folder f1_12x = Folder(cm1234, 1);
-  CHECK(f1_12x.next(0, 0) == -513);  // symmetrical (within a fudge)
+  CHECK(f1_12x.next(0, 0) == -2421);  // symmetrical
   
   Constant cmax = Constant(sample_max);  
   Folder f0_max = Folder(cmax, 0);

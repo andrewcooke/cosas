@@ -138,9 +138,9 @@ std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr) {
   uint8_t k = gcd(n, d);
   n /= k;
   d /= k;
-  if (d == 1) std::cout << n;
-  else if (n > d) std::cout << (n / d) << " " << (n % d) << "/" << d;
-  else std::cout << n << "/" << d;
+  if (d == 1) os << n;
+  else if (n > d) os << (n / d) << " " << (n % d) << "/" << d;
+  else os << n << "/" << d;
   return os;
 }
 
