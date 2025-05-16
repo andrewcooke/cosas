@@ -1,11 +1,18 @@
 
+#include <memory>
 #include <stdexcept>
 
+#include "modulators.h"
 #include "engine.h"
 
 
+Manager::Manager()
+  : all_wavetables(std::move(std::make_unique<std::vector<std::unique_ptr<Wavetable>>>())),
+    current_nodes(std::move(std::make_unique<std::vector<std::unique_ptr<Node>>>())) {
+  init_wavetables();
+}
+
 Node& Manager::build(Manager::Engine engine) {
-  current_oscillators->clear();
   current_nodes->clear();
   switch(engine) {
   case Manager::Engine::SIMPLE_FM:
@@ -48,26 +55,37 @@ void Manager::init_wavetables() {
 
 }
 
-template<typename FreqType, typename... Args> std::tuple<Oscillator&, FreqType&> Manager::add_oscillator(size_t wave_idx, Args... args) {
+std::tuple<Node&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
-  std::unique_ptr<FreqType> freq = std::make_unique<FreqType>(std::forward<Args>(args)...);
-  FreqType& freq_ref = *freq;
+  std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
+  AbsoluteFreq& root = freq->get_root();
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
-  Oscillator& osc_ref = *osc;
-  current_oscillators->push_back(std::move(osc));
-  // is this ok?  the std::unique_ptr are null.
-  return {osc_ref, freq_ref};
-	  
+  current_nodes->push_back(std::move(osc));
+  return {*current_nodes->at(current_nodes->size() - 1), root};
+}
+
+Node& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio) {
+  Wavetable& wave = *all_wavetables->at(wave_idx);
+  std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio);
+  std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
+  current_nodes->push_back(std::move(osc));
+  return *current_nodes->at(current_nodes->size() - 1);
+}
+
+template<typename ModType, typename... Args> ModType& Manager::add_modulator(Node& nd1, Node& nd2, Args... args) {
+  std::unique_ptr<ModType> mod = std::make_unique<ModType>(nd1, nd2, std::forward<Args>(args)...);
+  ModType& mod_ref = *mod;
+  current_nodes->push_back(std::move(mod));
+  return mod_ref;
 }
 
 Node& Manager::build_simple_fm() {
-  auto car_root = add_oscillator<AbsoluteFreq>(sine_gamma_1, 440);
-  Oscillator& car = get<Oscillator&>(car_root);
-  AbsoluteFreq root = get<AbsoluteFreq&>(car_root);
-  Oscillator& mod = get<Oscillator&>(add_oscillator<RelativeFreq>(sine_gamma_1, root, 0.5));
-  //  Amplitude
-  //  std::unique_ptr<MixedFM&> fm = std::make_unique<MixedFm>(car, 
-  return *current_nodes->at(0);
+  auto [car, root] = add_abs_osc(sine_gamma_1, 440);
+  Node& mod = add_rel_osc(sine_gamma_1, root, 0.5);
+  Amplitude amp = Amplitude();
+  Balance bal = Balance();
+  MixedFM& fm = add_modulator<MixedFM>(car, mod, amp, bal);
+  return fm;
 }
 
 

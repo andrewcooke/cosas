@@ -8,46 +8,45 @@
 #include "node.h"
 
 
-// these have two inputs (transformers have one)
-// TODO : extract into superclass
-
 // various combinations; typically with gain merged or not
 
+class Modulator : public Node {};
 
-class Merge : public Node {
+
+class Merge : public Modulator {
     
 public:
     
-  Merge(Node& nd1, Node& nd2, const Balance& bal);
+  Merge(Node& nd1, Node& nd2, Balance bal);
   int16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
   Node& node1;
   Node& node2;
-  const Balance& balance;
+  Balance balance;
   
 };
 
 
-class Mixer : public Node {
+class Mixer : public Modulator {
     
 public:
     
-  Mixer(Node& nd1, Node& nd2, const Amplitude& amp, const Balance& bal);
+  Mixer(Node& nd1, Node& nd2, Amplitude amp, Balance bal);
   int16_t next(int64_t tick, int32_t phi) override;
 
 private:
 
   Node& node1;
   Node& node2;
-  const Amplitude& amplitude;
-  const Balance& balance;
+  Amplitude amplitude;
+  Balance balance;
   
 };
 
 
-class FM : public Node {
+class FM : public Modulator {
 
 public:
 
@@ -62,11 +61,11 @@ private:
 };
   
 
-class MixedFM : public Node {
+class MixedFM : public Modulator {
 
 public:
 
-  MixedFM(Node& car, Node& mod, const Amplitude& amp, const Balance& bal);
+  MixedFM(Node& car, Node& mod, Amplitude amp, Balance bal);
   int16_t next(int64_t tick, int32_t phi) override;
 
 private:
@@ -77,7 +76,7 @@ private:
 };
   
 
-class AM : public Node {
+class AM : public Modulator {
 
 public:
 
@@ -93,11 +92,11 @@ private:
 };
   
 
-class MixedAM : public Node {
+class MixedAM : public Modulator {
 
 public:
 
-  MixedAM(Node& nd1, Node& nd2, const Amplitude& amp, const Balance& bal);
+  MixedAM(Node& nd1, Node& nd2, Amplitude amp, Balance bal);
   int16_t next(int64_t tick, int32_t phi) override;
 
 private:

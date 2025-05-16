@@ -19,10 +19,14 @@
 // alternatively, maybe we do want exact frequencies for dissonance,
 // etc.  so support that too
 
+class AbsoluteFreq;  // forwards decl
+
+
 class Frequency {
 
 public:
-  
+
+  virtual AbsoluteFreq& get_root() = 0;
   virtual uint16_t get() const = 0;
 
 };
@@ -33,6 +37,7 @@ class AbsoluteFreq : public Frequency {
 public:
 
   AbsoluteFreq(uint16_t freq);
+  AbsoluteFreq& get_root() override;
   uint16_t get() const override;
 
 private:
@@ -46,15 +51,14 @@ class RelativeFreq : public Frequency {
   
 public:
 
-  // TODO - can we get AbsoluteFreq here?
-  // care must be taken for arg 1 to eventually bottom out with an AbsoluteFreq
-  RelativeFreq(const Frequency& ref, SimpleRatio r);
-  RelativeFreq(const Frequency& ref, float r);
+  RelativeFreq(Frequency& ref, SimpleRatio r);
+  RelativeFreq(Frequency& ref, float r);
+  AbsoluteFreq& get_root() override;
   uint16_t get() const override;
 
 private:
 
-  const Frequency& reference;
+  Frequency& reference;
   SimpleRatio ratio;
   
 };
@@ -66,6 +70,7 @@ public:
 
   const float factor;
   
+  Amplitude();  // full on
   Amplitude(float factor);
   uint16_t scale(uint16_t amp) const;
   
@@ -84,7 +89,8 @@ class Balance {
 public:
 
   const float wet;
-  
+
+  Balance();  // full wet
   Balance(float wet);
   uint16_t combine(uint16_t wet, uint16_t dry) const;
 

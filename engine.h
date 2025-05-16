@@ -23,12 +23,15 @@ public:
     SIMPLE_FM
   };
 
+  Manager();
   Node& build(Engine);
   
 private:
 
   void init_wavetables();
-  template<typename FreqType, typename... Args> std::tuple<Oscillator&, FreqType&> add_oscillator(size_t wave_idx, Args... args);
+  std::tuple<Node&, AbsoluteFreq&> add_abs_osc(size_t wave_idx, uint16_t freq);
+  Node& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio);
+  template<typename ModType, typename... Args> ModType& add_modulator(Node& nd1, Node& nd2, Args... args);
   Node& build_simple_fm();
 
   size_t sine_start;
@@ -41,7 +44,6 @@ private:
   size_t noise_smooth_1;
 
   std::unique_ptr<std::vector<std::unique_ptr<Wavetable>>> all_wavetables;
-  std::unique_ptr<std::vector<std::unique_ptr<Oscillator>>> current_oscillators;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
   
 };

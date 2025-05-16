@@ -26,7 +26,7 @@ class Source {
 public:
   
   // tick needs to be signed because phi can be negative and we need
-  // to add the two
+  // to add the two.  also, next is not const because of Latch.
   virtual int16_t next(int64_t tick, int32_t phi) = 0;
   int16_t next(int64_t tick);
   
