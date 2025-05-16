@@ -27,7 +27,7 @@ class Frequency {
 public:
 
   virtual AbsoluteFreq& get_root() = 0;
-  virtual uint16_t get() const = 0;
+  virtual uint32_t get_frequency() const = 0;
 
 };
 
@@ -36,13 +36,14 @@ class AbsoluteFreq : public Frequency {
   
 public:
 
-  AbsoluteFreq(uint16_t freq);
+  AbsoluteFreq(float freq);
   AbsoluteFreq& get_root() override;
-  uint16_t get() const override;
+  uint32_t get_frequency() const override;
 
 private:
 
-  uint16_t frequency;
+  // we have subtick_bits of fraction so 16 bits is insufficient
+  uint32_t frequency;
 
 };
 
@@ -54,7 +55,7 @@ public:
   RelativeFreq(Frequency& ref, SimpleRatio r);
   RelativeFreq(Frequency& ref, float r);
   AbsoluteFreq& get_root() override;
-  uint16_t get() const override;
+  uint32_t get_frequency() const override;
 
 private:
 

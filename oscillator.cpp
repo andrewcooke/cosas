@@ -10,7 +10,7 @@ Oscillator::Oscillator(Wavetable& wave, std::unique_ptr<Frequency> freq, Amplitu
   : wavetable(wave), frequency(std::move(freq)), amplitude(amp) {};
 
 int16_t Oscillator::next(int64_t tick, int32_t phi) {
-  return amplitude.scale(wavetable.next(tick * frequency->get(), phi));
+  return amplitude.scale(wavetable.next(tick * frequency->get_frequency(), phi));
 }
 
 const Frequency& Oscillator::get_frequency() {

@@ -2,15 +2,16 @@
 #include "constants.h"
 #include "maths.h"
 #include "params.h"
+#include "source.h"
 
 
-AbsoluteFreq::AbsoluteFreq(uint16_t freq) : frequency(freq) {};
+AbsoluteFreq::AbsoluteFreq(float freq) : frequency(hz2tick(freq)) {};
 
 AbsoluteFreq& AbsoluteFreq::get_root() {
   return *this;
 }
 
-uint16_t AbsoluteFreq::get() const {
+uint32_t AbsoluteFreq::get_frequency() const {
   return frequency;
 }
 
@@ -27,8 +28,8 @@ AbsoluteFreq& RelativeFreq::get_root() {
   return reference.get_root();
 }
 
-uint16_t RelativeFreq::get() const {
-  return ratio.multiply(reference.get());
+uint32_t RelativeFreq::get_frequency() const {
+  return ratio.multiply(reference.get_frequency());
 }
 
 

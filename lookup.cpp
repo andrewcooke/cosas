@@ -13,7 +13,7 @@
 Square::Square(float duty) : duty_idx(duty * full_table_size) {};
 
 int16_t Square::next(int64_t tick, int32_t phi) {
-  size_t full_idx = (tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick + phi) % full_table_size;
   if (full_idx <= duty_idx) return sample_max;
   else return -sample_max;
 };
@@ -21,7 +21,7 @@ int16_t Square::next(int64_t tick, int32_t phi) {
 
 // handle symmetry of triangular or sine wave
 int16_t QuarterWtable::next(int64_t tick, int32_t phi) {
-  size_t full_idx = (tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick + phi) % full_table_size;
   size_t quarter_idx = full_idx % quarter_table_size;
   if (full_idx < quarter_table_size) return quarter_table.at(quarter_idx);
   else if (full_idx < 2 * quarter_table_size) return quarter_table.at(quarter_table_size - 1 - quarter_idx);
@@ -50,7 +50,7 @@ WTriangle::WTriangle() {
 const int64_t k = ((int64_t)sample_max << 32) / (sample_rate / 4);
 
 int16_t Triangle::next(int64_t tick, int32_t phi) {
-  size_t full_idx = (tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick + phi) % full_table_size;
   size_t quarter_idx = full_idx % quarter_table_size;
   if (full_idx < quarter_table_size) return clip_16((int64_t)(quarter_idx * k) >> 32);
   else if (full_idx < 2 * quarter_table_size) return clip_16((int64_t)((quarter_table_size - 1 - quarter_idx) * k) >> 32);
@@ -81,7 +81,7 @@ WSaw::WSaw(float offset) {
 
 
 int16_t FullWtable::next(int64_t tick, int32_t phi) {
-  size_t full_idx = (tick + phi) % full_table.size();
+  size_t full_idx = tick2idx(tick + phi) % full_table.size();
   return full_table.at(full_idx);
 }
 
@@ -92,7 +92,7 @@ Saw::Saw(float offset) :
   k2(((int64_t)sample_max << 32) / (int64_t)((1 - offset) * sample_rate / 4)) {};
 
 int16_t Saw::next(int64_t tick, int32_t phi) {
-  size_t full_idx = (tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick + phi) % full_table_size;
   if (full_idx < peak_idx) return clip_16((int64_t)(full_idx * k1) >> 32);
   else if (full_idx < half_table_size) return clip_16((int64_t)((half_table_size - full_idx) * k2) >> 32);
   else if (full_idx < full_table_size - peak_idx) return clip_16((int64_t)(-(full_idx - half_table_size) * k2) >> 32);

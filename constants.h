@@ -22,4 +22,6 @@ const size_t half_table_size = sample_rate / 2;
 const size_t quarter_table_size = sample_rate / 4;
 //const size_t full_lookup_size = 1 << (sample_depth / 2);
 
+const uint8_t subtick_bits = 3;
+
 #endif
