@@ -72,7 +72,7 @@ public:
   
   Amplitude();  // full on
   Amplitude(float factor);
-  uint16_t scale(uint16_t amp) const;
+  int16_t scale(int16_t amp) const;
   
 private:
 
@@ -92,7 +92,7 @@ public:
 
   Balance();  // full wet
   Balance(float wet);
-  uint16_t combine(uint16_t wet, uint16_t dry) const;
+  int16_t combine(int16_t wet, int16_t dry) const;
 
 private:
 

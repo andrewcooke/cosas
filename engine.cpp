@@ -22,7 +22,7 @@ Node& Manager::build(Manager::Engine engine) {
   }
 }
 
-// these are calculated on strartup because large/slow
+// these are calculated on startup because large/slow
 
 void Manager::init_wavetables() {
   
@@ -84,8 +84,6 @@ Node& Manager::build_simple_fm() {
   Node& mod = add_rel_osc(sine_gamma_1, root, 0.5);
   Amplitude amp = Amplitude();
   Balance bal = Balance();
-  MixedFM& fm = add_modulator<MixedFM>(car, mod, amp, bal);
+  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
   return fm;
 }
-
-

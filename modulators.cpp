@@ -38,6 +38,14 @@ int16_t MixedFM::next(int64_t tick, int32_t phi) {
 }
 
 
+ModularFM::ModularFM(Node& car, Node& mod, Amplitude amp, Balance bal)
+  : gain(Gain(mod, amp)), fm(FM(car, gain)), merge(Merge(car, fm, bal)) {};
+
+int16_t ModularFM::next(int64_t tick, int32_t phi) {
+  return merge.next(tick, phi);
+}
+
+
 AM::AM(Node& nd1, Node& nd2)
   : node1(nd1), node2(nd2) {};
 

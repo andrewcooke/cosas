@@ -40,11 +40,12 @@ uint16_t RelativeFreq::get() const {
 const int one_bits = 8;
 const uint32_t one = 1 << one_bits;
 
+
 Amplitude::Amplitude() : Amplitude(1) {};
 
 Amplitude::Amplitude(float factor) : factor(factor), norm(factor * one) {};
 
-uint16_t Amplitude::scale(uint16_t amp) const {
+int16_t Amplitude::scale(int16_t amp) const {
   return clip_16((amp * norm) >> one_bits);
 };
 
@@ -53,6 +54,6 @@ Balance::Balance() : Balance(1) {};
 
 Balance::Balance(float wet) : wet(wet), wet_weight(wet * one), dry_weight((1 - wet) * one) {};
 
-uint16_t Balance::combine(uint16_t dry, uint16_t wet) const {
+int16_t Balance::combine(int16_t dry, int16_t wet) const {
   return clip_16((wet_weight * wet + dry_weight * dry) >> one_bits);
 }

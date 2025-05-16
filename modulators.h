@@ -74,7 +74,26 @@ private:
   Mixer mixer;
   
 };
+
+
+// compared to MixedFM, this has the gain on the modulator
+
+class ModularFM : public Modulator {
+
+public:
+
+  ModularFM(Node& car, Node& mod, Amplitude amp, Balance bal);
+  int16_t next(int64_t tick, int32_t phi) override;
+
+private:
+
+  FM fm;
+  Gain gain;
+  Merge merge;
   
+};
+
+
 
 class AM : public Modulator {
 
