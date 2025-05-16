@@ -2,15 +2,15 @@
 #include "source.h"
 
 
-int16_t Source::next(int64_t tick) {
+int16_t Source::next(int32_t tick) {
   return next(tick, 0);
 }
 
 
-int64_t tick2idx(int64_t tick) {
+size_t tick2idx(int32_t tick) {
   return tick >> subtick_bits;
 }
 
-int64_t hz2tick(float hz) {
-  return (int64_t)(hz * (1 << subtick_bits));
+int32_t hz2tick(float hz) {
+  return (int32_t)(hz * (1 << subtick_bits));
 }

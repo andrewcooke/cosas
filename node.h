@@ -22,7 +22,7 @@ public:
 
   Latch();
   void set_source(Source* s);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
   friend class On;
 
@@ -54,7 +54,7 @@ class Constant : public Node {
 public:
 
   Constant(int16_t v);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 

@@ -18,7 +18,7 @@ class Merge : public Modulator {
 public:
     
   Merge(Node& nd1, Node& nd2, Balance bal);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -34,7 +34,7 @@ class Mixer : public Modulator {
 public:
     
   Mixer(Node& nd1, Node& nd2, Amplitude amp, Balance bal);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -51,7 +51,7 @@ class FM : public Modulator {
 public:
 
   FM(Node& car, Node& mod);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -66,7 +66,7 @@ class MixedFM : public Modulator {
 public:
 
   MixedFM(Node& car, Node& mod, Amplitude amp, Balance bal);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -83,7 +83,7 @@ class ModularFM : public Modulator {
 public:
 
   ModularFM(Node& car, Node& mod, Amplitude amp, Balance bal);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -101,7 +101,7 @@ public:
 
   // note that this is not symmetric - nd1 is mized against the ring mod output
   AM(Node& nd1, Node& nd2);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -116,7 +116,7 @@ class MixedAM : public Modulator {
 public:
 
   MixedAM(Node& nd1, Node& nd2, Amplitude amp, Balance bal);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 

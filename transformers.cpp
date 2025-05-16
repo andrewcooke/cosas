@@ -11,7 +11,7 @@
 Gain::Gain(Node& nd, const Amplitude& amp)
   : Transformer(nd), amplitude(amp) {};
 
-int16_t Gain::next(int64_t tick, int32_t phi) {
+int16_t Gain::next(int32_t tick, int32_t phi) {
   return amplitude.scale(node.next(tick, phi));
 }
 
@@ -21,7 +21,7 @@ int16_t Gain::next(int64_t tick, int32_t phi) {
 OneParFunc::OneParFunc(Node& nd, float k)
   : Transformer(nd), constant(k) {};
 
-int16_t OneParFunc::next(int64_t tick, int32_t phi) {
+int16_t OneParFunc::next(int32_t tick, int32_t phi) {
   int16_t sample = node.next(tick, phi);
   bool invert = sample < 0;
   float x = abs(sample) / (float)sample_max;

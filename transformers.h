@@ -26,7 +26,7 @@ class Gain : public Transformer {
 public:
     
   Gain(Node& nd, const Amplitude& amp);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
@@ -40,7 +40,7 @@ class OneParFunc : public Transformer {
 public:
 
   OneParFunc(Node& nd, float k);
-  int16_t next(int64_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) override;
 
 protected:
   
