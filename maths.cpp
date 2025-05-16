@@ -3,32 +3,7 @@
 #include <iostream>
 
 #include "doctest.h"
-#include "constants.h"
 #include "maths.h"
-
-
-int16_t clip_16(int64_t val) {
-  if (val > sample_max) return sample_max;
-  if (val < sample_min) return sample_min;
-  return (int16_t)val;
-}
-
-int16_t clip_16(int32_t val) {
-  if (val > sample_max) return sample_max;
-  if (val < sample_min) return sample_min;
-  return (int16_t)val;
-}
-
-int16_t clip_16(float val) {
-  return clip_16((int32_t)val);
-}
-
-
-uint16_t gcd(uint16_t a, uint16_t b) {
-  if (b > a) {uint16_t tmp = a; a = b; b = tmp;}  // a > b
-  if (b == 0) return a;
-  return gcd(b, a % b);
-};
 
 
 SimpleRatio::SimpleRatio(int16_t b, uint8_t s, bool t, bool f)

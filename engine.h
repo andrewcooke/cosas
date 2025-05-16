@@ -30,7 +30,7 @@ private:
 
   void init_wavetables();
   std::tuple<Node&, AbsoluteFreq&> add_abs_osc(size_t wave_idx, uint16_t freq);
-  Node& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio);
+  Node& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune);
   template<typename ModType, typename... Args> ModType& add_modulator(Node& nd1, Node& nd2, Args... args);
   Node& build_simple_fm();
 

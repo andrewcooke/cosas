@@ -64,9 +64,9 @@ std::tuple<Node&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t 
   return {*current_nodes->at(current_nodes->size() - 1), root};
 }
 
-Node& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio) {
+Node& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
-  std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio);
+  std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio, detune);
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
   current_nodes->push_back(std::move(osc));
   return *current_nodes->at(current_nodes->size() - 1);
@@ -81,7 +81,7 @@ template<typename ModType, typename... Args> ModType& Manager::add_modulator(Nod
 
 Node& Manager::build_simple_fm() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
-  Node& mod = add_rel_osc(sine_gamma_1, root, 0.5);
+  Node& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
   Amplitude amp = Amplitude();
   Balance bal = Balance();
   ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);

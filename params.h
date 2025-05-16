@@ -52,6 +52,8 @@ class RelativeFreq : public Frequency {
   
 public:
 
+  RelativeFreq(Frequency& ref, SimpleRatio r, float d);
+  RelativeFreq(Frequency& ref, float r, float d);
   RelativeFreq(Frequency& ref, SimpleRatio r);
   RelativeFreq(Frequency& ref, float r);
   AbsoluteFreq& get_root() override;
@@ -61,6 +63,7 @@ private:
 
   Frequency& reference;
   SimpleRatio ratio;
+  uint16_t detune;
   
 };
 
@@ -69,15 +72,13 @@ class Amplitude {
 
 public:
 
-  const float factor;
-  
   Amplitude();  // full on
-  Amplitude(float factor);
+  Amplitude(float f);
   int16_t scale(int16_t amp) const;
   
 private:
 
-  uint16_t norm;
+  uint32_t factor;
   
 };
 
@@ -89,15 +90,13 @@ class Balance {
 
 public:
 
-  const float wet;
-
   Balance();  // full wet
   Balance(float wet);
   int16_t combine(int16_t wet, int16_t dry) const;
 
 private:
 
-  uint16_t wet_weight, dry_weight;
+  int32_t wet_weight, dry_weight;
   
 };
 
