@@ -5,6 +5,8 @@
 #include <ostream>
 #include <cstdint>
 
+#include "doctest.h"
+
 #include "constants.h"
 
 inline int16_t clip_16(int64_t val) {
@@ -54,5 +56,32 @@ class SimpleRatio {
   bool fifth = false;
 
 };
+
+
+// some scaling factors are converted to 16 bits where the top 8 bits
+// are integer and the bottom 8 fractional.  after multiplying the
+// result is right shifted 8 bits to drop the fractional part.  this
+// is done in 32 bits to avoid clipping intermediate values
+
+// TODO - is this really faster than mult by float?
+
+const int one_bits = 8;
+const uint32_t one = 1 << one_bits;
+
+inline int32_t scale2mult_shift(float f) {
+  return f * one;
+}
+
+inline int16_t mult_shift(int32_t k, int16_t x) {
+  return clip_16((k * x) >> one_bits);
+}
+
+inline int32_t mult_shift(int32_t k, int32_t x) {
+  return (k * (int64_t)x) >> one_bits;
+}
+
+TEST_CASE("MultShift") {
+  CHECK(mult_shift(scale2mult_shift(0.33333), 300) == 99);  // almost
+}
 
 #endif
