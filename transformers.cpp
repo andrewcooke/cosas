@@ -74,18 +74,15 @@ TEST_CASE("Folder") {
 }
 
 
-// this might be too inefficient in which case we could use an array
-// with circular pointers
-
 MeanFilter::MeanFilter(Node& nd, int len)
-  : Transformer(nd), sums(std::move(std::make_unique<std::list<int32_t>>(len, 0))) {};
+  : Transformer(nd), sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), i(0) {};
 
 int16_t MeanFilter::next(int32_t tick, int32_t phi) {
   int32_t cur = node.next(tick, phi);
   for (int32_t& s : *sums) s += cur;
-  int32_t next = sums->front();
-  sums->pop_front();
-  sums->push_back(0);
+  int32_t next = (*sums)[i];
+  (*sums)[i] = 0;
+  i = (i + 1) % sums->size();
   return next / sums->size();
 }
 

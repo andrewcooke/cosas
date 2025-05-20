@@ -2,7 +2,7 @@
 #ifndef COSA_TRANSFORMERS_H
 #define COSA_TRANSFORMERS_H
 
-#include <list>
+#include <vector>
 
 #include "constants.h"
 #include "params.h"
@@ -90,7 +90,9 @@ public:
 
 private:
 
-  std::unique_ptr<std::list<int32_t>> sums;
+  std::unique_ptr<std::vector<int32_t>> sums;
+  size_t i;
+  
 };
 
 
