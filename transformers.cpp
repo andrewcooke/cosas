@@ -1,6 +1,7 @@
 
 #include <cstdint>
 #include <cmath>
+#include <memory>
 
 #include "doctest.h"
 #include "constants.h"
@@ -69,5 +70,35 @@ TEST_CASE("Folder") {
   CHECK(f1_max.next(0, 0) == sample_max);
   Folder f2_max = Folder(cmax, 2);
   CHECK(f2_max.next(0, 0) == 0);
+
+}
+
+
+// this might be too inefficient in which case we could use an array
+// with circular pointers
+
+MeanFilter::MeanFilter(Node& nd, int len)
+  : Transformer(nd), sums(std::move(std::make_unique<std::list<int32_t>>(len, 0))) {};
+
+int16_t MeanFilter::next(int32_t tick, int32_t phi) {
+  int32_t cur = node.next(tick, phi);
+  for (int32_t& s : *sums) s += cur;
+  int32_t next = sums->front();
+  sums->pop_front();
+  sums->push_back(0);
+  return next / sums->size();
+}
+
+TEST_CASE("MeanFilter") {
+
+  Sequence s = Sequence({0, 0, 100});
+  MeanFilter mf = MeanFilter(s, 3);
+  CHECK(mf.next(0, 0) == 0);
+  CHECK(mf.next(0, 0) == 0);
+  CHECK(mf.next(0, 0) == 33);
+  CHECK(mf.next(0, 0) == 33);
+  CHECK(mf.next(0, 0) == 33);
+  CHECK(mf.next(0, 0) == 0);
+  CHECK(mf.next(0, 0) == 0);
 
 }

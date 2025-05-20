@@ -78,7 +78,7 @@ public:
   
 private:
 
-  uint32_t factor;
+  float factor;
   
 };
 
@@ -91,12 +91,12 @@ class Balance {
 public:
 
   Balance();  // full wet
-  Balance(float wet);
+  Balance(float w);
   int16_t combine(int16_t wet, int16_t dry) const;
 
 private:
 
-  int32_t wet_weight, dry_weight;
+  float wet_weight;
   
 };
 

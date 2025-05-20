@@ -9,6 +9,7 @@
 
 #include "constants.h"
 
+
 inline int16_t clip_16(int64_t val) {
   if (val > sample_max) return sample_max;
   if (val < sample_min) return sample_min;

@@ -2,6 +2,10 @@
 #ifndef COSA_NODE_H
 #define COSA_NODE_H
 
+#include <initializer_list>
+#include <list>
+#include <memory>
+
 #include "source.h"
 
 
@@ -59,6 +63,20 @@ public:
 private:
 
   int16_t value;
+  
+};
+
+
+class Sequence : public Node {
+
+public:
+
+  Sequence(std::initializer_list<int16_t> vs);
+  int16_t next(int32_t tick, int32_t phi) override;
+
+private:
+
+  std::unique_ptr<std::list<int16_t>> values;
   
 };
 

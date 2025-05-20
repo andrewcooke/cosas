@@ -39,18 +39,17 @@ uint32_t RelativeFreq::get_frequency() const {
 
 Amplitude::Amplitude() : Amplitude(1) {};
 
-Amplitude::Amplitude(float f) : factor(scale2mult_shift(f)) {};
+Amplitude::Amplitude(float f) : factor(f) {};
 
 int16_t Amplitude::scale(int16_t amp) const {
-  return mult_shift(factor, amp);
+  return clip_16(factor * amp);
 };
 
 
 Balance::Balance() : Balance(1) {};
 
-Balance::Balance(float wet)
-  : wet_weight(scale2mult_shift(wet)), dry_weight(scale2mult_shift(1 - wet)) {};
+Balance::Balance(float w) : wet_weight(w) {};
 
 int16_t Balance::combine(int16_t dry, int16_t wet) const {
-  return clip_16((wet_weight * wet + dry_weight * dry) >> one_bits);
+  return clip_16(wet_weight * wet + (1 - wet_weight) * dry);
 }
