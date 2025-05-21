@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <cstdint>
 #include <cmath>
 #include <memory>
@@ -9,7 +10,7 @@
 #include "transformers.h"
 
 
-Gain::Gain(Node& nd, const Amplitude& amp)
+Gain::Gain(Node& nd, const Amplitude amp)
   : Transformer(nd), amplitude(amp) {};
 
 int16_t Gain::next(int32_t tick, int32_t phi) {

@@ -27,12 +27,12 @@ class Gain : public Transformer {
     
 public:
     
-  Gain(Node& nd, const Amplitude& amp);
+  Gain(Node& nd, const Amplitude amp);
   int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
-  const Amplitude& amplitude;
+  const Amplitude amplitude;
   
 };
 

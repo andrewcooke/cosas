@@ -20,7 +20,7 @@ class Node : public Source {};
 // this is intended to avoid infinite loops in recursive networks.
 // the setter also allows loops to be constructed.
 
-class Latch : Node {
+class Latch : public Node {
 
 public:
 

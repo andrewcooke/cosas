@@ -17,6 +17,8 @@ Node& Manager::build(Manager::Engine engine) {
   switch(engine) {
   case Manager::Engine::SIMPLE_FM:
     return build_simple_fm();
+  case Manager::Engine::SIMPLE_FM_FB:
+    return build_simple_fm_fb();
   default:
     throw std::domain_error("missing case in Manager::build?");
   }
@@ -82,8 +84,22 @@ template<typename ModType, typename... Args> ModType& Manager::add_modulator(Nod
 Node& Manager::build_simple_fm() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
   Node& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
-  Amplitude amp = Amplitude();
+  Amplitude amp = Amplitude(100);
   Balance bal = Balance();
   ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
   return fm;
 }
+
+Node& Manager::build_simple_fm_fb() {
+  auto [car, root] = add_abs_osc(sine_gamma_1, 440);
+  Amplitude amp = Amplitude();
+  Balance bal1 = Balance();
+  Latch mod = Latch();
+  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal1);
+  Node& osc2 = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
+  Balance bal2 = Balance();
+  Merge& mrg = add_modulator<Merge>(fm, osc2, bal2);
+  mod.set_source(&mrg);
+  return fm;
+}
+

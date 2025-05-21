@@ -20,7 +20,8 @@ class Manager {
 public:
 
   enum Engine {
-    SIMPLE_FM
+    SIMPLE_FM,
+    SIMPLE_FM_FB
   };
 
   Manager();
@@ -33,7 +34,8 @@ private:
   Node& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune);
   template<typename ModType, typename... Args> ModType& add_modulator(Node& nd1, Node& nd2, Args... args);
   Node& build_simple_fm();
-
+  Node& build_simple_fm_fb();
+  
   size_t sine_start;
   size_t sine_gamma_1;
   size_t square_start;

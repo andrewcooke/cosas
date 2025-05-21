@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <cstdint>
 
 #include "maths.h"
@@ -61,5 +62,4 @@ MixedAM::MixedAM(Node& nd1, Node& nd2, Amplitude amp, Balance bal)
 int16_t MixedAM::next(int32_t tick, int32_t phi) {
   return mixer.next(tick, phi);
 }
-
 

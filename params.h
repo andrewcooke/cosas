@@ -72,8 +72,8 @@ class Amplitude {
 
 public:
 
-  Amplitude();  // full on
   Amplitude(float f);
+  Amplitude();  // full on
   int16_t scale(int16_t amp) const;
   
 private:

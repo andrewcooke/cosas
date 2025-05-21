@@ -20,6 +20,6 @@ int main() {
   //  Noise s = Noise(16);
   //  dump(s, 0.1 * sample_rate);
   Manager mgr = Manager();
-  Node& nd = mgr.build(Manager::Engine::SIMPLE_FM);
+  Node& nd = mgr.build(Manager::Engine::SIMPLE_FM_FB);
   dump(nd, 0.01 * sample_rate);
 };

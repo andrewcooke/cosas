@@ -1,4 +1,6 @@
 
+#include <iostream>
+
 #include "constants.h"
 #include "maths.h"
 #include "params.h"
@@ -37,9 +39,9 @@ uint32_t RelativeFreq::get_frequency() const {
 }
 
 
-Amplitude::Amplitude() : Amplitude(1) {};
-
 Amplitude::Amplitude(float f) : factor(f) {};
+
+Amplitude::Amplitude() : Amplitude(1) {};
 
 int16_t Amplitude::scale(int16_t amp) const {
   return clip_16(factor * amp);
