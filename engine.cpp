@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <memory>
 #include <stdexcept>
 
@@ -76,9 +77,14 @@ Node& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, flo
 
 template<typename ModType, typename... Args> ModType& Manager::add_modulator(Node& nd1, Node& nd2, Args... args) {
   std::unique_ptr<ModType> mod = std::make_unique<ModType>(nd1, nd2, std::forward<Args>(args)...);
-  ModType& mod_ref = *mod;
   current_nodes->push_back(std::move(mod));
-  return mod_ref;
+  return dynamic_cast<ModType&>(*current_nodes->back());
+}
+
+Latch& Manager::add_latch() {
+  std::unique_ptr<Latch> lat = std::make_unique<Latch>();
+  current_nodes->push_back(std::move(lat));
+  return dynamic_cast<Latch&>(*current_nodes->back());
 }
 
 Node& Manager::build_simple_fm() {
@@ -94,12 +100,13 @@ Node& Manager::build_simple_fm_fb() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
   Amplitude amp = Amplitude();
   Balance bal1 = Balance();
-  Latch mod = Latch();
+  Latch& mod = add_latch();
+  // std::cout << "latch " << &mod << std::endl;
   ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal1);
   Node& osc2 = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
   Balance bal2 = Balance();
   Merge& mrg = add_modulator<Merge>(fm, osc2, bal2);
-  mod.set_source(&mrg);
+  mod.set_source(mrg);
   return fm;
 }
 

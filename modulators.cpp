@@ -23,7 +23,9 @@ int16_t Mixer::next(int32_t tick, int32_t phi) {
 
 
 FM::FM(Node& car, Node& mod)
-  : carrier(car), modulator(mod) {};
+  : carrier(car), modulator(mod) {
+  // std::cout << "carrier " << &car << " modulator " << &mod <<std::endl;
+};
 
 int16_t FM::next(int32_t tick, int32_t phi) {
   int16_t mod = modulator.next(tick, phi);
@@ -40,7 +42,9 @@ int16_t MixedFM::next(int32_t tick, int32_t phi) {
 
 
 ModularFM::ModularFM(Node& car, Node& mod, Amplitude amp, Balance bal)
-  : gain(Gain(mod, amp)), fm(FM(car, gain)), merge(Merge(car, fm, bal)) {};
+  : gain(Gain(mod, amp)), fm(FM(car, gain)), merge(Merge(car, fm, bal)) {
+  // std::cout << "gain " << &gain << " mod " << &mod << " amp " << &amp << std::endl;
+};
 
 int16_t ModularFM::next(int32_t tick, int32_t phi) {
   return merge.next(tick, phi);

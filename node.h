@@ -17,40 +17,6 @@
 class Node : public Source {};
 
 
-// this is intended to avoid infinite loops in recursive networks.
-// the setter also allows loops to be constructed.
-
-class Latch : public Node {
-
-public:
-
-  Latch();
-  void set_source(Source* s);
-  int16_t next(int32_t tick, int32_t phi) override;
-
-  friend class On;
-
-private:
-
-  Source* source;
-  bool on = false;
-  int16_t previous = 0;
-  
-};
-
-
-class On {
-  
-public:
-  On(Latch& l);
-  ~On();
-  
-private:
-  Latch& latch;
-
-};
-
-
 // useful for testing
 
 class Constant : public Node {
@@ -66,6 +32,8 @@ private:
   
 };
 
+extern Constant zero;
+
 
 class Sequence : public Node {
 
@@ -78,6 +46,42 @@ private:
 
   std::unique_ptr<std::list<int16_t>> values;
   
+};
+
+
+// this is intended to avoid infinite loops in recursive networks.
+// the setter also allows loops to be constructed.
+
+class Latch : public Node {
+
+public:
+
+  Latch();
+  void set_source(Source& s);
+  int16_t next(int32_t tick, int32_t phi) override;
+
+  friend class On;
+
+private:
+
+  Source& source;
+  bool on = false;
+  int16_t previous = 0;
+  
+};
+
+
+class On {
+  
+public:
+
+  On(Latch& l);
+  ~On();
+  
+private:
+
+  Latch& latch;
+
 };
 
 
