@@ -14,7 +14,7 @@ Gain::Gain(Node& nd, const Amplitude amp)
   : Transformer(nd), amplitude(amp) {
 };
 
-int16_t Gain::next(int32_t tick, int32_t phi) {
+int16_t Gain::next(int32_t tick, int32_t phi) const {
   return amplitude.scale(node.next(tick, phi));
 }
 
@@ -24,7 +24,7 @@ int16_t Gain::next(int32_t tick, int32_t phi) {
 OneParFunc::OneParFunc(Node& nd, float k)
   : Transformer(nd), constant(k) {};
 
-int16_t OneParFunc::next(int32_t tick, int32_t phi) {
+int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
   bool invert = sample < 0;
   float x = abs(sample) / (float)sample_max;
@@ -77,14 +77,14 @@ TEST_CASE("Folder") {
 
 
 MeanFilter::MeanFilter(Node& nd, int len)
-  : Transformer(nd), sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), i(0) {};
+  : Transformer(nd), sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {};
 
-int16_t MeanFilter::next(int32_t tick, int32_t phi) {
+int16_t MeanFilter::next(int32_t tick, int32_t phi) const {
   int32_t cur = node.next(tick, phi);
   for (int32_t& s : *sums) s += cur;
-  int32_t next = (*sums)[i];
-  (*sums)[i] = 0;
-  i = (i + 1) % sums->size();
+  int32_t next = (*sums)[circular_idx];
+  (*sums)[circular_idx] = 0;
+  circular_idx = (circular_idx + 1) % sums->size();
   return next / sums->size();
 }
 

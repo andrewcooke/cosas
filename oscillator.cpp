@@ -7,7 +7,7 @@
 Oscillator::Oscillator(Wavetable& wave, std::unique_ptr<Frequency> freq)
   : wavetable(wave), frequency(std::move(freq)) {};
 
-int16_t Oscillator::next(int32_t tick, int32_t phi) {
+int16_t Oscillator::next(int32_t tick, int32_t phi) const {
   uint32_t freq = frequency->get_frequency();
   if (phi != 0) {
     // normalise - treat phi as fraction of max * freq

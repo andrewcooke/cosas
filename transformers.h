@@ -28,7 +28,7 @@ class Gain : public Transformer {
 public:
     
   Gain(Node& nd, const Amplitude amp);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
@@ -42,7 +42,7 @@ class OneParFunc : public Transformer {
 public:
 
   OneParFunc(Node& nd, float k);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
 
@@ -86,12 +86,12 @@ class MeanFilter : public Transformer {
 public:
     
   MeanFilter(Node& nd, int len);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
   std::unique_ptr<std::vector<int32_t>> sums;
-  size_t i;
+  mutable size_t circular_idx;
   
 };
 

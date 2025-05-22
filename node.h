@@ -24,7 +24,7 @@ class Constant : public Node {
 public:
 
   Constant(int16_t v);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
@@ -40,7 +40,7 @@ class Sequence : public Node {
 public:
 
   Sequence(std::initializer_list<int16_t> vs);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
@@ -58,15 +58,15 @@ public:
 
   Latch();
   void set_source(Source* s);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
 
   friend class SetOnInScope;
 
 private:
 
   Source* source;
-  bool on = false;
-  int16_t previous = 0;
+  mutable bool on = false;
+  mutable int16_t previous = 0;
   
 };
 
@@ -75,12 +75,12 @@ class SetOnInScope {
   
 public:
 
-  SetOnInScope(Latch* l);
+  SetOnInScope(const Latch* l);
   ~SetOnInScope();
   
 private:
 
-  Latch* latch;
+  const Latch* latch;
 
 };
 

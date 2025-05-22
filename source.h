@@ -43,8 +43,8 @@ public:
   
   // tick needs to be signed because phi can be negative and we need
   // to add the two.  also, next is not const because of Latch.
-  virtual int16_t next(int32_t tick, int32_t phi) = 0;
-  int16_t next(int32_t tick);
+  virtual int16_t next(int32_t tick, int32_t phi) const = 0;
+  int16_t next(int32_t tick) const;
   
 };
 

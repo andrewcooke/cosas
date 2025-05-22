@@ -2,7 +2,7 @@
 #include "source.h"
 
 
-int16_t Source::next(int32_t tick) {
+int16_t Source::next(int32_t tick) const {
   return next(tick, 0);
 }
 

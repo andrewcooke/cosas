@@ -22,7 +22,7 @@ class Oscillator : public Node {
 public:
 
   Oscillator(Wavetable& wave, std::unique_ptr<Frequency> freq);
-  int16_t next(int32_t tick, int32_t phi) override;
+  int16_t next(int32_t tick, int32_t phi) const override;
   const Frequency& get_frequency();
   
 private:
