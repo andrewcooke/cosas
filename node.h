@@ -57,30 +57,30 @@ class Latch : public Node {
 public:
 
   Latch();
-  void set_source(Source& s);
+  void set_source(Source* s);
   int16_t next(int32_t tick, int32_t phi) override;
 
-  friend class On;
+  friend class SetOnInScope;
 
 private:
 
-  Source& source;
+  Source* source;
   bool on = false;
   int16_t previous = 0;
   
 };
 
 
-class On {
+class SetOnInScope {
   
 public:
 
-  On(Latch& l);
-  ~On();
+  SetOnInScope(Latch* l);
+  ~SetOnInScope();
   
 private:
 
-  Latch& latch;
+  Latch* latch;
 
 };
 

@@ -58,21 +58,21 @@ void Manager::init_wavetables() {
 
 }
 
-std::tuple<Node&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
+std::tuple<Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
   AbsoluteFreq& root = freq->get_root();
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
   current_nodes->push_back(std::move(osc));
-  return {*current_nodes->at(current_nodes->size() - 1), root};
+  return {dynamic_cast<Oscillator&>(*current_nodes->back()), root};
 }
 
-Node& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
+Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio, detune);
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
   current_nodes->push_back(std::move(osc));
-  return *current_nodes->at(current_nodes->size() - 1);
+  return dynamic_cast<Oscillator&>(*current_nodes->back());
 }
 
 template<typename ModType, typename... Args> ModType& Manager::add_modulator(Node& nd1, Node& nd2, Args... args) {
@@ -104,16 +104,11 @@ Node& Manager::build_simple_fm() {
 
 Node& Manager::build_simple_fm_fb() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
-  Amplitude amp1 = Amplitude();
-  Balance bal1 = Balance();
-  Latch& mod = add_latch();
-  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp1, bal1);
-  Node& osc2 = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
-  Balance bal2 = Balance(0.5);
-  Merge& mrg = add_modulator<Merge>(fm, osc2, bal2);
-  Amplitude amp2 = Amplitude();
-  Gain& gain = add_transformer<Gain>(mrg, amp2);
-  mod.set_source(gain);
-  return fm;
+  Oscillator& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
+  Latch& latch = add_latch();
+  Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
+  ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(), Balance());
+  latch.set_source(&fm);
+  return latch;
 }
 

@@ -12,11 +12,9 @@
 
 Gain::Gain(Node& nd, const Amplitude amp)
   : Transformer(nd), amplitude(amp) {
-  // std::cout << "set node " << &nd << std::endl;
 };
 
 int16_t Gain::next(int32_t tick, int32_t phi) {
-  // std::cout << "calling next " << &node << std::endl;
   return amplitude.scale(node.next(tick, phi));
 }
 

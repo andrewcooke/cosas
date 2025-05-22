@@ -10,7 +10,6 @@ Merge::Merge(Node& w, Node& d, Balance bal)
   : wet(w), dry(d), balance(bal) {};
 
 int16_t Merge::next(int32_t tick, int32_t phi) {
-  std::cout << "merge " << &wet << " " << &dry << std::endl;
   return balance.combine(wet.next(tick, phi), dry.next(tick, phi));
 }
 
@@ -27,13 +26,7 @@ FM::FM(Node& car, Node& mod)
   : carrier(car), modulator(mod) {};
 
 int16_t FM::next(int32_t tick, int32_t phi) {
-  std::cout << "mod " << &modulator;
-  int16_t mod = modulator.next(tick, phi);
-  std::cout << " " << mod << std::endl;
-  std::cout << "car " << &carrier;
-  int16_t car = carrier.next(tick, phi + mod);
-  std::cout << " " << car << std::endl;
-  return car;
+  return carrier.next(tick, phi + modulator.next(tick, phi));
 };
 
 
