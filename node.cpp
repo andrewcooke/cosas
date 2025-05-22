@@ -30,17 +30,17 @@ int16_t Sequence::next(int32_t tick, int32_t phi) {
 Latch::Latch() : source(zero) {};
 
 void Latch::set_source(Source& s) {
-  // std::cout << "setting source " << &s << std::endl;
   source = s;
-  // std::cout << "next " << next(0, 0) << std::endl;
 }
 
 int16_t Latch::next(int32_t tick, int32_t phi) {
-  // std::cout << "calling source " << &source << " " << on << std::endl;
+  std::cout << "latch " << on << " ";
   if (! on) {
     On(*this);
     previous = source.next(tick, phi);
+    std::cout << "new ";
   }
+  std::cout << previous << std::endl;
   return previous;
 }
 

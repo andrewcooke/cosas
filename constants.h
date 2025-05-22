@@ -8,6 +8,7 @@
 
 
 const uint32_t sample_rate = 44100;
+const uint8_t sample_depth = 16;
 const int16_t sample_max = std::numeric_limits<int16_t>::max();
 const int16_t sample_min = -sample_max;  // throw away one value because i don't like the asymmetry
 

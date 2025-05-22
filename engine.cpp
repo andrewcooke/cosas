@@ -81,6 +81,12 @@ template<typename ModType, typename... Args> ModType& Manager::add_modulator(Nod
   return dynamic_cast<ModType&>(*current_nodes->back());
 }
 
+template<typename TranType, typename... Args> TranType& Manager::add_transformer(Node& nd1, Args... args) {
+  std::unique_ptr<TranType> tran = std::make_unique<TranType>(nd1, std::forward<Args>(args)...);
+  current_nodes->push_back(std::move(tran));
+  return dynamic_cast<TranType&>(*current_nodes->back());
+}
+
 Latch& Manager::add_latch() {
   std::unique_ptr<Latch> lat = std::make_unique<Latch>();
   current_nodes->push_back(std::move(lat));
@@ -98,15 +104,16 @@ Node& Manager::build_simple_fm() {
 
 Node& Manager::build_simple_fm_fb() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
-  Amplitude amp = Amplitude();
+  Amplitude amp1 = Amplitude();
   Balance bal1 = Balance();
   Latch& mod = add_latch();
-  // std::cout << "latch " << &mod << std::endl;
-  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal1);
+  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp1, bal1);
   Node& osc2 = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
-  Balance bal2 = Balance();
+  Balance bal2 = Balance(0.5);
   Merge& mrg = add_modulator<Merge>(fm, osc2, bal2);
-  mod.set_source(mrg);
+  Amplitude amp2 = Amplitude();
+  Gain& gain = add_transformer<Gain>(mrg, amp2);
+  mod.set_source(gain);
   return fm;
 }
 

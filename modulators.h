@@ -17,13 +17,13 @@ class Merge : public Modulator {
     
 public:
     
-  Merge(Node& nd1, Node& nd2, Balance bal);
+  Merge(Node& w, Node& d, Balance bal);
   int16_t next(int32_t tick, int32_t phi) override;
 
 private:
 
-  Node& node1;
-  Node& node2;
+  Node& wet;
+  Node& dry;
   Balance balance;
   
 };

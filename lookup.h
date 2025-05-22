@@ -10,7 +10,8 @@
 
 
 // since fp is slow we generally use lookup tables for waveforms.
-// note that we can use fp to generate tables because it's done up-front (even, we could load from disc).
+// note that we can use fp to generate tables because it's done
+// up-front (even, we could load from disc).
 
 class Wavetable : public Source {};
 
@@ -91,9 +92,9 @@ class WSaw : public HalfWtable {
 
 public:
 
-  // a regular saw can be done with a quarter wavetable, but with a different unpacking logic.
-  // for full generalility, however, we need half (and even then it's complex).
-  // offset from -1 to 1.
+  // a regular saw can be done with a quarter wavetable, but with a
+  // different unpacking logic.  for full generalility, however, we
+  // need half (and even then it's complex).  offset from -1 to 1.
   WSaw(float offset);
 
 };

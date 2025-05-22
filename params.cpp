@@ -52,6 +52,6 @@ Balance::Balance() : Balance(1) {};
 
 Balance::Balance(float w) : wet_weight(w) {};
 
-int16_t Balance::combine(int16_t dry, int16_t wet) const {
+int16_t Balance::combine(int16_t wet, int16_t dry) const {
   return clip_16(wet_weight * wet + (1 - wet_weight) * dry);
 }

@@ -33,6 +33,7 @@ private:
   std::tuple<Node&, AbsoluteFreq&> add_abs_osc(size_t wave_idx, uint16_t freq);
   Node& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune);
   template<typename ModType, typename... Args> ModType& add_modulator(Node& nd1, Node& nd2, Args... args);
+  template<typename TranType, typename... Args> TranType& add_transformer(Node& nd1, Args... args);
   Latch& add_latch();
   Node& build_simple_fm();
   Node& build_simple_fm_fb();
