@@ -4,8 +4,8 @@
 #include "engine.h"
 
 
-Oscillator::Oscillator(Wavetable& wave, std::unique_ptr<Frequency> freq)
-  : wavetable(wave), frequency(std::move(freq)) {};
+Oscillator::Oscillator(Wavedex w, std::unique_ptr<Frequency> f)
+  : wavedex(w), frequency(std::move(f)) {};
 
 int16_t Oscillator::next(int32_t tick, int32_t phi) const {
   uint32_t freq = frequency->get_frequency();
@@ -13,9 +13,6 @@ int16_t Oscillator::next(int32_t tick, int32_t phi) const {
     // normalise - treat phi as fraction of max * freq
     phi = (phi * freq) >> (sample_depth - 1);
   }
-  return wavetable.next(tick * freq, phi);
+  return wavedex.get_wavetable().next(tick * freq, phi);
 }
 
-const Frequency& Oscillator::get_frequency() {
-  return *frequency;
-}

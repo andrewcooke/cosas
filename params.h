@@ -2,6 +2,7 @@
 #ifndef COSA_PARAMS_H
 #define COSA_PARAMS_H
 
+#include "wavelib.h"
 #include "constants.h"
 #include "maths.h"
 
@@ -109,5 +110,21 @@ private:
 const auto dry_bal = Balance(0);
 const auto wet_bal = Balance(1);
 
+
+class Wavedex {
+
+public:
+
+  Wavedex(Wavelib& wl, size_t idx);
+  void set_wavedex(float idx);
+  Wavetable& get_wavetable() const;
+  
+private:
+
+  Wavelib& wavelib;
+  Wavetable& wavetable;  // cached
+  size_t wavedex;
+  
+};
 
 #endif

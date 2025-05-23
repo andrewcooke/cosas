@@ -8,7 +8,7 @@
 #include "wavetable.h"
 
 
-class Manager;  // predef
+class Manager;  // forwards def
 
 
 class Wavelib {
@@ -19,7 +19,7 @@ public:
   Wavetable& operator[](size_t idx);
   size_t size();
 
-  friend class Manager;
+  friend class Manager;  // needs to see the size_t "constants" below
   
 private:
   

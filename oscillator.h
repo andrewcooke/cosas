@@ -5,7 +5,6 @@
 #include <memory>
 
 #include "constants.h"
-#include "wavetable.h"
 #include "params.h"
 #include "node.h"
 
@@ -21,12 +20,11 @@ class Oscillator : public Node {
 
 public:
 
-  Oscillator(Wavetable& wave, std::unique_ptr<Frequency> freq);
+  Oscillator(Wavedex w, std::unique_ptr<Frequency> f);
   int16_t next(int32_t tick, int32_t phi) const override;
-  const Frequency& get_frequency();
   
 private:
-  Wavetable& wavetable;
+  Wavedex wavedex;
   std::unique_ptr<Frequency> frequency;
   
 };

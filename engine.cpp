@@ -24,18 +24,18 @@ const Node& Manager::build(Manager::Engine engine) {
 }
 
 std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
-  Wavetable& wave = (*wavelib)[wave_idx];
+  Wavedex wdex = Wavedex(*wavelib, wave_idx);
   std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
   AbsoluteFreq& root = *freq;
-  std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
+  std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wdex, std::move(freq));
   current_nodes->push_back(std::move(osc));
   return {dynamic_cast<Oscillator&>(*current_nodes->back()), root};
 }
 
 const Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
-  Wavetable& wave = (*wavelib)[wave_idx];
+  Wavedex wdex = Wavedex(*wavelib, wave_idx);
   std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio, detune);
-  std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
+  std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wdex, std::move(freq));
   current_nodes->push_back(std::move(osc));
   return dynamic_cast<Oscillator&>(*current_nodes->back());
 }

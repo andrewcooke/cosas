@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <iostream>
 
 #include "constants.h"
@@ -67,3 +68,18 @@ int16_t Balance::combine(int16_t wet, int16_t dry) const {
 void Balance::set_wet_weight(float w) {
   wet_weight = w;
 }
+
+
+Wavedex::Wavedex(Wavelib& wl, size_t idx) : wavelib(wl), wavedex(idx), wavetable(wl[idx]) {};
+
+void Wavedex::set_wavedex(float idx) {
+  size_t n = wavelib.size() - 1;
+  wavedex = std::max((size_t)0, std::min(n, (size_t)(idx * n)));
+  wavetable = wavelib[wavedex];
+}
+
+Wavetable& Wavedex::get_wavetable() const {
+  return wavetable;
+}
+
+  
