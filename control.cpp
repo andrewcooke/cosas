@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <cmath>
 
 #include "doctest.h"
@@ -81,3 +82,27 @@ TEST_CASE("Exp") {
 };
 
 
+Range::Range(std::unique_ptr<Input> del, float c, float lo, float hi)
+  : Delegate(std::move(del)), current(c), low(lo), high(hi) {};
+
+void Range::set(float value) {
+  // handle disconnect here
+  value = std::max(low, std::min(high, update(value)));
+  delegate->set(value);
+}
+
+
+Additive::Additive(std::unique_ptr<Input> del, float c, float lo, float hi)
+  : Range(std::move(del), c, lo, hi) {};
+
+float Additive::update(float val) {
+  return current + val;
+}
+
+
+Multiplicative::Multiplicative(std::unique_ptr<Input> del, float c, float lo, float hi)
+  : Range(std::move(del), c, lo, hi) {};
+
+float Multiplicative::update(float val) {
+  return current * val;
+}

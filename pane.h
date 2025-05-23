@@ -2,6 +2,7 @@
 #ifndef COSA_PANE_H
 #define COSA_PANE_H
 
+#include <vector>
 #include <memory>
 
 #include "control.h"
@@ -17,11 +18,31 @@
 
 class Pane {
 
-  unique_ptr<Input> top_knob;
-  unique_ptr<Input> left_knob;
-  unique_ptr<Input> right_knob;
+public:
   
-}
+  Pane(std::unique_ptr<Input> top, std::unique_ptr<Input> left, std::unique_ptr<Input> right);
 
+private:
+  
+  std::unique_ptr<Input> top_knob;
+  std::unique_ptr<Input> left_knob;
+  std::unique_ptr<Input> right_knob;
+  
+};
+
+
+class PaneSet {
+
+public:
+  
+  PaneSet();
+  void append(std::unique_ptr<Pane> p);
+
+private:
+
+  std::vector<std::unique_ptr<Pane>> panes;
+  
+};
+  
 
 #endif

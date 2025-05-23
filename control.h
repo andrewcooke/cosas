@@ -66,4 +66,44 @@ public:
 };
 
 
+class Range : public Delegate {
+
+public:
+
+  Range(std::unique_ptr<Input> del, float c, float lo, float hi);
+  void set(float value) override;
+  virtual float update(float value) = 0;
+
+protected:
+
+  float current;
+  
+private:
+
+  float low;
+  float high;
+
+};
+  
+
+class Additive : public Range {
+
+public:
+  
+  Additive(std::unique_ptr<Input> del, float c, float lo, float hi);
+  float update(float value);
+
+};
+
+  
+class Multiplicative : public Range {
+
+public:
+  
+  Multiplicative(std::unique_ptr<Input> del, float c, float lo, float hi);
+  float update(float value);
+
+};
+
+  
 #endif
