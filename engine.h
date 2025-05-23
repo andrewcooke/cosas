@@ -25,18 +25,18 @@ public:
   };
 
   Manager();
-  Node& build(Engine);
+  const Node& build(Engine);
   
 private:
 
   void init_wavetables();
-  std::tuple<Oscillator&, AbsoluteFreq&> add_abs_osc(size_t wave_idx, uint16_t freq);
-  Oscillator& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune);
-  template<typename ModType, typename... Args> ModType& add_modulator(Node& nd1, Node& nd2, Args... args);
-  template<typename TranType, typename... Args> TranType& add_transformer(Node& nd1, Args... args);
-  Latch& add_latch();
-  Node& build_simple_fm();
-  Node& build_simple_fm_fb();
+  std::tuple<const Oscillator&, AbsoluteFreq&> add_abs_osc(size_t wave_idx, uint16_t freq);
+  const Oscillator& add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune);
+  template<typename ModType, typename... Args> const ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
+  template<typename TranType, typename... Args> const TranType& add_transformer(const Node& nd1, Args... args);
+  const Latch& add_latch();
+  const Node& build_simple_fm();
+  const Node& build_simple_fm_fb();
   
   size_t sine_start;
   size_t sine_gamma_1;

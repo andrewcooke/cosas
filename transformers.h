@@ -17,8 +17,8 @@ class Transformer : public Node {
 
 protected:
 
-  Transformer(Node& nd) : node(nd) {};
-  Node& node;
+  Transformer(const Node& nd) : node(nd) {};
+  const Node& node;
   
 };
 
@@ -27,7 +27,7 @@ class Gain : public Transformer {
     
 public:
     
-  Gain(Node& nd, const Amplitude amp);
+  Gain(const Node& nd, const Amplitude amp);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
@@ -41,7 +41,7 @@ class OneParFunc : public Transformer {
 
 public:
 
-  OneParFunc(Node& nd, float k);
+  OneParFunc(const Node& nd, const float k);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
@@ -50,7 +50,7 @@ protected:
   
 private:
 
-  float constant;
+  const float constant;
   
 };
 
@@ -59,7 +59,7 @@ class Compander : public OneParFunc {
 
 public:
 
-  Compander(Node& nd, float g);
+  Compander(const Node& nd, float g);
 
 private:
   
@@ -72,7 +72,7 @@ class Folder : public OneParFunc {
 
 public:
 
-  Folder(Node& nd, float g);
+  Folder(const Node& nd, float g);
 
 private:
   
@@ -85,7 +85,7 @@ class MeanFilter : public Transformer {
 
 public:
     
-  MeanFilter(Node& nd, int len);
+  MeanFilter(const Node& nd, int len);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:

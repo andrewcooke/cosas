@@ -4,7 +4,7 @@
 #include "node.h"
 
 
-Constant::Constant(int16_t v) : value(v) {};
+Constant::Constant(const int16_t v) : value(v) {};
 
 int16_t Constant::next(int32_t tick, int32_t phi) const {
   return value;
@@ -29,7 +29,7 @@ int16_t Sequence::next(int32_t tick, int32_t phi) const {
 
 Latch::Latch() : source(&zero) {};
 
-void Latch::set_source(Source* s) {
+void Latch::set_source(const Source* s) const {
   source = s;
 }
 

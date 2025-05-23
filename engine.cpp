@@ -13,7 +13,7 @@ Manager::Manager()
   init_wavetables();
 }
 
-Node& Manager::build(Manager::Engine engine) {
+const Node& Manager::build(Manager::Engine engine) {
   current_nodes->clear();
   switch(engine) {
   case Manager::Engine::SIMPLE_FM:
@@ -58,7 +58,7 @@ void Manager::init_wavetables() {
 
 }
 
-std::tuple<Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
+std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
   AbsoluteFreq& root = freq->get_root();
@@ -67,7 +67,7 @@ std::tuple<Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uin
   return {dynamic_cast<Oscillator&>(*current_nodes->back()), root};
 }
 
-Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
+const Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio, detune);
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
@@ -75,39 +75,39 @@ Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float rati
   return dynamic_cast<Oscillator&>(*current_nodes->back());
 }
 
-template<typename ModType, typename... Args> ModType& Manager::add_modulator(Node& nd1, Node& nd2, Args... args) {
+template<typename ModType, typename... Args> const ModType& Manager::add_modulator(const Node& nd1, const Node& nd2, Args... args) {
   std::unique_ptr<ModType> mod = std::make_unique<ModType>(nd1, nd2, std::forward<Args>(args)...);
   current_nodes->push_back(std::move(mod));
   return dynamic_cast<ModType&>(*current_nodes->back());
 }
 
-template<typename TranType, typename... Args> TranType& Manager::add_transformer(Node& nd1, Args... args) {
+template<typename TranType, typename... Args> const TranType& Manager::add_transformer(const Node& nd1, Args... args) {
   std::unique_ptr<TranType> tran = std::make_unique<TranType>(nd1, std::forward<Args>(args)...);
   current_nodes->push_back(std::move(tran));
   return dynamic_cast<TranType&>(*current_nodes->back());
 }
 
-Latch& Manager::add_latch() {
+const Latch& Manager::add_latch() {
   std::unique_ptr<Latch> lat = std::make_unique<Latch>();
   current_nodes->push_back(std::move(lat));
   return dynamic_cast<Latch&>(*current_nodes->back());
 }
 
-Node& Manager::build_simple_fm() {
+const Node& Manager::build_simple_fm() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
-  Node& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
+  const Node& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
   Amplitude amp = Amplitude(100);
   Balance bal = Balance();
-  ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
+  const ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
   return fm;
 }
 
-Node& Manager::build_simple_fm_fb() {
+const Node& Manager::build_simple_fm_fb() {
   auto [car, root] = add_abs_osc(sine_gamma_1, 440);
-  Oscillator& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
-  Latch& latch = add_latch();
-  Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
-  ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(), Balance());
+  const Oscillator& mod = add_rel_osc(sine_gamma_1, root, 0.5, 1.1);
+  const Latch& latch = add_latch();
+  const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
+  const ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(), Balance());
   latch.set_source(&fm);
   return latch;
 }

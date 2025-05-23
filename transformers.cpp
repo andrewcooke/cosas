@@ -10,7 +10,7 @@
 #include "transformers.h"
 
 
-Gain::Gain(Node& nd, const Amplitude amp)
+Gain::Gain(const Node& nd, const Amplitude amp)
   : Transformer(nd), amplitude(amp) {
 };
 
@@ -21,7 +21,7 @@ int16_t Gain::next(int32_t tick, int32_t phi) const {
 
 // these (float based) may be too slow?
 
-OneParFunc::OneParFunc(Node& nd, float k)
+OneParFunc::OneParFunc(const Node& nd, float k)
   : Transformer(nd), constant(k) {};
 
 int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
@@ -35,7 +35,7 @@ int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
 }
 
 
-Compander::Compander(Node& nd, float k)
+Compander::Compander(const Node& nd, float k)
   : OneParFunc(nd, k) {};
 
 float Compander::func(float k, float x) const {
@@ -43,7 +43,7 @@ float Compander::func(float k, float x) const {
 }
 
 
-Folder::Folder(Node& nd, float k)
+Folder::Folder(const Node& nd, float k)
   : OneParFunc(nd, k) {};
 
 // first half goes from flat to curve
@@ -76,7 +76,7 @@ TEST_CASE("Folder") {
 }
 
 
-MeanFilter::MeanFilter(Node& nd, int len)
+MeanFilter::MeanFilter(const Node& nd, int len)
   : Transformer(nd), sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {};
 
 int16_t MeanFilter::next(int32_t tick, int32_t phi) const {

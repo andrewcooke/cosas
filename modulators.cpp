@@ -6,7 +6,7 @@
 #include "modulators.h"
 
 
-Merge::Merge(Node& w, Node& d, Balance bal)
+Merge::Merge(const Node& w, const Node& d, Balance bal)
   : wet(w), dry(d), balance(bal) {};
 
 int16_t Merge::next(int32_t tick, int32_t phi) const {
@@ -14,7 +14,7 @@ int16_t Merge::next(int32_t tick, int32_t phi) const {
 }
 
 
-Mixer::Mixer(Node& nd1, Node& nd2, Amplitude amp, Balance bal)
+Mixer::Mixer(const Node& nd1, const Node& nd2, Amplitude amp, Balance bal)
   : node1(nd1), node2(nd2), amplitude(amp), balance(bal) {};
 
 int16_t Mixer::next(int32_t tick, int32_t phi) const {
@@ -22,7 +22,7 @@ int16_t Mixer::next(int32_t tick, int32_t phi) const {
 }
 
 
-FM::FM(Node& car, Node& mod)
+FM::FM(const Node& car, const Node& mod)
   : carrier(car), modulator(mod) {};
 
 int16_t FM::next(int32_t tick, int32_t phi) const {
@@ -30,7 +30,7 @@ int16_t FM::next(int32_t tick, int32_t phi) const {
 };
 
 
-MixedFM::MixedFM(Node& car, Node& mod, Amplitude amp, Balance bal)
+MixedFM::MixedFM(const Node& car, const Node& mod, Amplitude amp, Balance bal)
   : fm(FM(car, mod)), mixer(Mixer(car, fm, amp, bal)) {};
 
 int16_t MixedFM::next(int32_t tick, int32_t phi) const {
@@ -38,7 +38,7 @@ int16_t MixedFM::next(int32_t tick, int32_t phi) const {
 }
 
 
-ModularFM::ModularFM(Node& car, Node& mod, Amplitude amp, Balance bal)
+ModularFM::ModularFM(const Node& car, const Node& mod, Amplitude amp, Balance bal)
   : gain(Gain(mod, amp)), fm(FM(car, gain)), merge(Merge(fm, car, bal)) {};
 
 int16_t ModularFM::next(int32_t tick, int32_t phi) const {
@@ -46,7 +46,7 @@ int16_t ModularFM::next(int32_t tick, int32_t phi) const {
 }
 
 
-AM::AM(Node& nd1, Node& nd2)
+AM::AM(const Node& nd1, const Node& nd2)
   : node1(nd1), node2(nd2) {};
 
 int16_t AM::next(int32_t tick, int32_t phi) const {
@@ -55,7 +55,7 @@ int16_t AM::next(int32_t tick, int32_t phi) const {
   return clip_16((s1 * s2) >> 16);
 };
 
-MixedAM::MixedAM(Node& nd1, Node& nd2, Amplitude amp, Balance bal)
+MixedAM::MixedAM(const Node& nd1, const Node& nd2, Amplitude amp, Balance bal)
   : am(AM(nd1, nd2)), mixer(Mixer(nd1, am, amp, bal)) {};
 
 int16_t MixedAM::next(int32_t tick, int32_t phi) const {

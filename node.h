@@ -23,12 +23,12 @@ class Constant : public Node {
 
 public:
 
-  Constant(int16_t v);
+  Constant(const int16_t v);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
-  int16_t value;
+  const int16_t value;
   
 };
 
@@ -52,19 +52,23 @@ private:
 // this is intended to avoid infinite loops in recursive networks.
 // the setter also allows loops to be constructed.
 
+// although this is very obviously mutable it is all declared const
+// and implemented with mutable to avoid polluting the Node/Source
+// interface.
+
 class Latch : public Node {
 
 public:
 
   Latch();
-  void set_source(Source* s);
+  void set_source(const Source* s) const;
   int16_t next(int32_t tick, int32_t phi) const override;
 
   friend class SetOnInScope;
 
 private:
 
-  Source* source;
+  mutable const Source* source;
   mutable bool on = false;
   mutable int16_t previous = 0;
   

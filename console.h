@@ -4,6 +4,6 @@
 
 #include "source.h"
 
-void dump(Source& source, int64_t n);
+void dump(const Source& source, int64_t n);
 
 #endif
