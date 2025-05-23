@@ -116,9 +116,10 @@ class Wavedex {
 public:
 
   Wavedex(Wavelib& wl, size_t idx);
-  void set_wavedex(float idx);
   Wavetable& get_wavetable() const;
-  
+
+  void set_wavedex(float idx);
+
 private:
 
   Wavelib& wavelib;

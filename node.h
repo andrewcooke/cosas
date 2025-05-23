@@ -14,6 +14,9 @@
 // at some point they will include support for confuration (and likely
 // this will no longer be empty)
 
+// constant nodes are parametrised by mutable params, which
+// encapsulate the user input
+
 class Node : public Source {};
 
 

@@ -23,8 +23,7 @@ const Node& Manager::build(Manager::Engine engine) {
   }
 }
 
-std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
-  Wavedex wdex = Wavedex(*wavelib, wave_idx);
+std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(Wavedex wdex, uint16_t f) {
   std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
   AbsoluteFreq& root = *freq;
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wdex, std::move(freq));
@@ -32,8 +31,7 @@ std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_id
   return {dynamic_cast<Oscillator&>(*current_nodes->back()), root};
 }
 
-const Oscillator& Manager::add_rel_osc(size_t wave_idx, AbsoluteFreq& root, float ratio, float detune) {
-  Wavedex wdex = Wavedex(*wavelib, wave_idx);
+const Oscillator& Manager::add_rel_osc(Wavedex wdex, AbsoluteFreq& root, float ratio, float detune) {
   std::unique_ptr<RelativeFreq> freq = std::make_unique<RelativeFreq>(root, ratio, detune);
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wdex, std::move(freq));
   current_nodes->push_back(std::move(osc));
@@ -59,8 +57,8 @@ const Latch& Manager::add_latch() {
 }
 
 const Node& Manager::build_simple_fm() {
-  auto [car, root] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  const Node& mod = add_rel_osc(wavelib->sine_gamma_1, root, 0.5, 1.1);
+  auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
+  const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   Amplitude amp = Amplitude(100);
   Balance bal = Balance();
   const ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
@@ -68,8 +66,8 @@ const Node& Manager::build_simple_fm() {
 }
 
 const Node& Manager::build_simple_fm_fb() {
-  auto [car, root] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  const Oscillator& mod = add_rel_osc(wavelib->sine_gamma_1, root, 0.5, 1.1);
+  auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
+  const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
   const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
   const ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(), Balance());
