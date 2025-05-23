@@ -7,7 +7,7 @@
 #include "doctest.h"
 #include "constants.h"
 #include "maths.h"
-#include "lookup.h"
+#include "wavetable.h"
 
 
 Square::Square(float duty) : duty_idx(duty * full_table_size) {};

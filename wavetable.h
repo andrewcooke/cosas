@@ -1,6 +1,6 @@
 
-#ifndef COSA_LOOKUP_H
-#define COSA_LOOKUP_H
+#ifndef COSA_WAVETABLE_H
+#define COSA_WAVETABLE_H
 
 #include <cstdint>
 #include <array>

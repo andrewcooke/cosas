@@ -6,8 +6,8 @@
 #include "maths.h"
 
 
-// generally these are small enough to be treated as values without
-// worrying about piinters and references.
+// these are small enough to be treated as values without worrying
+// about ppinters and references.
 
 // sub-oscillators run at frequencies that are multiples of the main
 // oscillator.  this class encapsulates that scaling.  it's
@@ -19,14 +19,11 @@
 // alternatively, maybe we do want exact frequencies for dissonance,
 // etc.  so support that too
 
-class AbsoluteFreq;  // forwards decl
-
 
 class Frequency {
 
 public:
 
-  virtual AbsoluteFreq& get_root() = 0;
   virtual uint32_t get_frequency() const = 0;
 
 };
@@ -37,8 +34,9 @@ class AbsoluteFreq : public Frequency {
 public:
 
   AbsoluteFreq(float freq);
-  AbsoluteFreq& get_root() override;
   uint32_t get_frequency() const override;
+  
+  void set_frequency(float f);
 
 private:
 
@@ -56,9 +54,11 @@ public:
   RelativeFreq(Frequency& ref, float r, float d);
   RelativeFreq(Frequency& ref, SimpleRatio r);
   RelativeFreq(Frequency& ref, float r);
-  AbsoluteFreq& get_root() override;
   uint32_t get_frequency() const override;
 
+  void set_ratio(float r);
+  void set_detune(float f);
+  
 private:
 
   Frequency& reference;
@@ -75,10 +75,13 @@ public:
   Amplitude(float f);
   Amplitude();  // full on
   int16_t scale(int16_t amp) const;
+
+  void set_amplitude(float a);
   
 private:
 
-  float factor;
+  // could this be faster as an int mult and shift?
+  float amplitude;
   
 };
 
@@ -94,8 +97,11 @@ public:
   Balance(float w);
   int16_t combine(int16_t wet, int16_t dry) const;
 
+  void set_wet_weight(float w);
+
 private:
 
+  // could this be faster as ints and shift?
   float wet_weight;
   
 };

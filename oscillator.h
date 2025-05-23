@@ -5,7 +5,7 @@
 #include <memory>
 
 #include "constants.h"
-#include "lookup.h"
+#include "wavetable.h"
 #include "params.h"
 #include "node.h"
 

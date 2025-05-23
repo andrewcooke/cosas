@@ -7,7 +7,6 @@
 #include "constants.h"
 #include "params.h"
 #include "node.h"
-#include "lookup.h"
 
 
 // these have one input (modulators have two)

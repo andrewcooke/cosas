@@ -5,7 +5,7 @@
 #include "modulators.h"
 #include "constants.h"
 #include "console.h"
-#include "lookup.h"
+//#include "wavetable.h"
 
 int main() {
   //  Square s = Square(0.25);

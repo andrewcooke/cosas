@@ -61,7 +61,7 @@ void Manager::init_wavetables() {
 std::tuple<const Oscillator&, AbsoluteFreq&> Manager::add_abs_osc(size_t wave_idx, uint16_t f) {
   Wavetable& wave = *all_wavetables->at(wave_idx);
   std::unique_ptr<AbsoluteFreq> freq = std::make_unique<AbsoluteFreq>(f);
-  AbsoluteFreq& root = freq->get_root();
+  AbsoluteFreq& root = *freq;
   std::unique_ptr<Oscillator> osc = std::make_unique<Oscillator>(wave, std::move(freq));
   current_nodes->push_back(std::move(osc));
   return {dynamic_cast<Oscillator&>(*current_nodes->back()), root};

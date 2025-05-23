@@ -9,12 +9,12 @@
 
 AbsoluteFreq::AbsoluteFreq(float freq) : frequency(hz2tick(freq)) {};
 
-AbsoluteFreq& AbsoluteFreq::get_root() {
-  return *this;
-}
-
 uint32_t AbsoluteFreq::get_frequency() const {
   return frequency;
+}
+
+void AbsoluteFreq::set_frequency(float f) {
+  frequency = f;
 }
 
 
@@ -30,22 +30,30 @@ RelativeFreq::RelativeFreq(Frequency& ref, float r, float d)
 RelativeFreq::RelativeFreq(Frequency& ref, float r)
   : RelativeFreq(ref, r, 1) {};
 
-AbsoluteFreq& RelativeFreq::get_root() {
-  return reference.get_root();
-}
-
 uint32_t RelativeFreq::get_frequency() const {
   return  mult_shift(detune, ratio.multiply(reference.get_frequency()));
 }
 
+void RelativeFreq::set_ratio(float r) {
+  ratio = SimpleRatio(r);
+}
 
-Amplitude::Amplitude(float f) : factor(f) {};
+void RelativeFreq::set_detune(float d) {
+  detune = d;
+}
+
+
+Amplitude::Amplitude(float a) : amplitude(a) {};
 
 Amplitude::Amplitude() : Amplitude(1) {};
 
 int16_t Amplitude::scale(int16_t amp) const {
-  return clip_16(factor * amp);
+  return clip_16(amplitude * amp);
 };
+
+void Amplitude::set_amplitude(float a) {
+  amplitude = a;
+}
 
 
 Balance::Balance() : Balance(1) {};
@@ -54,4 +62,8 @@ Balance::Balance(float w) : wet_weight(w) {};
 
 int16_t Balance::combine(int16_t wet, int16_t dry) const {
   return clip_16(wet_weight * wet + (1 - wet_weight) * dry);
+}
+
+void Balance::set_wet_weight(float w) {
+  wet_weight = w;
 }
