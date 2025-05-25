@@ -77,11 +77,15 @@ const Node& Manager::build_simple_fm(float a) {
 }
 
 const Node& Manager::build_simple_fm_fb() {
+  return build_simple_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+}
+
+const Node& Manager::build_simple_fm_fb(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
   const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
-  const ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(), Balance());
+  const ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(a), Balance());
   latch.set_source(&fm);
   return latch;
 }

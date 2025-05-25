@@ -28,9 +28,6 @@ public:
   Manager();
   const Node& build(Engine);
   
-  // exposed for testing
-  const Node& build_simple_fm(float a);
-  
 private:
 
   std::tuple<const Oscillator&, AbsoluteFreq&> add_abs_osc(Wavedex wdex, uint16_t freq);
@@ -41,7 +38,9 @@ private:
   const Latch& add_latch();
 
   const Node& build_simple_fm();
+  const Node& build_simple_fm(float a);
   const Node& build_simple_fm_fb();
+  const Node& build_simple_fm_fb(float a);
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
