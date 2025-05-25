@@ -19,12 +19,7 @@ public:
   Wavetable& operator[](size_t idx);
   size_t size();
 
-  friend class Manager;  // needs to see the size_t "constants" below
-  
-private:
-  
-  void init_wavetables();
-  
+  // ideally, these would be constants
   size_t sine_start;
   size_t sine_gamma_1;
   size_t square_start;
@@ -34,6 +29,10 @@ private:
   size_t noise_start;
   size_t noise_smooth_1;
 
+private:
+  
+  void init_wavetables();
+  
   std::unique_ptr<std::vector<std::unique_ptr<Wavetable>>> all_wavetables;
 
 };

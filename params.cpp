@@ -32,7 +32,7 @@ RelativeFreq::RelativeFreq(Frequency& ref, float r)
   : RelativeFreq(ref, r, 1) {};
 
 uint32_t RelativeFreq::get_frequency() const {
-  return  mult_shift(detune, ratio.multiply(reference.get_frequency()));
+  return  mult_shift((uint32_t)detune, ratio.multiply(reference.get_frequency()));
 }
 
 void RelativeFreq::set_ratio(float r) {
@@ -49,7 +49,7 @@ Amplitude::Amplitude(float a) : amplitude(a) {};
 Amplitude::Amplitude() : Amplitude(1) {};
 
 int16_t Amplitude::scale(int16_t amp) const {
-  return clip_16(amplitude * amp);
+  return clip_16(amplitude * amp); 
 };
 
 void Amplitude::set_amplitude(float a) {

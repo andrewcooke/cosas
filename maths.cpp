@@ -98,13 +98,13 @@ float SimpleRatio::as_float() const {
   return get_numerator() / (float)get_denominator();
 }
 
-uint16_t SimpleRatio::multiply(uint16_t val) const {
-  int32_t tmp = val * scale;
+uint32_t SimpleRatio::multiply(uint32_t val) const {
+  uint64_t tmp = val * scale;
   if (third) tmp /= 3;
   if (fifth) tmp /= 5;
   if (bits > 1) tmp <<= bits;
   else tmp >>= -bits;
-  return clip_16(tmp);
+  return clip_u32(tmp);
 }
 
 std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr) {

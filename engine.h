@@ -28,13 +28,18 @@ public:
   Manager();
   const Node& build(Engine);
   
+  // exposed for testing
+  const Node& build_simple_fm(float a);
+  
 private:
 
   std::tuple<const Oscillator&, AbsoluteFreq&> add_abs_osc(Wavedex wdex, uint16_t freq);
   const Oscillator& add_rel_osc(Wavedex wdex, AbsoluteFreq& root, float ratio, float detune);
   template<typename ModType, typename... Args> const ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
   template<typename TranType, typename... Args> const TranType& add_transformer(const Node& nd1, Args... args);
+  Constant& add_constant(uint16_t k);
   const Latch& add_latch();
+
   const Node& build_simple_fm();
   const Node& build_simple_fm_fb();
 

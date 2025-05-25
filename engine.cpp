@@ -50,6 +50,12 @@ template<typename TranType, typename... Args> const TranType& Manager::add_trans
   return dynamic_cast<TranType&>(*current_nodes->back());
 }
 
+Constant& Manager::add_constant(uint16_t k) {
+  std::unique_ptr<Constant> cons = std::make_unique<Constant>(k);
+  current_nodes->push_back(std::move(cons));
+  return dynamic_cast<Constant&>(*current_nodes->back());
+}
+
 const Latch& Manager::add_latch() {
   std::unique_ptr<Latch> lat = std::make_unique<Latch>();
   current_nodes->push_back(std::move(lat));
@@ -57,9 +63,14 @@ const Latch& Manager::add_latch() {
 }
 
 const Node& Manager::build_simple_fm() {
+  // i don't understand this 3.  is it subtick_bits?
+  return build_simple_fm(1.0 / (1 << phi_fudge_bits - 3));
+}
+
+const Node& Manager::build_simple_fm(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
-  const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
-  Amplitude amp = Amplitude(100);
+  const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 1, 1);
+  Amplitude amp = Amplitude(a);
   Balance bal = Balance();
   const ModularFM& fm = add_modulator<ModularFM>(car, mod, amp, bal);
   return fm;
@@ -75,3 +86,12 @@ const Node& Manager::build_simple_fm_fb() {
   return latch;
 }
 
+TEST_CASE("SimpleFM") {
+  Manager m = Manager();
+  int16_t amp0 = m.build_simple_fm(0).next(50, 0);
+  int16_t amp01 = m.build_simple_fm(0.001).next(50, 0);
+  CHECK(amp0 == amp01);
+  amp0 = m.build_simple_fm(0).next(51, 0);
+  amp01 = m.build_simple_fm(0.001).next(51, 0);
+  CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
+}

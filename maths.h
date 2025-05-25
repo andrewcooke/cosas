@@ -26,6 +26,10 @@ inline int16_t clip_16(float val) {
   return clip_16((int32_t)val);
 }
 
+inline uint32_t clip_u32(uint64_t val) {
+  if (val > std::numeric_limits<uint32_t>::max()) val = std::numeric_limits<uint32_t>::max();
+  return val;
+}
 
 inline uint16_t gcd(uint16_t a, uint16_t b) {
   if (b > a) {uint16_t tmp = a; a = b; b = tmp;}  // a > b
@@ -42,7 +46,7 @@ class SimpleRatio {
   SimpleRatio(int16_t bits, uint8_t scale, bool third, bool fifth);
   uint16_t get_numerator() const;
   uint16_t get_denominator() const;
-  uint16_t multiply(uint16_t val) const;
+  uint32_t multiply(uint32_t val) const;
   float as_float() const;
   float error(float other) const;
   bool operator== (const SimpleRatio& other) const;
@@ -73,12 +77,8 @@ inline int32_t scale2mult_shift(float f) {
   return f * one;
 }
 
-inline int16_t mult_shift(int32_t k, int16_t x) {
-  return clip_16((k * x) >> one_bits);
-}
-
-inline int32_t mult_shift(int32_t k, int32_t x) {
-  return (k * (int64_t)x) >> one_bits;
+inline uint32_t mult_shift(uint32_t k, int32_t x) {
+  return (k * (uint64_t)x) >> one_bits;
 }
 
 TEST_CASE("MultShift") {

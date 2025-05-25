@@ -26,7 +26,8 @@ FM::FM(const Node& car, const Node& mod)
   : carrier(car), modulator(mod) {};
 
 int16_t FM::next(int32_t tick, int32_t phi) const {
-  return carrier.next(tick, phi + modulator.next(tick, phi));
+  int32_t delta = modulator.next(tick, phi);
+  return carrier.next(tick, phi + delta);
 };
 
 
