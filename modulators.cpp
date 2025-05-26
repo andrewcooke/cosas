@@ -1,4 +1,5 @@
 
+#include <numeric>
 #include <iostream>
 #include <cstdint>
 
@@ -11,6 +12,41 @@ Merge::Merge(const Node& w, const Node& d, Balance bal)
 
 int16_t Merge::next(int32_t tick, int32_t phi) const {
   return balance.combine(wet.next(tick, phi), dry.next(tick, phi));
+}
+
+
+MultiMerge::MultiMerge(const Node& n, Weight w)
+  : nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), uint16_weights(std::move(std::make_unique<std::vector<uint16_t>>())) {
+  add_node(n, w);
+};
+
+void MultiMerge::add_node(const Node& n, Weight w) {
+  nodes->push_back(&n);
+  w.merge = this;
+  float_weights->push_back(w.weight);
+  recalculate_weights();
+}
+
+void MultiMerge::recalculate_weights() {
+  // first node gets the full amount described by it's weight
+  uint16_t available = std::numeric_limits<int16_t>::max();
+  uint16_weights->clear();
+  uint16_t main_weight = float_weights->at(0) * available;
+  available -= main_weight;
+  uint16_weights->push_back(main_weight);
+  // other nodes are divided in proportion to their relative weights
+  float total_remaining = accumulate(std::next(float_weights->begin()), float_weights->end(), 0);
+  for (size_t i = 1; i < float_weights->size(); i++) {
+    uint16_weights->push_back(float_weights->at(i) * available / total_remaining);    
+  }
+}
+
+int16_t MultiMerge::next(int32_t tick, int32_t phi) const {
+  int32_t acc = 0;
+  for (size_t i = 0; i < float_weights->size(); i++) {
+    acc += uint16_weights->at(i) * nodes->at(i)->next(tick, phi);
+  }
+  return acc >> 16;
 }
 
 

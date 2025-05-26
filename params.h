@@ -7,6 +7,14 @@
 #include "maths.h"
 
 
+// these are all going to need setters fr floats at some point so that
+// they can be connected to inputs.  probably via a common Param
+// interface.
+
+// (can't use a simple pointer to a float because some have to take
+// more complex actions to pre-calculate weights etc).
+
+
 // these are small enough to be treated as values without worrying
 // about pointers and references.
 
@@ -127,5 +135,8 @@ private:
   size_t wavedex;
   
 };
+
+
+// also see MultiMerge::Weight
 
 #endif

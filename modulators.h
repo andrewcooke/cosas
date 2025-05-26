@@ -29,6 +29,39 @@ private:
 };
 
 
+class MultiMerge : public Modulator {
+
+public:
+
+  class Weight {
+
+  public:
+
+    friend class MultiMerge;
+    
+    Weight(float w);
+
+  private:
+
+    float weight;
+    MultiMerge* merge = nullptr;
+    
+  };
+
+  MultiMerge(const Node& n, Weight w);
+  void add_node(const Node& n, Weight w);
+  int16_t next(int32_t tick, int32_t phi) const override;
+
+private:
+
+  void recalculate_weights();
+  std::unique_ptr<std::vector<const Node*>> nodes;
+  std::unique_ptr<std::vector<float>> float_weights;
+  std::unique_ptr<std::vector<uint16_t>> uint16_weights;
+  
+};
+
+
 class Mixer : public Modulator {
     
 public:
