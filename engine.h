@@ -21,8 +21,10 @@ class Manager {
 public:
 
   enum Engine {
-    SIMPLE_FM,
-    SIMPLE_FM_FB
+    FM,
+    FM_MOD,
+    FM_FB,
+    FM_FB_FLT
   };
 
   Manager();
@@ -37,10 +39,14 @@ private:
   Constant& add_constant(uint16_t k);
   const Latch& add_latch();
 
-  const Node& build_simple_fm();
-  const Node& build_simple_fm(float a);
-  const Node& build_simple_fm_fb();
-  const Node& build_simple_fm_fb(float a);
+  const Node& build_fm();
+  const Node& build_fm(float a);
+  const Node& build_fm_mod();
+  const Node& build_fm_mod(float a);
+  const Node& build_fm_fb();
+  const Node& build_fm_fb(float a);
+  const Node& build_fm_fb_flt();
+  const Node& build_fm_fb_flt(float a);
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;

@@ -27,9 +27,9 @@ int main() {
   //  Noise s = Noise(16);
   //  dump(s, 0.1 * sample_rate);
   Manager mgr = Manager();
-  const Node& nd = mgr.build(Manager::Engine::SIMPLE_FM_FB);
+  const Node& nd = mgr.build(Manager::Engine::FM_FB_FLT);
   dump(nd, 0.01 * sample_rate);
   //  Manager mgr = Manager();
-  //  dump(mgr.build_simple_fm(1), 0.01 * sample_rate);
+  //  dump(mgr.build_fm_mod(1), 0.1 * sample_rate);
   //  dump(mgr.build_simple_fm(1), 0.01 * sample_rate);
 };

@@ -8,7 +8,7 @@
 
 
 // these are small enough to be treated as values without worrying
-// about ppinters and references.
+// about pointers and references.
 
 // sub-oscillators run at frequencies that are multiples of the main
 // oscillator.  this class encapsulates that scaling.  it's

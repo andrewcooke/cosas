@@ -14,10 +14,14 @@ Manager::Manager()
 const Node& Manager::build(Manager::Engine engine) {
   current_nodes->clear();
   switch(engine) {
-  case Manager::Engine::SIMPLE_FM:
-    return build_simple_fm();
-  case Manager::Engine::SIMPLE_FM_FB:
-    return build_simple_fm_fb();
+  case Manager::Engine::FM:
+    return build_fm();
+  case Manager::Engine::FM_MOD:
+    return build_fm_mod();
+  case Manager::Engine::FM_FB:
+    return build_fm_fb();
+  case Manager::Engine::FM_FB_FLT:
+    return build_fm_fb_flt();
   default:
     throw std::domain_error("missing case in Manager::build?");
   }
@@ -62,12 +66,12 @@ const Latch& Manager::add_latch() {
   return dynamic_cast<Latch&>(*current_nodes->back());
 }
 
-const Node& Manager::build_simple_fm() {
+const Node& Manager::build_fm() {
   // i don't understand this 3.  is it subtick_bits?
-  return build_simple_fm(1.0 / (1 << phi_fudge_bits - 3));
+  return build_fm(1.0 / (1 << phi_fudge_bits - 3));
 }
 
-const Node& Manager::build_simple_fm(float a) {
+const Node& Manager::build_fm(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 1, 1);
   Amplitude amp = Amplitude(a);
@@ -76,11 +80,26 @@ const Node& Manager::build_simple_fm(float a) {
   return fm;
 }
 
-const Node& Manager::build_simple_fm_fb() {
-  return build_simple_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+const Node& Manager::build_fm_mod() {
+  return build_fm_mod(1.0 / (1 << phi_fudge_bits - 4));
 }
 
-const Node& Manager::build_simple_fm_fb(float a) {
+const Node& Manager::build_fm_mod(float a) {
+  auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
+  auto [lfo, lfo_freq] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 10);
+  const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 1, 1);
+  const Node& am = add_modulator<AM>(lfo, mod);
+  Amplitude amp = Amplitude(a);
+  Balance bal = Balance();
+  const ModularFM& fm = add_modulator<ModularFM>(car, am, amp, bal);
+  return fm;
+}
+
+const Node& Manager::build_fm_fb() {
+  return build_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+}
+
+const Node& Manager::build_fm_fb(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
@@ -90,12 +109,27 @@ const Node& Manager::build_simple_fm_fb(float a) {
   return latch;
 }
 
+const Node& Manager::build_fm_fb_flt() {
+  return build_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+}
+
+const Node& Manager::build_fm_fb_flt(float a) {
+  auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
+  const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
+  const Latch& latch = add_latch();
+  const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
+  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, 1);
+  const ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(a), Balance());
+  latch.set_source(&fm);
+  return latch;
+}
+
 TEST_CASE("SimpleFM") {
   Manager m = Manager();
-  int16_t amp0 = m.build_simple_fm(0).next(50, 0);
-  int16_t amp01 = m.build_simple_fm(0.001).next(50, 0);
+  int16_t amp0 = m.build_fm(0).next(50, 0);
+  int16_t amp01 = m.build_fm(0.001).next(50, 0);
   CHECK(amp0 == amp01);
-  amp0 = m.build_simple_fm(0).next(51, 0);
-  amp01 = m.build_simple_fm(0.001).next(51, 0);
+  amp0 = m.build_fm(0).next(51, 0);
+  amp01 = m.build_fm(0.001).next(51, 0);
   CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
 }
