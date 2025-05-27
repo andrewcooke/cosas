@@ -29,24 +29,35 @@ void MultiMerge::add_node(const Node& n, Weight w) {
 
 void MultiMerge::recalculate_weights() {
   // first node gets the full amount described by it's weight
-  uint16_t available = std::numeric_limits<int16_t>::max();
   uint16_weights->clear();
-  uint16_t main_weight = float_weights->at(0) * available;
-  available -= main_weight;
+  uint16_t main_weight = scale2mult_shift14(float_weights->at(0));
+  float available = 1 - float_weights->at(0);
   uint16_weights->push_back(main_weight);
   // other nodes are divided in proportion to their relative weights
-  float total_remaining = accumulate(std::next(float_weights->begin()), float_weights->end(), 0);
+  float total_remaining = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
   for (size_t i = 1; i < float_weights->size(); i++) {
-    uint16_weights->push_back(float_weights->at(i) * available / total_remaining);    
+    uint16_weights->push_back(scale2mult_shift14(float_weights->at(i) * available / total_remaining));
   }
 }
 
 int16_t MultiMerge::next(int32_t tick, int32_t phi) const {
   int32_t acc = 0;
   for (size_t i = 0; i < float_weights->size(); i++) {
-    acc += uint16_weights->at(i) * nodes->at(i)->next(tick, phi);
+    acc += mult_shift14(uint16_weights->at(i), nodes->at(i)->next(tick, phi));
   }
-  return acc >> 16;
+  return clip_16(acc);
+}
+
+MultiMerge::Weight::Weight(float w) : weight(w) {};
+
+TEST_CASE("MultiMerge") {
+  Constant c1 = Constant(100); MultiMerge::Weight w1 = MultiMerge::Weight(0.5);
+  Constant c2 = Constant(30); MultiMerge::Weight w2 = MultiMerge::Weight(0.1);
+  Constant c3 = Constant(90); MultiMerge::Weight w3 = MultiMerge::Weight(0.2);
+  MultiMerge m = MultiMerge(c1, w1);
+  m.add_node(c2, w2);
+  m.add_node(c3, w3);
+  CHECK(m.next(0, 0) == 50 + 5 + 30 - 2);  // close enough?
 }
 
 

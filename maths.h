@@ -70,19 +70,51 @@ class SimpleRatio {
 
 // TODO - is this really faster than mult by float?
 
-const int one_bits = 8;
-const uint32_t one = 1 << one_bits;
 
-inline int32_t scale2mult_shift(float f) {
-  return f * one;
+// for 8 bits decimal, signed
+
+const int one8_bits = 8;
+const int16_t one8 = 1 << one8_bits;
+
+inline int16_t scale2mult_shift8(float f) {
+  return f * one8;
 }
 
-inline uint32_t mult_shift(uint32_t k, int32_t x) {
-  return (k * (uint64_t)x) >> one_bits;
+inline int16_t mult_shift8(int16_t k, int16_t x) {
+  return (k * (int32_t)x) >> one8_bits;
 }
 
-TEST_CASE("MultShift") {
-  CHECK(mult_shift(scale2mult_shift(0.33333), 300) == 99);  // almost
+TEST_CASE("MultShift8") {
+  CHECK(mult_shift8(scale2mult_shift8(0.33333), 300) == 99);  // almost
+  CHECK(mult_shift8(scale2mult_shift8(1), 300) == 300); 
+  CHECK(mult_shift8(scale2mult_shift8(-0.33333), 300) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(-1), 300) == -300); 
+  CHECK(mult_shift8(scale2mult_shift8(0.33333), -300) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(1), -300) == -300); 
 }
+
+// 14 bits decimal, signed
+
+const int one14_bits = 14;
+const int16_t one14 = 1 << one14_bits;
+
+inline int16_t scale2mult_shift14(float f) {
+  return f * one14;
+}
+
+inline int16_t mult_shift14(int16_t k, int16_t x) {
+  return (k * (int32_t)x) >> one14_bits;
+}
+
+TEST_CASE("MultShift14") {
+  CHECK(mult_shift14(scale2mult_shift14(0.33333), 300) == 99);  // almost
+  CHECK(mult_shift14(scale2mult_shift14(1), 300) == 300);
+  CHECK(mult_shift14(scale2mult_shift14(-0.33333), 300) == -100);
+  CHECK(mult_shift14(scale2mult_shift14(-1), 300) == -300); 
+  CHECK(mult_shift14(scale2mult_shift14(0.33333), -300) == -100);
+  CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300); 
+}
+
+
 
 #endif

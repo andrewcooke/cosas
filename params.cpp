@@ -20,19 +20,19 @@ void AbsoluteFreq::set_frequency(float f) {
 
 
 RelativeFreq::RelativeFreq(Frequency& ref, SimpleRatio r, float d)
-  : reference(ref), ratio(r), detune(scale2mult_shift(d)) {};
+  : reference(ref), ratio(r), detune(scale2mult_shift8(d)) {};
 
 RelativeFreq::RelativeFreq(Frequency& ref, SimpleRatio r)
   : RelativeFreq(ref, r, 1) {};
 
 RelativeFreq::RelativeFreq(Frequency& ref, float r, float d)
-  : reference(ref), ratio(SimpleRatio(r)), detune(scale2mult_shift(d)) {};
+  : reference(ref), ratio(SimpleRatio(r)), detune(scale2mult_shift8(d)) {};
 
 RelativeFreq::RelativeFreq(Frequency& ref, float r)
   : RelativeFreq(ref, r, 1) {};
 
 uint32_t RelativeFreq::get_frequency() const {
-  return  mult_shift((uint32_t)detune, ratio.multiply(reference.get_frequency()));
+  return  mult_shift8((uint32_t)detune, ratio.multiply(reference.get_frequency()));
 }
 
 void RelativeFreq::set_ratio(float r) {
