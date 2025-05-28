@@ -44,12 +44,12 @@ public:
 
 private:
 
-  std::tuple<const Oscillator&, AbsoluteFreq&> add_abs_osc(Wavedex wdex, uint16_t freq);
-  const Oscillator& add_rel_osc(Wavedex wdex, AbsoluteFreq& root, float ratio, float detune);
-  template<typename ModType, typename... Args> const ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
-  template<typename TranType, typename... Args> const TranType& add_transformer(const Node& nd1, Args... args);
+  std::tuple<Oscillator&, AbsoluteFreq&> add_abs_osc(Wavedex wdex, uint16_t freq);
+  Oscillator& add_rel_osc(Wavedex wdex, AbsoluteFreq& root, float ratio, float detune);
+  template<typename ModType, typename... Args> ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
+  template<typename TranType, typename... Args> TranType& add_transformer(const Node& nd1, Args... args);
   Constant& add_constant(uint16_t k);
-  const Latch& add_latch();
+  Latch& add_latch();
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;

@@ -113,4 +113,62 @@ private:
 };
 
 
+class BaseMerge : public Transformer {
+
+public:
+
+  class Weight : public Param {
+  public:
+    friend class BaseMerge;
+    Weight(float w);
+  private:
+    float weight;
+    BaseMerge* merge = nullptr;
+  };
+
+  BaseMerge(const Node& n, Weight w);
+  void add_node(const Node& n, Weight w);
+  int16_t next(int32_t tick, int32_t phi) const override;
+
+protected:
+  
+  virtual void recalculate_weights() = 0;
+  std::unique_ptr<std::vector<const Node*>> nodes;
+  std::unique_ptr<std::vector<float>> float_weights;
+  std::unique_ptr<std::vector<int16_t>> int16_weights;
+
+private:
+
+  void add_node_wout_recalc(const Node& n, Weight w);
+  
+  
+};
+
+
+class MultiMerge : public BaseMerge {
+
+public:
+
+  MultiMerge(const Node& n, BaseMerge::Weight w);
+
+private:
+
+  void recalculate_weights() override;
+  
+};
+
+
+class PriorityMerge : public BaseMerge {
+
+public:
+
+  PriorityMerge(const Node& n, BaseMerge::Weight w);
+
+private:
+
+  void recalculate_weights() override;
+  
+};
+
+
 #endif
