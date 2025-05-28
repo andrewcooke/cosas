@@ -29,7 +29,11 @@
 // etc.  so support that too
 
 
-class Frequency {
+class Param {};
+
+
+
+class Frequency : public Param {
 
 public:
 
@@ -77,7 +81,7 @@ private:
 };
 
 
-class Amplitude {
+class Amplitude : public Param {
 
 public:
 
@@ -98,7 +102,7 @@ const auto zero_amp = Amplitude(0);
 const auto unit_amp = Amplitude(1);
 
 
-class Balance {
+class Balance : public Param {
 
 public:
 
@@ -119,7 +123,7 @@ const auto dry_bal = Balance(0);
 const auto wet_bal = Balance(1);
 
 
-class Wavedex {
+class Wavedex : public Param {
 
 public:
 
@@ -136,7 +140,5 @@ private:
   
 };
 
-
-// also see MultiMerge::Weight
 
 #endif

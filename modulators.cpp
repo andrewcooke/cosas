@@ -48,15 +48,16 @@ MultiMerge::MultiMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
 
 void MultiMerge::recalculate_weights() {
   // distribute equally
-  int16_weights->clear();
+  std::unique_ptr<std::vector<int16_t>> new_weights = std::make_unique<std::vector<int16_t>>();
   float total_weight = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
   for (size_t i = 1; i < float_weights->size(); i++) {
     if (total_weight == 0) {
-      int16_weights->push_back(0);
+      new_weights->push_back(0);
     } else {
-      int16_weights->push_back(scale2mult_shift14(float_weights->at(i) / total_weight));
+      new_weights->push_back(scale2mult_shift14(float_weights->at(i) / total_weight));
     }
   }
+  int16_weights = move(new_weights);  // atomic?
 }
 
 
@@ -64,19 +65,20 @@ PriorityMerge::PriorityMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
 
 void PriorityMerge::recalculate_weights() {
   // first node gets the full amount described by it's weight
-  int16_weights->clear();
+  std::unique_ptr<std::vector<int16_t>> new_weights = std::make_unique<std::vector<int16_t>>();
   int16_t main_weight = scale2mult_shift14(float_weights->at(0));
   float available = 1 - float_weights->at(0);
-  int16_weights->push_back(main_weight);
+  new_weights->push_back(main_weight);
   // other nodes are divided in proportion to their relative weights
   float total_remaining = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
   for (size_t i = 1; i < float_weights->size(); i++) {
     if (total_remaining == 0) {
-      int16_weights->push_back(0);
+      new_weights->push_back(0);
     } else {
-      int16_weights->push_back(scale2mult_shift14(float_weights->at(i) * available / total_remaining));
+      new_weights->push_back(scale2mult_shift14(float_weights->at(i) * available / total_remaining));
     }
   }
+  int16_weights = move(new_weights);  // atomic?
 }
 
 TEST_CASE("PriorityMerge") {

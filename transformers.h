@@ -83,14 +83,32 @@ private:
 class MeanFilter : public Transformer {
 
 public:
-    
-  MeanFilter(const Node& nd, int len);
+
+  class Length : public Param {
+  public:
+    friend class MeanFilter;
+    Length(size_t l);
+  private:
+    size_t len;
+    MeanFilter* filter = nullptr;
+  };
+
+  class CircBuffer {
+  public:
+    CircBuffer(size_t l);
+    int16_t next(int16_t cur);
+  private:
+    std::unique_ptr<std::vector<int32_t>> sums;
+    mutable size_t circular_idx;
+  };
+       
+  MeanFilter(const Node& nd, Length l);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
-  std::unique_ptr<std::vector<int32_t>> sums;
-  mutable size_t circular_idx;
+  Length len;
+  std::unique_ptr<CircBuffer> cbuf;
   
 };
 

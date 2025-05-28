@@ -22,7 +22,7 @@ public:
 
   enum Engine {
     FM,
-    FM_MOD,
+    FM_LFO,
     FM_FB,
     FM_FB_FLT,
     FM_FMNT
@@ -34,8 +34,8 @@ public:
   // should be private, but useful for testing
   const Node& build_fm();
   const Node& build_fm(float a);
-  const Node& build_fm_mod();
-  const Node& build_fm_mod(float a);
+  const Node& build_fm_lfo();
+  const Node& build_fm_lfo(float a);
   const Node& build_fm_fb();
   const Node& build_fm_fb(float a);
   const Node& build_fm_fb_flt();

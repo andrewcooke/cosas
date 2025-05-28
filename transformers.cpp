@@ -76,16 +76,26 @@ TEST_CASE("Folder") {
 }
 
 
-MeanFilter::MeanFilter(const Node& nd, int len)
-  : Transformer(nd), sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {};
+MeanFilter::MeanFilter(const Node& nd, Length l)
+  : Transformer(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
+  len.filter = this;
+};
 
-int16_t MeanFilter::next(int32_t tick, int32_t phi) const {
-  int32_t cur = node.next(tick, phi);
+MeanFilter::CircBuffer::CircBuffer(size_t len)
+  : sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {};
+
+int16_t MeanFilter::CircBuffer::next(int16_t cur) {
   for (int32_t& s : *sums) s += cur;
   int32_t next = (*sums)[circular_idx];
   (*sums)[circular_idx] = 0;
   circular_idx = (circular_idx + 1) % sums->size();
   return clip_16(next / static_cast<int32_t>(sums->size()));
+};
+
+MeanFilter::Length::Length(size_t l) : len(l) {};
+
+int16_t MeanFilter::next(int32_t tick, int32_t phi) const {
+  return cbuf->next(node.next(tick, phi));
 }
 
 TEST_CASE("MeanFilter") {

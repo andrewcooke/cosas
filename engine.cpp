@@ -16,8 +16,8 @@ const Node& Manager::build(Manager::Engine engine) {
   switch(engine) {
   case Manager::Engine::FM:
     return build_fm();
-  case Manager::Engine::FM_MOD:
-    return build_fm_mod();
+  case Manager::Engine::FM_LFO:
+    return build_fm_lfo();
   case Manager::Engine::FM_FB:
     return build_fm_fb();
   case Manager::Engine::FM_FB_FLT:
@@ -80,11 +80,21 @@ const Node& Manager::build_fm(float a) {
   return fm;
 }
 
-const Node& Manager::build_fm_mod() {
-  return build_fm_mod(1.0 / (1 << (phi_fudge_bits - 4)));
+TEST_CASE("BuildFM") {
+  Manager m = Manager();
+  int16_t amp0 = m.build_fm(0).next(50, 0);
+  int16_t amp01 = m.build_fm(0.001).next(50, 0);
+  CHECK(amp0 == amp01);
+  amp0 = m.build_fm(0).next(51, 0);
+  amp01 = m.build_fm(0.001).next(51, 0);
+  CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
 }
 
-const Node& Manager::build_fm_mod(float a) {
+const Node& Manager::build_fm_lfo() {
+  return build_fm_lfo(1.0 / (1 << (phi_fudge_bits - 4)));
+}
+
+const Node& Manager::build_fm_lfo(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   auto [lfo, lfo_freq] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 10);
   const Node& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 1, 1);
@@ -103,7 +113,8 @@ const Node& Manager::build_fm_fb(float a) {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
-  const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
+  const MeanFilter& mf = add_transformer<MeanFilter>(latch, MeanFilter::Length(1));
+  const Merge& mrg = add_modulator<Merge>(mf, mod, Balance(0.5));
   const ModularFM& fm = add_modulator<ModularFM>(car, mrg, Amplitude(a), Balance());
   latch.set_source(&fm);
   return latch;
@@ -118,20 +129,10 @@ const Node& Manager::build_fm_fb_flt(float a) {
   const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
   const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
-  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, 1);
+  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, MeanFilter::Length(1));
   const ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(a), Balance());
   latch.set_source(&fm);
   return latch;
-}
-
-TEST_CASE("SimpleFM") {
-  Manager m = Manager();
-  int16_t amp0 = m.build_fm(0).next(50, 0);
-  int16_t amp01 = m.build_fm(0.001).next(50, 0);
-  CHECK(amp0 == amp01);
-  amp0 = m.build_fm(0).next(51, 0);
-  amp01 = m.build_fm(0.001).next(51, 0);
-  CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
 }
 
 const Node& Manager::build_fm_fmnt() {
@@ -139,8 +140,8 @@ const Node& Manager::build_fm_fmnt() {
   const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
   const Latch& latch = add_latch();
   const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
-  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, 1);
-  const ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(), Balance());
+  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, MeanFilter::Length(1));
+  const ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(a), Balance());
   latch.set_source(&fm);
   return latch;
 }

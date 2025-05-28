@@ -33,19 +33,13 @@ class BaseMerge : public Modulator {
 
 public:
 
-  class Weight {
-
+  class Weight : public Param {
   public:
-
     friend class BaseMerge;
-    
     Weight(float w);
-
   private:
-
     float weight;
     BaseMerge* merge = nullptr;
-    
   };
 
   BaseMerge(const Node& n, Weight w);
