@@ -72,7 +72,7 @@ private:
 
   Frequency& reference;
   SimpleRatio ratio;
-  uint16_t detune;
+  int16_t detune;
   
 };
 
@@ -131,8 +131,8 @@ public:
 private:
 
   Wavelib& wavelib;
-  Wavetable& wavetable;  // cached
   size_t wavedex;
+  Wavetable& wavetable;  // cached
   
 };
 

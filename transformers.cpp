@@ -27,7 +27,7 @@ OneParFunc::OneParFunc(const Node& nd, float k)
 int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
   bool invert = sample < 0;
-  float x = abs(sample) / (float)sample_max;
+  float x = abs(sample) / static_cast<float>(sample_max);
   float y = func(constant, x);
   sample = clip_16(sample_max * y);
   if (invert) sample = -sample;
@@ -85,7 +85,7 @@ int16_t MeanFilter::next(int32_t tick, int32_t phi) const {
   int32_t next = (*sums)[circular_idx];
   (*sums)[circular_idx] = 0;
   circular_idx = (circular_idx + 1) % sums->size();
-  return next / sums->size();
+  return clip_16(next / static_cast<int32_t>(sums->size()));
 }
 
 TEST_CASE("MeanFilter") {

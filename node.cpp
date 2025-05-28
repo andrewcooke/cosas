@@ -6,7 +6,7 @@
 
 Constant::Constant(const int16_t v) : value(v) {};
 
-int16_t Constant::next(int32_t tick, int32_t phi) const {
+int16_t Constant::next(int32_t /* tick */, int32_t /* phi */) const {
   return value;
 }
 
@@ -16,7 +16,7 @@ Constant zero = Constant(0);
 Sequence::Sequence(std::initializer_list<int16_t> vs)
   : values(std::move(std::make_unique<std::list<int16_t>>(vs))) {};
 
-int16_t Sequence::next(int32_t tick, int32_t phi) const {
+int16_t Sequence::next(int32_t /* tick */, int32_t /* phi */) const {
   if (values->size() > 0) {
     int16_t val = values->front();
     values->pop_front();

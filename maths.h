@@ -13,17 +13,19 @@
 inline int16_t clip_16(int64_t val) {
   if (val > sample_max) return sample_max;
   if (val < sample_min) return sample_min;
-  return (int16_t)val;
+  return static_cast<int16_t>(val);
 }
 
 inline int16_t clip_16(int32_t val) {
   if (val > sample_max) return sample_max;
   if (val < sample_min) return sample_min;
-  return (int16_t)val;
+  return static_cast<int16_t>(val);
 }
 
 inline int16_t clip_16(float val) {
-  return clip_16((int32_t)val);
+  if (val > sample_max) return sample_max;
+  if (val < sample_min) return sample_min;
+  return static_cast<int16_t>(val);
 }
 
 inline uint32_t clip_u32(uint64_t val) {
@@ -54,11 +56,11 @@ class SimpleRatio {
  private:
 
   friend std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr); 
-  
-  uint8_t scale = 1;
-  int8_t bits = 0;
-  bool third = false;
-  bool fifth = false;
+
+  int8_t bits;
+  uint8_t scale;
+  bool third;
+  bool fifth;
 
 };
 
@@ -81,7 +83,11 @@ inline int16_t scale2mult_shift8(float f) {
 }
 
 inline int16_t mult_shift8(int16_t k, int16_t x) {
-  return (k * (int32_t)x) >> one8_bits;
+  return (k * static_cast<int32_t>(x)) >> one8_bits;
+}
+
+inline int32_t mult_shift8(int16_t k, int32_t x) {
+  return (k * static_cast<int64_t>(x)) >> one8_bits;
 }
 
 TEST_CASE("MultShift8") {
@@ -103,7 +109,7 @@ inline int16_t scale2mult_shift14(float f) {
 }
 
 inline int16_t mult_shift14(int16_t k, int16_t x) {
-  return (k * (int32_t)x) >> one14_bits;
+  return (k * static_cast<int32_t>(x)) >> one14_bits;
 }
 
 TEST_CASE("MultShift14") {

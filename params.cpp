@@ -8,7 +8,7 @@
 #include "source.h"
 
 
-AbsoluteFreq::AbsoluteFreq(float freq) : frequency(hz2tick(freq)) {};
+AbsoluteFreq::AbsoluteFreq(float freq) : frequency(hz2freq(freq)) {};
 
 uint32_t AbsoluteFreq::get_frequency() const {
   return frequency;
@@ -32,7 +32,8 @@ RelativeFreq::RelativeFreq(Frequency& ref, float r)
   : RelativeFreq(ref, r, 1) {};
 
 uint32_t RelativeFreq::get_frequency() const {
-  return  mult_shift8((uint32_t)detune, ratio.multiply(reference.get_frequency()));
+  // mult_shift deals w signed but freq is unsigned
+  return  static_cast<uint32_t>(mult_shift8(detune, static_cast<int32_t>(ratio.multiply(reference.get_frequency()))));
 }
 
 void RelativeFreq::set_ratio(float r) {
@@ -74,7 +75,7 @@ Wavedex::Wavedex(Wavelib& wl, size_t idx) : wavelib(wl), wavedex(idx), wavetable
 
 void Wavedex::set_wavedex(float idx) {
   size_t n = wavelib.size() - 1;
-  wavedex = std::max((size_t)0, std::min(n, (size_t)(idx * n)));
+  wavedex = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(idx * n)));
   wavetable = wavelib[wavedex];
 }
 

@@ -68,7 +68,7 @@ const Latch& Manager::add_latch() {
 
 const Node& Manager::build_fm() {
   // i don't understand this 3.  is it subtick_bits?
-  return build_fm(1.0 / (1 << phi_fudge_bits - 3));
+  return build_fm(1.0 / (1 << (phi_fudge_bits - 3)));
 }
 
 const Node& Manager::build_fm(float a) {
@@ -81,7 +81,7 @@ const Node& Manager::build_fm(float a) {
 }
 
 const Node& Manager::build_fm_mod() {
-  return build_fm_mod(1.0 / (1 << phi_fudge_bits - 4));
+  return build_fm_mod(1.0 / (1 << (phi_fudge_bits - 4)));
 }
 
 const Node& Manager::build_fm_mod(float a) {
@@ -96,7 +96,7 @@ const Node& Manager::build_fm_mod(float a) {
 }
 
 const Node& Manager::build_fm_fb() {
-  return build_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+  return build_fm_fb(1.0 / (1 << (phi_fudge_bits - 4)));
 }
 
 const Node& Manager::build_fm_fb(float a) {
@@ -110,7 +110,7 @@ const Node& Manager::build_fm_fb(float a) {
 }
 
 const Node& Manager::build_fm_fb_flt() {
-  return build_fm_fb(1.0 / (1 << phi_fudge_bits - 4));
+  return build_fm_fb(1.0 / (1 << (phi_fudge_bits - 4)));
 }
 
 const Node& Manager::build_fm_fb_flt(float a) {
@@ -133,3 +133,15 @@ TEST_CASE("SimpleFM") {
   amp01 = m.build_fm(0.001).next(51, 0);
   CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
 }
+
+const Node& Manager::build_fm_fmnt() {
+  auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
+  const Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
+  const Latch& latch = add_latch();
+  const Merge& mrg = add_modulator<Merge>(latch, mod, Balance(0.5));
+  const MeanFilter& flt = add_transformer<MeanFilter>(mrg, 1);
+  const ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(), Balance());
+  latch.set_source(&fm);
+  return latch;
+}
+

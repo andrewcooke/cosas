@@ -24,7 +24,8 @@ public:
     FM,
     FM_MOD,
     FM_FB,
-    FM_FB_FLT
+    FM_FB_FLT,
+    FM_FMNT
   };
 
   Manager();
@@ -39,6 +40,7 @@ public:
   const Node& build_fm_fb(float a);
   const Node& build_fm_fb_flt();
   const Node& build_fm_fb_flt(float a);
+  const Node& build_fm_fmnt();
 
 private:
 

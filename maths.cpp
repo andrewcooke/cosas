@@ -22,14 +22,14 @@ float SimpleRatio::error(float other) const {
 
 // or even a binary search...
 
-SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
+static SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
   return sr1.error(target) < sr2.error(target) ? sr1 : sr2;
 }
 
 // octave is implicit in the base 2 bits so does not need to be
 // included below.
 
-SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
+static SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
      best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2 perfect fifth
@@ -49,7 +49,7 @@ SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
   return b;
 }
 
-SimpleRatio from_above(float target, int8_t bits, SimpleRatio hi) {
+static SimpleRatio from_above(float target, int8_t bits, SimpleRatio hi) {
   // smaller, but no less than half
   SimpleRatio b =
      best(target, hi, SimpleRatio(bits,      3, false, true));   // x 3/5 major sixth
@@ -95,7 +95,7 @@ uint16_t SimpleRatio::get_denominator() const {
 }
 
 float SimpleRatio::as_float() const {
-  return get_numerator() / (float)get_denominator();
+  return get_numerator() / static_cast<float>(get_denominator());
 }
 
 uint32_t SimpleRatio::multiply(uint32_t val) const {
