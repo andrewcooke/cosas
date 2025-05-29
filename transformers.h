@@ -91,6 +91,7 @@ public:
   public:
     friend class MeanFilter;
     Length(size_t l);
+    void set(float /* f */) override {};
   private:
     size_t len;
     MeanFilter* filter = nullptr;
@@ -124,6 +125,7 @@ public:
   public:
     friend class BaseMerge;
     Weight(float w);
+    void set(float /* f */) override {};
   private:
     float weight;
     BaseMerge* merge = nullptr;

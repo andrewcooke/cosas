@@ -2,6 +2,7 @@
 #ifndef COSA_PARAMS_H
 #define COSA_PARAMS_H
 
+#include "control.h"
 #include "wavelib.h"
 #include "constants.h"
 #include "maths.h"
@@ -29,7 +30,7 @@
 // etc.  so support that too
 
 
-class Param {};
+class Param : Input {};
 
 
 
@@ -37,6 +38,7 @@ class Frequency : public Param {
 
 public:
 
+  void set(float /* f */) override {};
   virtual uint32_t get_frequency() const = 0;
 
 };
@@ -49,8 +51,6 @@ public:
   AbsoluteFreq(float freq);
   uint32_t get_frequency() const override;
   
-  void set_frequency(float f);
-
 private:
 
   // we have subtick_bits of fraction so 16 bits is insufficient
@@ -88,9 +88,8 @@ public:
   Amplitude(float f);
   Amplitude();  // full on
   int16_t scale(int16_t amp) const;
+  void set(float /* f */) override {};
 
-  void set_amplitude(float a);
-  
 private:
 
   // could this be faster as an int mult and shift?
@@ -109,8 +108,7 @@ public:
   Balance();  // full wet
   Balance(float w);
   int16_t combine(int16_t wet, int16_t dry) const;
-
-  void set_wet_weight(float w);
+  void set(float /* f */) override {};
 
 private:
 
@@ -129,8 +127,7 @@ public:
 
   Wavedex(Wavelib& wl, size_t idx);
   Wavetable& get_wavetable() const;
-
-  void set_wavedex(float idx);
+  void set(float /* f */) override {};
 
 private:
 

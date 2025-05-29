@@ -9,7 +9,8 @@
 
 Manager::Manager()
   : wavelib(std::move(std::make_unique<Wavelib>())),
-    current_nodes(std::move(std::make_unique<std::vector<std::unique_ptr<Node>>>())) {};
+    current_nodes(std::move(std::make_unique<std::vector<std::unique_ptr<Node>>>())),
+    current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())) {};
 
 const Node& Manager::build(Manager::Engine engine) {
   current_nodes->clear();
@@ -42,13 +43,12 @@ template<typename TranType, typename... Args> TranType& Manager::add_transformer
 template<typename ParamType, typename... Args> ParamType& Manager::add_param(Args... args) {
   std::unique_ptr<ParamType> param = std::make_unique<ParamType>(std::forward<Args>(args)...);
   current_params->push_back(std::move(param));
-  return static_cast<ParamType&>(*current_params->back());
+  return dynamic_cast<ParamType&>(*current_params->back());
 }
 
 std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> Manager::add_abs_osc(size_t widx, float frq) {
-  std::unique_ptr<Wavedex> wdex = std::make_unique<Wavedex>(*wavelib, widx);
-  current_params->push_back(std::move(wdex));
-  Wavedex& w = static_cast<Wavedex&>(*current_params->back());
+  current_params->push_back(std::move(std::make_unique<Wavedex>(*wavelib, widx)));
+  Wavedex& w = dynamic_cast<Wavedex&>(*current_params->back());
   AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
   current_nodes->push_back(std::move(std::make_unique<Oscillator>(w, f)));
   Oscillator& o = dynamic_cast<Oscillator&>(*current_nodes->back());
@@ -58,7 +58,7 @@ std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> Manager::add_abs_osc(size_t wid
 std::tuple<Wavedex&, RelativeFreq&, Oscillator&> Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
   std::unique_ptr<Wavedex> wdex = std::make_unique<Wavedex>(*wavelib, widx);
   current_params->push_back(std::move(wdex));
-  Wavedex& w = static_cast<Wavedex&>(*current_params->back());
+  Wavedex& w = dynamic_cast<Wavedex&>(*current_params->back());
   current_params->push_back(std::move(std::make_unique<RelativeFreq>(root, r, d)));
   RelativeFreq& f = static_cast<RelativeFreq&>(*current_params->back());
   current_nodes->push_back(std::move(std::make_unique<Oscillator>(w, f)));
