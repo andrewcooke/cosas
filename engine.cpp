@@ -141,9 +141,12 @@ const Node& Manager::build_fm_fmnt() {
   auto [car, root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 440);
   Latch& latch = add_latch();
   PriorityMerge& mrg = add_transformer<PriorityMerge>(latch, PriorityMerge::Weight(0.5));
-  Oscillator& mod = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), root, 0.5, 1.1);
-  mrg.add_node(mod, PriorityMerge::Weight(0.1));
-  // todo - more
+  auto [mod1, mod_root] = add_abs_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), 200);
+  mrg.add_node(mod1, PriorityMerge::Weight(0.2));
+  Oscillator& mod2 = add_rel_osc(Wavedex(*wavelib, wavelib->sine_gamma_1), mod_root, 2, 1);
+  mrg.add_node(mod2, PriorityMerge::Weight(0.1));
+  Oscillator& mod3 = add_rel_osc(Wavedex(*wavelib, wavelib->noise_start), mod_root, 0.5, 1);
+  mrg.add_node(mod3, PriorityMerge::Weight(0.1));
   MeanFilter& flt = add_transformer<MeanFilter>(mrg, MeanFilter::Length(1));
   ModularFM& fm = add_modulator<ModularFM>(car, flt, Amplitude(1), Balance());
   latch.set_source(&fm);
