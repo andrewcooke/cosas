@@ -20,12 +20,12 @@ class Oscillator : public Node {
 
 public:
 
-  Oscillator(Wavedex w, std::unique_ptr<Frequency> f);
+  Oscillator(Wavedex& w, Frequency& f);
   int16_t next(int32_t tick, int32_t phi) const override;
   
 private:
-  Wavedex wavedex;
-  std::unique_ptr<Frequency> frequency;
+  Wavedex& wavedex;
+  Frequency& frequency;
   
 };
 

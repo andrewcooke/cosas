@@ -6,6 +6,7 @@
 #include <vector>
 #include <memory>
 
+#include "modulators.h"
 #include "wavelib.h"
 #include "node.h"
 #include "oscillator.h"
@@ -24,7 +25,6 @@ public:
     FM,
     FM_LFO,
     FM_FB,
-    FM_FB_FLT,
     FM_FMNT
   };
 
@@ -38,21 +38,22 @@ public:
   const Node& build_fm_lfo(float a);
   const Node& build_fm_fb();
   const Node& build_fm_fb(float a);
-  const Node& build_fm_fb_flt();
-  const Node& build_fm_fb_flt(float a);
   const Node& build_fm_fmnt();
 
 private:
 
-  std::tuple<Oscillator&, AbsoluteFreq&> add_abs_osc(Wavedex wdex, uint16_t freq);
-  Oscillator& add_rel_osc(Wavedex wdex, AbsoluteFreq& root, float ratio, float detune);
   template<typename ModType, typename... Args> ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
   template<typename TranType, typename... Args> TranType& add_transformer(const Node& nd1, Args... args);
+  template<typename ParamType, typename... Args> ParamType& add_param(Args... args);
+  std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> add_abs_osc(size_t widx, float frq);
+  std::tuple<Wavedex&, RelativeFreq&, Oscillator&> add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
+  std::tuple<Amplitude&, Balance&, ModularFM&> add_fm(Node& c,  Node& m, float amp);
   Constant& add_constant(uint16_t k);
   Latch& add_latch();
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
+  std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
   
 };
 

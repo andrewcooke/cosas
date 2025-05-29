@@ -6,11 +6,11 @@
 #include "engine.h"
 
 
-Oscillator::Oscillator(Wavedex w, std::unique_ptr<Frequency> f)
-  : wavedex(w), frequency(std::move(f)) {};
+Oscillator::Oscillator(Wavedex& w, Frequency& f)
+  : wavedex(w), frequency(f) {};
 
 int16_t Oscillator::next(int32_t tick, int32_t phi) const {
-  int64_t freq = frequency->get_frequency();
+  int64_t freq = frequency.get_frequency();
   // convert phi from simple_min-sample_max to -pi-pi (kinda)
   int64_t phi_tmp = phi * freq;
   // fudge allows more variation (phi limited to sample_max)

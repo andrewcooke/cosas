@@ -12,7 +12,7 @@
 
 
 Gain::Gain(const Node& nd, const Amplitude amp)
-  : Transformer(nd), amplitude(amp) {
+  : NodeTransformer(nd), amplitude(amp) {
 };
 
 int16_t Gain::next(int32_t tick, int32_t phi) const {
@@ -23,7 +23,7 @@ int16_t Gain::next(int32_t tick, int32_t phi) const {
 // these (float based) may be too slow?
 
 OneParFunc::OneParFunc(const Node& nd, float k)
-  : Transformer(nd), constant(k) {};
+  : NodeTransformer(nd), constant(k) {};
 
 int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
@@ -78,7 +78,7 @@ TEST_CASE("Folder") {
 
 
 MeanFilter::MeanFilter(const Node& nd, Length l)
-  : Transformer(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
+  : NodeTransformer(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
   len.filter = this;
 };
 
@@ -113,9 +113,8 @@ TEST_CASE("MeanFilter") {
 
 }
 
-// base class node unused - could refactor
 BaseMerge::BaseMerge(const Node& n, Weight w)
-  : Transformer(n), nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), int16_weights(std::move(std::make_unique<std::vector<int16_t>>())) {
+  : nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), int16_weights(std::move(std::make_unique<std::vector<int16_t>>())) {
   add_node_wout_recalc(n, w);
   // cannot call virtual method in constructor so set reasonable default
   int16_weights->push_back(scale2mult_shift14(w.weight));

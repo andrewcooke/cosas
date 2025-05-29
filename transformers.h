@@ -12,17 +12,20 @@
 // these have one input (modulators have two)
 
 
-class Transformer : public Node {
+class Transformer : public Node {};
+
+
+class NodeTransformer : public Transformer {
 
 protected:
 
-  Transformer(const Node& nd) : node(nd) {};
+  NodeTransformer(const Node& nd) : node(nd) {};
   const Node& node;
   
 };
 
 
-class Gain : public Transformer {
+class Gain : public NodeTransformer {
     
 public:
     
@@ -36,7 +39,7 @@ private:
 };
 
 
-class OneParFunc : public Transformer {
+class OneParFunc : public NodeTransformer {
 
 public:
 
@@ -80,7 +83,7 @@ private:
 };
 
 
-class MeanFilter : public Transformer {
+class MeanFilter : public NodeTransformer {
 
 public:
 
