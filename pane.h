@@ -20,13 +20,13 @@ class Pane {
 
 public:
   
-  Pane(std::unique_ptr<Input> top, std::unique_ptr<Input> left, std::unique_ptr<Input> right);
+  Pane(Input& top, Input& left, Input& right);
 
 private:
   
-  std::unique_ptr<Input> top_knob;
-  std::unique_ptr<Input> left_knob;
-  std::unique_ptr<Input> right_knob;
+  Input& top_knob;
+  Input& left_knob;
+  Input& right_knob;
   
 };
 

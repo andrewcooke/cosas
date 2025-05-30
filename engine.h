@@ -11,6 +11,7 @@
 #include "node.h"
 #include "oscillator.h"
 #include "params.h"
+#include "pane.h"
 
 
 // forward decl
@@ -44,16 +45,20 @@ private:
 
   template<typename ModType, typename... Args> ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
   template<typename TranType, typename... Args> TranType& add_transformer(const Node& nd1, Args... args);
+  template<typename NodeType, typename... Args> NodeType& add_node(Args... args);
   template<typename ParamType, typename... Args> ParamType& add_param(Args... args);
-  std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> add_abs_osc(size_t widx, float frq);
-  std::tuple<Wavedex&, RelativeFreq&, Oscillator&> add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
-  std::tuple<Amplitude&, Balance&, ModularFM&> add_fm(Node& c,  Node& m, float amp);
-  Constant& add_constant(uint16_t k);
-  Latch& add_latch();
+  template<typename InputType, typename... Args> InputType& add_input(Input& del, Args... args);
+  Pane& add_pane(Input& top, Input& left, Input& right);
+  
+  std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> build_abs_osc(size_t widx, float frq);
+  std::tuple<Wavedex&, RelativeFreq&, Oscillator&> build_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
+  std::tuple<Amplitude&, Balance&, ModularFM&> build_fm(Node& c,  Node& m, float amp);
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
+  std::unique_ptr<std::vector<std::unique_ptr<Input>>> current_inputs;
+  std::unique_ptr<std::vector<std::unique_ptr<Pane>>> current_panes;
   
 };
 

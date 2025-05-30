@@ -2,8 +2,8 @@
 #include "pane.h"
 
 
-Pane::Pane(std::unique_ptr<Input> top, std::unique_ptr<Input> left, std::unique_ptr<Input> right)
-  : top_knob(std::move(top)), left_knob(std::move(left)), right_knob(std::move(right)) {};
+Pane::Pane(Input& top, Input& left, Input& right)
+  : top_knob(top), left_knob(left), right_knob(right) {};
 
 
 PaneSet::PaneSet() : panes() {};
