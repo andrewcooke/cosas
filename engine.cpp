@@ -53,16 +53,31 @@ template<typename NodeType, typename... Args> NodeType& Manager::add_node(Args..
   return dynamic_cast<NodeType&>(*current_nodes->back());
 }
 
+Oscillator& Manager::add_oscillator(Wavedex& w, Frequency& f) {
+  current_nodes->push_back(std::move(std::make_unique<Oscillator>(w, f)));
+  return dynamic_cast<Oscillator&>(*current_nodes->back());
+}
+
 template<typename ParamType, typename... Args> ParamType& Manager::add_param(Args... args) {
   std::unique_ptr<ParamType> param = std::make_unique<ParamType>(std::forward<Args>(args)...);
   current_params->push_back(std::move(param));
   return dynamic_cast<ParamType&>(*current_params->back());
 }
 
+Wavedex& Manager::add_wavedex(size_t widx) {
+  current_params->push_back(std::move(std::make_unique<Wavedex>(*wavelib, widx)));
+  return dynamic_cast<Wavedex&>(*current_params->back());
+}
+
 template<typename InputType, typename... Args> InputType& Manager::add_input(Input& del, Args... args) {
   std::unique_ptr<InputType> input = std::make_unique<InputType>(del, std::forward<Args>(args)...);
   current_inputs->push_back(std::move(input));
   return dynamic_cast<InputType&>(*current_inputs->back());
+}
+
+Blank& Manager::add_blank() {
+  current_inputs->push_back(std::move(std::make_unique<Blank>()));
+  return dynamic_cast<Blank&>(*current_inputs->back());
 }
 
 Pane& Manager::add_pane(Input& top, Input& left, Input& right) {
@@ -72,25 +87,21 @@ Pane& Manager::add_pane(Input& top, Input& left, Input& right) {
 }
 
 std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> Manager::build_abs_osc(size_t widx, float frq) {
-  // TODO - shouldn;t this be an add_ function?
-  current_params->push_back(std::move(std::make_unique<Wavedex>(*wavelib, widx)));
-  Wavedex& w = dynamic_cast<Wavedex&>(*current_params->back());
+  Wavedex& w = add_wavedex(widx);
   AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
-  current_nodes->push_back(std::move(std::make_unique<Oscillator>(w, f)));
-  Oscillator& o = dynamic_cast<Oscillator&>(*current_nodes->back());
-  Input& top = add_input<Change>(add_input<Sigmoid>(add_input<Multiplicative>(f, 440, 1.0 / (1 << subtick_bits), 0.5 * sample_rate), 0.5));
-  add_pane(top, top, top);
+  Oscillator& o = add_oscillator(w, f);
+  Input& top = add_input<Change>(add_input<Sigmoid>(add_input<Multiplicative>(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate), 0.5));
+  Input& left = add_input<Change>(add_input<Sigmoid>(add_input<Additive>(w, wavelib->sine_gamma_1, 0, wavelib->size()), 0.5));
+  add_pane(top, left, add_blank());
   return {w, f, o};
 }
 
 std::tuple<Wavedex&, RelativeFreq&, Oscillator&> Manager::build_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
-  std::unique_ptr<Wavedex> wdex = std::make_unique<Wavedex>(*wavelib, widx);
-  current_params->push_back(std::move(wdex));
-  Wavedex& w = dynamic_cast<Wavedex&>(*current_params->back());
+  Wavedex& w = add_wavedex(widx);
+  // has ref first arg so cannot use add_param
   current_params->push_back(std::move(std::make_unique<RelativeFreq>(root, r, d)));
   RelativeFreq& f = static_cast<RelativeFreq&>(*current_params->back());
-  current_nodes->push_back(std::move(std::make_unique<Oscillator>(w, f)));
-  Oscillator& o = dynamic_cast<Oscillator&>(*current_nodes->back());
+  Oscillator& o = add_oscillator(w, f);
   return {w, f, o};
 }
 

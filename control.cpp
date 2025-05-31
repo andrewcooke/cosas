@@ -20,6 +20,11 @@ void Change::set(float v) {
 }
 
 
+Blank::Blank() {};
+
+void Blank::set(float /* v */) {};
+
+
 Sigmoid::Sigmoid(Input& del, float lin)
   : Delegate(del), linear(lin) {};
 

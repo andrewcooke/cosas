@@ -14,6 +14,16 @@ public:
 };
 
 
+class Blank : public Input {
+
+public:
+
+  Blank();
+  void set(float value) override;
+
+};
+
+
 class Delegate : public Input {
 
 public:

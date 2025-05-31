@@ -8,9 +8,6 @@
 #include "wavetable.h"
 
 
-class Manager;  // forwards def
-
-
 class Wavelib {
 
 public:

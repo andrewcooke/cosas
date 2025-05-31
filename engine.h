@@ -46,8 +46,11 @@ private:
   template<typename ModType, typename... Args> ModType& add_modulator(const Node& nd1, const Node& nd2, Args... args);
   template<typename TranType, typename... Args> TranType& add_transformer(const Node& nd1, Args... args);
   template<typename NodeType, typename... Args> NodeType& add_node(Args... args);
+  Oscillator& add_oscillator(Wavedex& w, Frequency& f);
   template<typename ParamType, typename... Args> ParamType& add_param(Args... args);
+  Wavedex& add_wavedex(size_t widx);
   template<typename InputType, typename... Args> InputType& add_input(Input& del, Args... args);
+  Blank& add_blank();
   Pane& add_pane(Input& top, Input& left, Input& right);
   
   std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> build_abs_osc(size_t widx, float frq);
