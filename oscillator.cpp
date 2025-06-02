@@ -17,6 +17,5 @@ int16_t Oscillator::next(int32_t tick, int32_t phi) const {
   // but may need to worry about gain sensitivity
   int32_t phi_frac = phi_tmp >> (sample_bits - 1 - phi_fudge_bits);
   return wavedex.get_wavetable().next(tick * freq, phi_frac);
-  // return wavedex.get_wavetable().next(tick * freq, phi);
 }
 

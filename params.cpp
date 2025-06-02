@@ -32,6 +32,20 @@ uint32_t RelativeFreq::get_frequency() const {
   return  static_cast<uint32_t>(mult_shift8(detune, static_cast<int32_t>(ratio.multiply(reference.get_frequency()))));
 }
 
+void RelativeFreq::set_detune(float v) {
+  detune = scale2mult_shift8(v);
+}
+
+RelativeFreq::Detune::Detune(RelativeFreq *f) : freq(f) {};
+
+std::unique_ptr<RelativeFreq::Detune> RelativeFreq::get_detune() {
+  return std::make_unique<Detune>(this);
+}
+
+void RelativeFreq::Detune::set(float v) {
+  freq->set_detune(v);
+}
+
 
 Amplitude::Amplitude(float a) : amplitude(a) {};
 

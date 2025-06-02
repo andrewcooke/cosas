@@ -8,9 +8,6 @@
 #include "maths.h"
 
 
-// these are small enough to be treated as values without worrying
-// about pointers and references.
-
 // sub-oscillators run at frequencies that are multiples of the main
 // oscillator.  this class encapsulates that scaling.  it's
 // non-trivial because we want fractional scaling without division.
@@ -55,17 +52,29 @@ class RelativeFreq : public Frequency {
   
 public:
 
+  class Detune : public Input {
+  public:
+    Detune(RelativeFreq* f);
+    friend class RelativeFreq;
+    void set(float val) override;
+  private:
+    RelativeFreq* freq;
+  };
+
   RelativeFreq(Frequency& ref, SimpleRatio r, float d);
   RelativeFreq(Frequency& ref, float r, float d);
   RelativeFreq(Frequency& ref, SimpleRatio r);
   RelativeFreq(Frequency& ref, float r);
   uint32_t get_frequency() const override;
-
-  void set_ratio(float r);
-  void set_detune(float f);
+  std::unique_ptr<Detune> get_detune();
   
+protected:
+
+  void set_detune(float f);
+
 private:
 
+  void set_ratio(float r);
   Frequency& reference;
   SimpleRatio ratio;
   int16_t detune;

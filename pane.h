@@ -22,8 +22,6 @@ public:
   
   Pane(Input& top, Input& left, Input& right);
 
-private:
-  
   Input& top_knob;
   Input& left_knob;
   Input& right_knob;
