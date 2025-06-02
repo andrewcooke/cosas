@@ -89,7 +89,7 @@ public:
   Amplitude(float f);
   Amplitude();  // full on
   int16_t scale(int16_t amp) const;
-  void set(float /* f */) override {};
+  void set(float f) override;
 
 private:
 

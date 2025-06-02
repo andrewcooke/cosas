@@ -55,6 +55,10 @@ int16_t Amplitude::scale(int16_t amp) const {
   return clip_16(amplitude * amp); 
 };
 
+void Amplitude::set(float f) {
+  amplitude = f;
+}
+
 
 Balance::Balance() : Balance(1) {};
 

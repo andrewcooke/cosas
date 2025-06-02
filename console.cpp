@@ -16,10 +16,10 @@ void dump(const Source& source, int64_t n) {
 
 void dump_fm(size_t n) {
   auto m = Manager();
-  const Node& fm = m.build_fm();
-  auto p = m.get_pane(m.n_panes());
+  const Node& fm = m.build_fm(1);
+  auto p = m.get_pane(m.n_panes()-1);
   for (int64_t i = 0; i < n; i++) {
-    p.top_knob.set(pow(i / (float)n, 2));
+    p.top_knob.set(i / (float) - 0.5);
     int16_t amp = fm.next(i);
     std::cout << i << " " << amp << std::endl;
   }

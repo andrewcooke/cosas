@@ -26,10 +26,12 @@ int main() {
   //  dump(g, 0.01 * sample_rate);
   //  Noise s = Noise(16);
   //  dump(s, 0.1 * sample_rate);
-  Manager mgr = Manager();
-  const Node& nd = mgr.build(Manager::Engine::FM_FMNT);
-  dump(nd, 0.01 * sample_rate);
+  //  Manager mgr = Manager();
+  //  const Node& nd = mgr.build(Manager::Engine::FM_FMNT);
+  //  dump(nd, 0.01 * sample_rate);
   //  Manager mgr = Manager();
   //  dump(mgr.build_fm_mod(1), 0.1 * sample_rate);
   //  dump(mgr.build_simple_fm(1), 0.01 * sample_rate);
+
+  dump_fm(0.1 * sample_rate);
 };
