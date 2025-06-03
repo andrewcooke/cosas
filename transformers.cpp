@@ -11,12 +11,24 @@
 #include "transformers.h"
 
 
-Gain::Gain(const Node& nd, const Amplitude amp)
+Gain::Gain(const Node& nd, const Amplitude& amp)
   : NodeTransformer(nd), amplitude(amp) {
 };
 
 int16_t Gain::next(int32_t tick, int32_t phi) const {
-  return amplitude.scale(node.next(tick, phi));
+  int16_t a = node.next(tick, phi);
+  int16_t b = amplitude.scale(a);
+  std::cerr << a << " gain " << b << std::endl;
+  return b;
+}
+
+TEST_CASE("Gain") {
+  Amplitude a = Amplitude();
+  Constant c = Constant(220);
+  Gain g = Gain(c, a);
+  CHECK(g.next(0, 0) == 220);
+  a.set(0.1);
+  CHECK(g.next(0, 0) == 22);
 }
 
 

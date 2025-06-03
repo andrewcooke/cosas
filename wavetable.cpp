@@ -10,13 +10,13 @@
 #include "wavetable.h"
 
 
-Square::Square(float duty) : duty_idx(duty * full_table_size) {};
+Square::Square(float duty) : duty_idx(duty * full_table_size) {}
 
 int16_t Square::next(int32_t tick, int32_t phi) const {
   size_t full_idx = tick2idx(tick + phi) % full_table_size;
   if (full_idx <= duty_idx) return sample_max;
   else return -sample_max;
-};
+}
 
 
 // handle symmetry of triangular or sine wave
@@ -36,13 +36,13 @@ Sine::Sine(float gamma) {
     if (gamma != 1) {shape = pow(shape, gamma);}
     quarter_table.at(i) = clip_16(shape * sample_max);
   }
-};
+}
 
 WTriangle::WTriangle() {
   for (size_t i = 0; i < quarter_table_size; i++) {
     quarter_table.at(i) = clip_16(sample_max * (i / static_cast<float>(quarter_table_size)));
   }
-};
+}
 
 
 // constant for division with shift
@@ -76,7 +76,7 @@ WSaw::WSaw(float offset) {
   for (size_t i = peak_index; i < half_table_size; i++) {
     half_table.at(i) = clip_16(sample_max * ((half_table_size - i) / static_cast<float>(half_table_size - 1 - peak_index)));
   }
-};
+}
 
 
 int16_t FullWtable::next(int32_t tick, int32_t phi) const {
@@ -88,7 +88,7 @@ int16_t FullWtable::next(int32_t tick, int32_t phi) const {
 Saw::Saw(float offset) :
   peak_idx(quarter_table_size + offset * quarter_table_size),
   k1((static_cast<int64_t>(sample_max) << 32) / static_cast<int64_t>((1 + offset) * sample_rate / 4)),
-  k2((static_cast<int64_t>(sample_max) << 32) / static_cast<int64_t>((1 - offset) * sample_rate / 4)) {};
+  k2((static_cast<int64_t>(sample_max) << 32) / static_cast<int64_t>((1 - offset) * sample_rate / 4)) {}
 
 int16_t Saw::next(int32_t tick, int32_t phi) const {
   size_t full_idx = tick2idx(tick + phi) % full_table_size;
@@ -119,5 +119,5 @@ Noise::Noise(uint smooth) {
       full_table.at(i) = clip_16(smoothed.at(i) * sample_max / norm);
     }
   }
-};
+}
 

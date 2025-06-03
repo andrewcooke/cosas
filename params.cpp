@@ -52,11 +52,22 @@ Amplitude::Amplitude(float a) : amplitude(a) {};
 Amplitude::Amplitude() : Amplitude(1) {};
 
 int16_t Amplitude::scale(int16_t amp) const {
-  return clip_16(amplitude * amp); 
+  float a = amplitude * amp;
+  int16_t b = clip_16(a);
+  std::cerr << amp << " amp " << this << " (" << amplitude << ") " << a << " " << b << std::endl;
+  return b;
 };
 
 void Amplitude::set(float f) {
+  std::cerr << amplitude << " amp " << this << " set " << f << std::endl;
   amplitude = f;
+}
+
+TEST_CASE("Amplitude") {
+  Amplitude a = Amplitude();
+  CHECK(a.scale(110) == 110);
+  a.set(0.1);
+  CHECK(a.scale(110) == 11);
 }
 
 

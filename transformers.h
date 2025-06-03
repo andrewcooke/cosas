@@ -29,16 +29,17 @@ class Gain : public NodeTransformer {
     
 public:
     
-  Gain(const Node& nd, const Amplitude amp);
+  Gain(const Node& nd, const Amplitude& amp);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
-  const Amplitude amplitude;
+  const Amplitude& amplitude;
   
 };
 
 
+// these need to be re-done with Inputs
 class OneParFunc : public NodeTransformer {
 
 public:
