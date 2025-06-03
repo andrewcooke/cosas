@@ -17,14 +17,14 @@ class Merge : public Modulator {
     
 public:
     
-  Merge(const Node& w, const Node& d, Balance bal);
+  Merge(const Node& w, const Node& d, Balance& bal);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
   const Node& wet;
   const Node& dry;
-  Balance balance;
+  Balance& balance;
   
 };
 
@@ -33,15 +33,15 @@ class Mixer : public Modulator {
     
 public:
     
-  Mixer(const Node& nd1, const Node& nd2, Amplitude amp, Balance bal);
+  Mixer(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
   const Node& node1;
   const Node& node2;
-  Amplitude amplitude;
-  Balance balance;
+  Amplitude& amplitude;
+  Balance& balance;
   
 };
 
@@ -67,7 +67,7 @@ class MixedFM : public Modulator {
 
 public:
 
-  MixedFM(const Node& car, const Node& mod, Amplitude amp, Balance bal);
+  MixedFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
@@ -84,7 +84,7 @@ class ModularFM : public Modulator {
 
 public:
 
-  ModularFM(const Node& car, const Node& mod, Amplitude amp, Balance bal);
+  ModularFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
@@ -117,7 +117,7 @@ class MixedAM : public Modulator {
 
 public:
 
-  MixedAM(const Node& nd1, const Node& nd2, Amplitude amp, Balance bal);
+  MixedAM(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
