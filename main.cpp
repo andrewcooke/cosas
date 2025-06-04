@@ -33,5 +33,5 @@ int main() {
   //  dump(mgr.build_fm_mod(1), 0.1 * sample_rate);
   //  dump(mgr.build_simple_fm(1), 0.01 * sample_rate);
 
-  dump_fm(0.1 * sample_rate);
+  dump_w_gain(Manager::Engine::FM_LFO, 0.1 * sample_rate);
 };

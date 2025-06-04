@@ -16,6 +16,7 @@ Gain::Gain(const Node& nd, const Amplitude& amp)
 };
 
 int16_t Gain::next(int32_t tick, int32_t phi) const {
+  std::cerr << "node " << &node << std::endl;
   int16_t a = node.next(tick, phi);
   int16_t b = amplitude.scale(a);
   std::cerr << a << " gain " << b << std::endl;

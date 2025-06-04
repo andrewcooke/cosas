@@ -61,42 +61,6 @@ private:
 };
   
 
-// mix wet and dry with a final gain
-
-class MixedFM : public Modulator {
-
-public:
-
-  MixedFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
-private:
-
-  const FM fm;
-  const Mixer mixer;
-  
-};
-
-
-// compared to MixedFM, this has the gain on the modulator
-
-class ModularFM : public Modulator {
-
-public:
-
-  ModularFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
-private:
-
-  const Gain gain;
-  const FM fm;
-  Merge merge;
-  
-};
-
-
-
 class AM : public Modulator {
 
 public:
@@ -109,21 +73,6 @@ private:
 
   const Node& node1;
   const Node& node2;
-  
-};
-  
-
-class MixedAM : public Modulator {
-
-public:
-
-  MixedAM(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
-private:
-
-  const AM am;
-  Mixer mixer;
   
 };
   

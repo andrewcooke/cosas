@@ -31,24 +31,6 @@ int16_t FM::next(int32_t tick, int32_t phi) const {
 };
 
 
-MixedFM::MixedFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal)
-  : fm(FM(car, mod)), mixer(Mixer(car, fm, amp, bal)) {};
-
-int16_t MixedFM::next(int32_t tick, int32_t phi) const {
-  return mixer.next(tick, phi);
-}
-
-
-ModularFM::ModularFM(const Node& car, const Node& mod, Amplitude& amp, Balance& bal)
-  : gain(Gain(mod, amp)), fm(FM(car, gain)), merge(Merge(fm, car, bal)) {
-  std::cerr << "mfm " << &amp << std::endl;
-};
-
-int16_t ModularFM::next(int32_t tick, int32_t phi) const {
-  return merge.next(tick, phi);
-}
-
-
 AM::AM(const Node& nd1, const Node& nd2)
   : node1(nd1), node2(nd2) {};
 
@@ -57,11 +39,4 @@ int16_t AM::next(int32_t tick, int32_t phi) const {
   int32_t s2 = node2.next(tick, phi);
   return clip_16((s1 * s2) >> 16);
 };
-
-MixedAM::MixedAM(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal)
-  : am(AM(nd1, nd2)), mixer(Mixer(nd1, am, amp, bal)) {};
-
-int16_t MixedAM::next(int32_t tick, int32_t phi) const {
-  return mixer.next(tick, phi);
-}
 

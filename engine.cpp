@@ -22,8 +22,8 @@ const Node& Manager::build(Manager::Engine engine) {
   current_panes->clear();
 
   switch(engine) {
-  case Manager::Engine::FM:
-    return build_fm();
+  case Manager::Engine::FM_SIMPLE:
+    return build_fm_simple();
   case Manager::Engine::FM_LFO:
     return build_fm_lfo();
   case Manager::Engine::FM_FB:
@@ -50,15 +50,10 @@ template<typename NodeType, typename... Args> NodeType& Manager::add_node(Args&&
   return dynamic_cast<NodeType&>(*current_nodes->back());
 }
 
-template<typename ParamType, typename... Args> ParamType& Manager::add_param(Args... args) {
+template<typename ParamType, typename... Args> ParamType& Manager::add_param(Args&&... args) {
   std::unique_ptr<ParamType> param = std::make_unique<ParamType>(std::forward<Args>(args)...);
   current_params->push_back(std::move(param));
   return dynamic_cast<ParamType&>(*current_params->back());
-}
-
-Wavedex& Manager::add_wavedex(size_t widx) {
-  current_params->push_back(std::move(std::make_unique<Wavedex>(*wavelib, widx)));
-  return dynamic_cast<Wavedex&>(*current_params->back());
 }
 
 template<typename InputType, typename... Args> InputType& Manager::add_input(Input& del, Args... args) {
@@ -92,61 +87,76 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 	                      0.5));
 }
 
-std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> Manager::add_abs_osc(size_t widx, float frq) {
-  Wavedex& w = add_wavedex(widx);
+std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq) {
+  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
   AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
   Oscillator& o = add_node<Oscillator>(w, f);
   Input & top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
   Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
   add_pane(top, left, blank());
-  return {w, f, o};
+  return {f, o};
 }
 
-std::tuple<Wavedex&, RelativeFreq&, Oscillator&> Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
-  Wavedex& w = add_wavedex(widx);
+// this uses all the knobs!
+std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float frq, float amp) {
+  auto [f, o] = add_abs_osc(widx, frq);
+  Amplitude& a = add_param<Amplitude>(amp);
+  Gain& g = add_node<Gain>(o, a);
+  Pane& p = *current_panes->back();
+  p.right_knob = lin_control(a, amp, 0, 1);
+  return {f, g};
+}
+
+Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
+  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
   // has ref first arg so cannot use add_param
   current_params->push_back(std::move(std::make_unique<RelativeFreq>(root, r, d)));
   RelativeFreq& f = static_cast<RelativeFreq&>(*current_params->back());
   Oscillator& o = add_node<Oscillator>(w, f);
   Input& top = log_control(f, 1, 1.0 / (root.get_frequency() << subtick_bits), 0.5 * sample_rate / root.get_frequency());
   Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
-  current_inputs->push_back(std::move(f.get_detune()));
+  current_inputs->push_back(std::move(f.get_detune()));  // TODO - ok?
   Input& right = log_control(*current_inputs->back(), 1, 0.9, 1.1);
   add_pane(top, left, right);
-  return {w, f, o};
+  std::cerr << "osc " << &o << " = " << o.next(0, 0) << std::endl;
+  return o;
 }
 
-std::tuple<Amplitude&, Balance&, ModularFM&> Manager::add_fm(Node& c, Node& m, float amp) {
+Node& Manager::add_fm(Node& c, Node& m, float bal, float amp) {
   Amplitude& a = add_param<Amplitude>(amp);
   std::cerr << "created " << &a << std::endl;
-  Balance& b = add_param<Balance>();
-  ModularFM& fm = add_node<ModularFM>(c, m, a, b);
-  Input & top = lin_control(a, 0.5, 0, 1);
-  Input& left = lin_control(b, 0.5, 0, 1);
+  Gain& g = add_node<Gain>(m, a);
+  FM& fm = add_node<FM>(c, g);
+  Balance& b = add_param<Balance>(bal);
+  Merge& j = add_node<Merge>(fm, c, b);
+  Input & top = lin_control(a, amp, 0, 1);
+  Input& left = lin_control(b, bal, 0, 1);
   add_pane(top, left, blank());
-  return {a, b, fm};
+  return j;
 }
   
-const Node& Manager::build_fm() {
+const Node& Manager::build_fm_simple() {
   // i don't understand this 3.  is it subtick_bits?
-  return build_fm(1.0 / (1 << (phi_fudge_bits - 3)));
+  return build_fm_simple(1.0 / (1 << (phi_fudge_bits - 3)));
 }
 
-const Node& Manager::build_fm(float amp) {
-  auto [cw, cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  auto [mw, mf, m] = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
-  auto [a, b, fm] = add_fm(c, m, amp);
+const Node& Manager::build_fm_simple(float amp) {
+  // TODO - are these return tuple vals used?
+  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
+  Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
+  Node& fm = add_fm(c, m, 0.5, amp);
   return fm;
 }
 
-TEST_CASE("BuildFM") {
+TEST_CASE("BuildFMSimple") {
   Manager m = Manager();
-  int16_t amp0 = m.build_fm(0).next(50, 0);
-  int16_t amp01 = m.build_fm(0.001).next(50, 0);
+  int16_t amp0 = m.build_fm_simple(0).next(50, 0);
+  CHECK(m.n_panes() == 3);  // carrier, modulator, fm gain/balance
+  int16_t amp01 = m.build_fm_simple(0.001).next(50, 0);
   CHECK(amp0 == amp01);
-  amp0 = m.build_fm(0).next(51, 0);
-  amp01 = m.build_fm(0.001).next(51, 0);
-  CHECK(amp0 == amp01 - 18);  // exact diff not important, just should not be huge
+  amp0 = m.build_fm_simple(0).next(51, 0);
+  amp01 = m.build_fm_simple(0.001).next(51, 0);
+  CHECK(abs(amp0 - amp01) < 10);  // exact diff not important, just should not be huge
 }
 
 const Node& Manager::build_fm_lfo() {
@@ -154,13 +164,19 @@ const Node& Manager::build_fm_lfo() {
 }
 
 const Node& Manager::build_fm_lfo(float amp) {
-  auto [cw, cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  auto [mw, mf, m] = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
-  auto [lw, lf, l] = add_abs_osc(wavelib->sine_gamma_1, 1);
-  // TODO - need gain for lfo?
+  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
+  Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
+  auto [lf, l] = add_abs_osc_w_gain(wavelib->sine_gamma_1, 1, 1);
   Node& am = add_node<AM>(l, m);
-  auto [a, b, fm] = add_fm(c, am, amp);
+  Node& fm = add_fm(c, am, 0.5, amp);
   return fm;
+}
+
+TEST_CASE("BuildFMLFO") {
+  Manager m = Manager();
+  int32_t amp = m.build(m.FM_LFO).next(123, 0);
+  CHECK(amp == 32450);  // exact value not important
+  CHECK(m.n_panes() == 4);  // carrier, modulator, lfo, fm gain/balance
 }
 
 const Node& Manager::build_fm_fb() {
@@ -168,35 +184,35 @@ const Node& Manager::build_fm_fb() {
 }
 
 const Node& Manager::build_fm_fb(float amp) {
-  auto [cw, cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  auto [mw, mf, m] = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
+  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
+  Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   Latch& latch = add_node<Latch>();
   MeanFilter::Length l = add_param<MeanFilter::Length>(1);
   MeanFilter& flt = add_node<MeanFilter>(latch, l);
   Balance& mb = add_param<Balance>(0.5);
-  Merge mrg = add_node<Merge>(flt, m, mb);
-  auto [a, b, fm] = add_fm(c, mrg, amp);
+  Merge& mrg = add_node<Merge>(flt, m, mb);
+  Node& fm = add_fm(c, mrg, 0.5, amp);
   latch.set_source(&fm);
   return latch;
 }
 
 // this is via feedback which might be crazy
 const Node& Manager::build_fm_fmnt() {
-  auto [cw, cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
-  auto [mw, mf, m] = add_abs_osc(wavelib->sine_gamma_1, 100);
+  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
+  auto [mf, m] = add_abs_osc(wavelib->sine_gamma_1, 100);
   Latch& latch = add_node<Latch>();
   MeanFilter::Length& l = add_param<MeanFilter::Length>(1);
   MeanFilter& flt = add_node<MeanFilter>(latch, l);
   PriorityMerge::Weight& w0 = add_param<PriorityMerge::Weight>(0.5);
   PriorityMerge& mrg = add_node<PriorityMerge>(flt, w0);
-  auto [mw1, mf1, m1] = add_rel_osc(wavelib->sine_gamma_1, mf, 2, 1);
+  Node& m1 = add_rel_osc(wavelib->sine_gamma_1, mf, 2, 1);
   PriorityMerge::Weight& w1 = add_param<PriorityMerge::Weight>(0.1);
   mrg.add_node(m1, w1);
-  auto [mw2, mf2, m2] = add_rel_osc(wavelib->sine_gamma_1, mf, 3, 1);
+  Node& m2 = add_rel_osc(wavelib->sine_gamma_1, mf, 3, 1);
   PriorityMerge::Weight& w2 = add_param<PriorityMerge::Weight>(0.1);
   mrg.add_node(m2, w2);
   // could add more in parallel here?
-  auto [a, b, fm] = add_fm(c, mrg, 1);
+  Node& fm = add_fm(c, mrg, 0.5, 1);
   latch.set_source(&fm);
   return latch;
 }

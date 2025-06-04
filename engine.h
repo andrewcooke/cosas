@@ -23,7 +23,7 @@ class Manager {
 public:
 
   enum Engine {
-    FM,
+    FM_SIMPLE,
     FM_LFO,
     FM_FB,
     FM_FMNT
@@ -35,8 +35,8 @@ public:
   size_t n_panes();
 
   // should be private, but useful for testing
-  const Node& build_fm();
-  const Node& build_fm(float a);
+  const Node& build_fm_simple();
+  const Node& build_fm_simple(float a);
   const Node& build_fm_lfo();
   const Node& build_fm_lfo(float a);
   const Node& build_fm_fb();
@@ -46,16 +46,16 @@ public:
 private:
 
   template<typename NodeType, typename... Args> NodeType& add_node(Args&&... args);
-  template<typename ParamType, typename... Args> ParamType& add_param(Args... args);
-  Wavedex& add_wavedex(size_t widx);
+  template<typename ParamType, typename... Args> ParamType& add_param(Args&&... args);
   template<typename InputType, typename... Args> InputType& add_input(Input& del, Args... args);
   Pane& add_pane(Input& top, Input& left, Input& right);
   Blank& blank();
   Input& lin_control(Input& in, float c, float lo, float hi);
   Input& log_control(Input& in, float c, float lo, float hi);
-  std::tuple<Wavedex&, AbsoluteFreq&, Oscillator&> add_abs_osc(size_t widx, float frq);
-  std::tuple<Wavedex&, RelativeFreq&, Oscillator&> add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
-  std::tuple<Amplitude&, Balance&, ModularFM&> add_fm(Node& c,  Node& m, float amp);
+  std::tuple<AbsoluteFreq&, Node&> add_abs_osc(size_t widx, float frq);
+  std::tuple<AbsoluteFreq&, Node&> add_abs_osc_w_gain(size_t widx, float frq, float amp);
+  Node& add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
+  Node& add_fm(Node& c,  Node& m, float bal, float amp);
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
