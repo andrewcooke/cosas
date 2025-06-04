@@ -56,8 +56,8 @@ template<typename ParamType, typename... Args> ParamType& Manager::add_param(Arg
   return dynamic_cast<ParamType&>(*current_params->back());
 }
 
-template<typename InputType, typename... Args> InputType& Manager::add_input(Input& del, Args... args) {
-  std::unique_ptr<InputType> input = std::make_unique<InputType>(del, std::forward<Args>(args)...);
+template<typename InputType, typename... Args> InputType& Manager::add_input(Args&&... args) {
+  std::unique_ptr<InputType> input = std::make_unique<InputType>(std::forward<Args>(args)...);
   current_inputs->push_back(std::move(input));
   return dynamic_cast<InputType&>(*current_inputs->back());
 }
@@ -66,11 +66,6 @@ Pane& Manager::add_pane(Input& top, Input& left, Input& right) {
   std::unique_ptr<Pane> pane = std::make_unique<Pane>(top, left, right);
   current_panes->push_back(std::move(pane));
   return *current_panes->back();
-}
-
-Blank& Manager::blank() {
-  current_inputs->push_back(std::move(std::make_unique<Blank>()));
-  return dynamic_cast<Blank&>(*current_inputs->back());
 }
 
 Input& Manager::lin_control(Input& in, float c, float lo, float hi) {
@@ -87,29 +82,32 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 	                      0.5));
 }
 
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq) {
+std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq, Input& right) {
   Wavedex& w = add_param<Wavedex>(*wavelib, widx);
   AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
   Oscillator& o = add_node<Oscillator>(w, f);
-  Input & top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
+  Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
   Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
-  add_pane(top, left, blank());
+  add_pane(top, left, right);
   return {f, o};
 }
 
-// this uses all the knobs!
+std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq) {
+  return add_abs_osc(widx, frq, add_input<Blank>());
+}
+
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float frq, float amp) {
-  auto [f, o] = add_abs_osc(widx, frq);
   Amplitude& a = add_param<Amplitude>(amp);
+  Input& right = lin_control(a, amp, 0, 1);
+  auto [f, o] = add_abs_osc(widx, frq, right);
   Gain& g = add_node<Gain>(o, a);
-  Pane& p = *current_panes->back();
-  p.right_knob = lin_control(a, amp, 0, 1);
   return {f, g};
 }
 
 Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
   Wavedex& w = add_param<Wavedex>(*wavelib, widx);
   // has ref first arg so cannot use add_param
+  // TODO - still true?
   current_params->push_back(std::move(std::make_unique<RelativeFreq>(root, r, d)));
   RelativeFreq& f = static_cast<RelativeFreq&>(*current_params->back());
   Oscillator& o = add_node<Oscillator>(w, f);
@@ -131,7 +129,7 @@ Node& Manager::add_fm(Node& c, Node& m, float bal, float amp) {
   Merge& j = add_node<Merge>(fm, c, b);
   Input & top = lin_control(a, amp, 0, 1);
   Input& left = lin_control(b, bal, 0, 1);
-  add_pane(top, left, blank());
+  add_pane(top, left, add_input<Blank>());
   return j;
 }
   
@@ -141,7 +139,6 @@ const Node& Manager::build_fm_simple() {
 }
 
 const Node& Manager::build_fm_simple(float amp) {
-  // TODO - are these return tuple vals used?
   auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   Node& fm = add_fm(c, m, 0.5, amp);
@@ -184,16 +181,25 @@ const Node& Manager::build_fm_fb() {
 }
 
 const Node& Manager::build_fm_fb(float amp) {
-  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
+  const int DEFAULT_LENGTH = 5;
+  MeanFilter::Length l = add_param<MeanFilter::Length>(DEFAULT_LENGTH);
+  Input& right = lin_control(l, DEFAULT_LENGTH, 0, 10);
+  auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440, right);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   Latch& latch = add_node<Latch>();
-  MeanFilter::Length l = add_param<MeanFilter::Length>(1);
   MeanFilter& flt = add_node<MeanFilter>(latch, l);
   Balance& mb = add_param<Balance>(0.5);
   Merge& mrg = add_node<Merge>(flt, m, mb);
   Node& fm = add_fm(c, mrg, 0.5, amp);
   latch.set_source(&fm);
   return latch;
+}
+
+TEST_CASE("BuildFMLFO") {
+  Manager m = Manager();
+  int32_t amp = m.build(m.FM_FB).next(666, 0);
+  CHECK(amp == -21003);  // exact value not important
+  CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance
 }
 
 // this is via feedback which might be crazy

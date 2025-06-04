@@ -47,11 +47,11 @@ private:
 
   template<typename NodeType, typename... Args> NodeType& add_node(Args&&... args);
   template<typename ParamType, typename... Args> ParamType& add_param(Args&&... args);
-  template<typename InputType, typename... Args> InputType& add_input(Input& del, Args... args);
+  template<typename InputType, typename... Args> InputType& add_input(Args&&... args);
   Pane& add_pane(Input& top, Input& left, Input& right);
-  Blank& blank();
   Input& lin_control(Input& in, float c, float lo, float hi);
   Input& log_control(Input& in, float c, float lo, float hi);
+  std::tuple<AbsoluteFreq&, Node&> add_abs_osc(size_t widx, float frq, Input& right);
   std::tuple<AbsoluteFreq&, Node&> add_abs_osc(size_t widx, float frq);
   std::tuple<AbsoluteFreq&, Node&> add_abs_osc_w_gain(size_t widx, float frq, float amp);
   Node& add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
