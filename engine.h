@@ -26,22 +26,13 @@ public:
     FM_SIMPLE,
     FM_LFO,
     FM_FB,
-    FM_FMNT
+    CHORD
   };
 
   Manager();
   const Node& build(Engine);
   const Pane& get_pane(size_t n);
   size_t n_panes();
-
-  // should be private, but useful for testing
-  const Node& build_fm_simple();
-  const Node& build_fm_simple(float a);
-  const Node& build_fm_lfo();
-  const Node& build_fm_lfo(float a);
-  const Node& build_fm_fb();
-  const Node& build_fm_fb(float a);
-  const Node& build_fm_fmnt();
 
 private:
 
@@ -56,6 +47,11 @@ private:
   std::tuple<AbsoluteFreq&, Node&> add_abs_osc_w_gain(size_t widx, float frq, float amp);
   Node& add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
   Node& add_fm(Node& c,  Node& m, float bal, float amp);
+
+  const Node& build_fm_simple();
+  const Node& build_fm_lfo();
+  const Node& build_fm_fb();
+  const Node& build_chord();
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
