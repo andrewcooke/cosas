@@ -141,8 +141,7 @@ const Node& Manager::build_fm_simple() {
   auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   // i don't understand this 3.  is it subtick_bits?
-  //  Node& fm = add_fm(c, m, 0.5, 1.0 / (1 << (phi_fudge_bits - 3)));
-  Node& fm = add_fm(c, m, 0, 0);
+  Node& fm = add_fm(c, m, 0.5, 1.0 / (1 << (phi_fudge_bits - 3)));
   return fm;
 }
 

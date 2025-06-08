@@ -68,7 +68,6 @@ void AbsoluteFreq::set_relative_freqs(uint32_t f) {
 RelativeFreq::RelativeFreq(RelativeOsc* o, float f, SimpleRatio r, float d)
   : RelativeFreq(o, hz2freq(f), r, d) {}
 
-// prolly need to move this to inside constructor?
 RelativeFreq::RelativeFreq(RelativeOsc* o, uint32_t f, SimpleRatio r, float d)
   : Frequency(o), root(f), ratio(r), detune(scale2mult_shift8(d)), detune_param(this) {
   recalculate();
@@ -134,10 +133,19 @@ RelativeFreq& RelativeOsc::get_param() {
 }
 
 
-TEST_CASE("AbsoluteOsc") {
+TEST_CASE("Wavedex") {
   Wavelib w = Wavelib();
   AbsoluteOsc o = AbsoluteOsc(w, w.sine_gamma_1, 4400);
   CHECK(o.next(1000, 0) == -32417);
   o.get_wavedex().set(w.square_duty_05);
   CHECK(o.next(1000, 0) == -32767);
+}
+
+TEST_CASE("Detune") {
+  Wavelib w = Wavelib();
+  AbsoluteOsc o1 = AbsoluteOsc(w, w.sine_gamma_1, 4400);
+  RelativeOsc o2 = RelativeOsc(w, w.sine_gamma_1, o1.get_param(), 1, 1);
+  CHECK(o2.next(1000, 0) == -32417);
+  o2.get_param().get_detune().set(0.9);
+  CHECK(o2.next(1000, 0) != -32417);
 }
