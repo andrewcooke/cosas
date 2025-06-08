@@ -1,4 +1,8 @@
 
+#include <iostream>
+
+#include "doctest.h"
+
 #include "wavelib.h"
 
 
@@ -38,6 +42,7 @@ void Wavelib::init_wavetables() {
     all_wavetables->push_back(std::move(std::make_unique<Noise>(smooth)));
   }  
 
+  std::cerr << size() << " wavetables" << std::endl;
 }
 
 Wavetable& Wavelib::operator[](size_t idx) {
@@ -46,4 +51,13 @@ Wavetable& Wavelib::operator[](size_t idx) {
 
 size_t Wavelib::size() {
   return all_wavetables->size();
+}
+
+TEST_CASE("Wavelib") {
+  Wavelib w = Wavelib();
+  CHECK(w[w.square_duty_05].next(0 << subtick_bits) == sample_max);
+  CHECK(w[w.square_duty_05].next(half_table_size << subtick_bits) == sample_max);
+  CHECK(w[w.square_duty_05].next((half_table_size+1) << subtick_bits) == sample_min);
+  CHECK(w[w.square_duty_05].next((full_table_size-1) << subtick_bits) == sample_min);
+  CHECK(w[w.square_duty_05].next(full_table_size << subtick_bits) == sample_max);
 }

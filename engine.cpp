@@ -7,12 +7,15 @@
 #include "engine.h"
 
 
-Manager::Manager()
+Manager::Manager() : Manager(false) {};
+
+Manager::Manager(bool t)
   : wavelib(std::move(std::make_unique<Wavelib>())),
     current_nodes(std::move(std::make_unique<std::vector<std::unique_ptr<Node>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
     current_inputs(std::move(std::make_unique<std::vector<std::unique_ptr<Input>>>())),
-    current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())) {};
+    current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())),
+    test(t) {};
 
 const Node& Manager::build(Manager::Engine engine) {
   
@@ -75,25 +78,24 @@ Pane& Manager::add_pane(Input& top, Input& left, Input& right) {
 Input& Manager::lin_control(Input& in, float c, float lo, float hi) {
   return add_input<Change>(
 	   add_input<Sigmoid>(
-			      add_input<Additive>(in, c, lo, hi),
-	                      0.5));
+			      add_input<Additive>(in, test ? lo : c, lo, hi),
+	                      test ? 1 : 0.5));
 }
 
 Input& Manager::log_control(Input& in, float c, float lo, float hi) {
   return add_input<Change>(
 	   add_input<Sigmoid>(
-			      add_input<Multiplicative>(in, c, lo, hi),
-	                      0.5));
+			      add_input<Multiplicative>(in, test ? lo : c, lo, hi),
+	                      test ? 1 : 0.5));
 }
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq, Input& right) {
-  //  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
-  //  AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
   AbsoluteOsc& o = add_node<AbsoluteOsc>(*wavelib, widx, frq);
   AbsoluteFreq& f = o.get_param();
   Oscillator::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
-  Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size() - 1);
+  Input& left = lin_control(w, widx, 0, wavelib->size() - 1);
+  std::cerr << "sq " <<  wavelib->square_duty_05 << " sin " << wavelib->sine_gamma_1 << std::endl;
   add_pane(top, left, right);
   return {f, o};
 }
@@ -111,13 +113,11 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float 
 }
 
 Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
-  //  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
-  //  RelativeFreq& f = add_param<RelativeFreq>(root, r, d);
   RelativeOsc& o = add_node<RelativeOsc>(*wavelib, widx, root, r, d);
   RelativeFreq& f = o.get_param();
   Oscillator::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, 1, 1.0 / (root.get_frequency() << subtick_bits), 0.5 * sample_rate / root.get_frequency());
-  Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
+  Input& left = lin_control(w, widx, 0, wavelib->size());
   Input& right = log_control(f.get_detune(), 1, 0.9, 1.1);
   add_pane(top, left, right);
   std::cerr << "osc " << &o << " = " << o.next(0, 0) << std::endl;
@@ -141,7 +141,8 @@ const Node& Manager::build_fm_simple() {
   auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   // i don't understand this 3.  is it subtick_bits?
-  Node& fm = add_fm(c, m, 0.5, 1.0 / (1 << (phi_fudge_bits - 3)));
+  //  Node& fm = add_fm(c, m, 0.5, 1.0 / (1 << (phi_fudge_bits - 3)));
+  Node& fm = add_fm(c, m, 0, 0);
   return fm;
 }
 

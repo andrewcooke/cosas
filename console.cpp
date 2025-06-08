@@ -6,7 +6,7 @@
 
 
 void dump_w_gain(Manager::Engine e, size_t n) {
-  auto m = Manager();
+  auto m = Manager(true);
   const Node& fm = m.build(e);
   auto p = m.get_pane(m.n_panes()-1);
   for (size_t i = 0; i < n; i++) {
@@ -17,11 +17,11 @@ void dump_w_gain(Manager::Engine e, size_t n) {
 }
 
 void dump_w_wdex(Manager::Engine e, size_t n) {
-  auto m = Manager();
+  auto m = Manager(true);
   const Node& fm = m.build(e);
   auto p = m.get_pane(0);
   for (size_t i = 0; i < n; i++) {
-    p.left_knob.set(i / static_cast<float>(n) - 0.5);
+    p.left_knob.set(m.n_wforms() * i / static_cast<float>(n));
     int16_t amp = fm.next(i, 0);
     std::cout << i << " " << amp << std::endl;
   }

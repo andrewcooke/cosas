@@ -30,6 +30,7 @@ public:
   };
 
   Manager();
+  Manager(bool t);
   const Node& build(Engine);
   const Pane& get_pane(size_t n);
   size_t n_panes();
@@ -59,6 +60,7 @@ private:
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
   std::unique_ptr<std::vector<std::unique_ptr<Input>>> current_inputs;
   std::unique_ptr<std::vector<std::unique_ptr<Pane>>> current_panes;
+  bool test;
   
 };
 

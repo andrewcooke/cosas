@@ -32,7 +32,7 @@ protected:
 
   Wavedex wavedex;
   uint32_t frequency;
-  Wavetable& wavetable;
+  Wavetable* wavetable;
   
 };
 

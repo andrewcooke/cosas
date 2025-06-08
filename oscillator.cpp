@@ -6,7 +6,7 @@
 #include "engine.h"
 
 
-Oscillator::Oscillator(Wavelib& wl, size_t widx): wavedex(this, wl), wavetable(wl[widx]) {};
+Oscillator::Oscillator(Wavelib& wl, size_t widx): wavedex(this, wl), wavetable(&wl[widx]) {};
 
 Oscillator::Wavedex& Oscillator::get_wavedex() {
   return wavedex;
@@ -19,7 +19,8 @@ int16_t Oscillator::next(int32_t tick, int32_t phi) const {
   // fudge allows more variation (phi limited to sample_max)
   // but may need to worry about gain sensitivity
   int32_t phi_frac = phi_tmp >> (sample_bits - 1 - phi_fudge_bits);
-  return wavetable.next(tick * freq, phi_frac);
+  std::cerr << "using " << &wavetable << std::endl;
+  return wavetable->next(tick * freq, phi_frac);
 }
 
 Oscillator::Wavedex::Wavedex(Oscillator* o, Wavelib& wl) : oscillator(o), wavelib(wl) {};
@@ -27,10 +28,8 @@ Oscillator::Wavedex::Wavedex(Oscillator* o, Wavelib& wl) : oscillator(o), waveli
 void Oscillator::Wavedex::set(float val) {
   size_t n = wavelib.size() - 1;
   size_t widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
-  std::cerr << "widx " << widx << std::endl;
-  oscillator->wavetable = wavelib[widx];
+  oscillator->wavetable = &wavelib[widx];
 }
-
 
 
 Frequency::Frequency(Oscillator* o) : oscillator(o) {}
@@ -134,3 +133,11 @@ RelativeFreq& RelativeOsc::get_param() {
   return freq_param;
 }
 
+
+TEST_CASE("AbsoluteOsc") {
+  Wavelib w = Wavelib();
+  AbsoluteOsc o = AbsoluteOsc(w, w.sine_gamma_1, 4400);
+  CHECK(o.next(1000, 0) == -32417);
+  o.get_wavedex().set(w.square_duty_05);
+  CHECK(o.next(1000, 0) == -32767);
+}
