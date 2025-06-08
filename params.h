@@ -3,83 +3,11 @@
 #define COSA_PARAMS_H
 
 #include "control.h"
+#include "wavetable.h"
 #include "wavelib.h"
-#include "constants.h"
-#include "maths.h"
-
-
-// sub-oscillators run at frequencies that are multiples of the main
-// oscillator.  this class encapsulates that scaling.  it's
-// non-trivial because we want fractional scaling without division.
-// so we support division by powers of 2 (bit shifts) and, as special
-// cases, 3 and 5 (chosen so that we can handle major and minor
-// chords).
-
-// alternatively, maybe we do want exact frequencies for dissonance,
-// etc.  so support that too
 
 
 class Param : public Input {};
-
-
-
-class Frequency : public Param {
-
-public:
-
-  void set(float /* f */) override {};
-  virtual uint32_t get_frequency() const = 0;
-
-};
-
-
-class AbsoluteFreq : public Frequency {
-  
-public:
-
-  AbsoluteFreq(float freq);
-  uint32_t get_frequency() const override;
-  
-private:
-
-  // we have subtick_bits of fraction so 16 bits is insufficient
-  uint32_t frequency;
-
-};
-
-
-class RelativeFreq : public Frequency {
-  
-public:
-
-  class Detune : public Input {
-  public:
-    Detune(RelativeFreq* f);
-    friend class RelativeFreq;
-    void set(float val) override;
-  private:
-    RelativeFreq* freq;
-  };
-
-  RelativeFreq(Frequency& ref, SimpleRatio r, float d);
-  RelativeFreq(Frequency& ref, float r, float d);
-  RelativeFreq(Frequency& ref, SimpleRatio r);
-  RelativeFreq(Frequency& ref, float r);
-  uint32_t get_frequency() const override;
-  std::unique_ptr<Detune> get_detune();
-  
-protected:
-
-  void set_detune(float f);
-
-private:
-
-  void set_ratio(float r);
-  Frequency& reference;
-  SimpleRatio ratio;
-  int16_t detune;
-  
-};
 
 
 class Amplitude : public Param {
@@ -122,13 +50,14 @@ const auto dry_bal = Balance(0);
 const auto wet_bal = Balance(1);
 
 
+/*
 class Wavedex : public Param {
 
 public:
 
   Wavedex(Wavelib& wl, size_t idx);
   Wavetable& get_wavetable() const;
-  void set(float /* f */) override {};
+  void set(float f ) override {};
 
 private:
 
@@ -137,6 +66,6 @@ private:
   Wavetable& wavetable;  // cached
   
 };
-
+*/
 
 #endif

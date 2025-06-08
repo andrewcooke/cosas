@@ -44,7 +44,16 @@ class OneParFunc : public NodeTransformer {
 
 public:
 
-  OneParFunc(const Node& nd, const float k);
+  class OnePar : public Param {
+  public:
+    friend class NodeTransformer;
+    OnePar();
+    void set(float f) override;
+  private:
+    OneParFunc* func = nullptr;
+  };
+
+  OneParFunc(const Node& nd, float k);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:

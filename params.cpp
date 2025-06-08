@@ -6,50 +6,12 @@
 #include "maths.h"
 #include "params.h"
 #include "source.h"
+#include "oscillator.h"
 
 
-AbsoluteFreq::AbsoluteFreq(float freq) : frequency(hz2freq(freq)) {};
+Amplitude::Amplitude(float a) : amplitude(a) {}
 
-uint32_t AbsoluteFreq::get_frequency() const {
-  return frequency;
-}
-
-
-RelativeFreq::RelativeFreq(Frequency& ref, SimpleRatio r, float d)
-  : reference(ref), ratio(r), detune(scale2mult_shift8(d)) {};
-
-RelativeFreq::RelativeFreq(Frequency& ref, SimpleRatio r)
-  : RelativeFreq(ref, r, 1) {};
-
-RelativeFreq::RelativeFreq(Frequency& ref, float r, float d)
-  : reference(ref), ratio(SimpleRatio(r)), detune(scale2mult_shift8(d)) {};
-
-RelativeFreq::RelativeFreq(Frequency& ref, float r)
-  : RelativeFreq(ref, r, 1) {};
-
-uint32_t RelativeFreq::get_frequency() const {
-  // mult_shift deals w signed but freq is unsigned
-  return  static_cast<uint32_t>(mult_shift8(detune, static_cast<int32_t>(ratio.multiply(reference.get_frequency()))));
-}
-
-void RelativeFreq::set_detune(float v) {
-  detune = scale2mult_shift8(v);
-}
-
-RelativeFreq::Detune::Detune(RelativeFreq *f) : freq(f) {};
-
-std::unique_ptr<RelativeFreq::Detune> RelativeFreq::get_detune() {
-  return std::make_unique<Detune>(this);
-}
-
-void RelativeFreq::Detune::set(float v) {
-  freq->set_detune(v);
-}
-
-
-Amplitude::Amplitude(float a) : amplitude(a) {};
-
-Amplitude::Amplitude() : Amplitude(1) {};
+Amplitude::Amplitude() : Amplitude(1) {}
 
 int16_t Amplitude::scale(int16_t amp) const {
   float a = amplitude * amp;
@@ -71,16 +33,16 @@ TEST_CASE("Amplitude") {
 }
 
 
-Balance::Balance() : Balance(1) {};
+Balance::Balance() : Balance(1) {}
 
-Balance::Balance(float w) : wet_weight(w) {};
+Balance::Balance(float w) : wet_weight(w) {}
 
 int16_t Balance::combine(int16_t wet, int16_t dry) const {
   return clip_16(wet_weight * wet + (1 - wet_weight) * dry);
 }
 
 
-Wavedex::Wavedex(Wavelib& wl, size_t idx) : wavelib(wl), wavedex(idx), wavetable(wl[idx]) {};
+//Wavedex::Wavedex(Wavelib& wl, size_t idx) : wavelib(wl), wavedex(idx), wavetable(wl[idx]) {}
 
 /*
 void Wavedex::set_wavedex(float idx) {
@@ -90,8 +52,8 @@ void Wavedex::set_wavedex(float idx) {
 }
 */
 
-Wavetable& Wavedex::get_wavetable() const {
-  return wavetable;
-}
+//Wavetable& Wavedex::get_wavetable() const {
+//  return wavetable;
+//}
 
   

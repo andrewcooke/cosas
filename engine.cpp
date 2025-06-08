@@ -43,6 +43,10 @@ size_t Manager::n_panes() {
   return current_panes->size();
 }
 
+size_t Manager::n_wforms() {
+  return wavelib->size();
+}
+
 
 template<typename NodeType, typename... Args> NodeType& Manager::add_node(Args&&... args) {
   std::unique_ptr<NodeType> node = std::make_unique<NodeType>(std::forward<Args>(args)...);
@@ -83,11 +87,13 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 }
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq, Input& right) {
-  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
-  AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
-  Oscillator& o = add_node<Oscillator>(w, f);
+  //  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
+  //  AbsoluteFreq& f = add_param<AbsoluteFreq>(frq);
+  AbsoluteOsc& o = add_node<AbsoluteOsc>(*wavelib, widx, frq);
+  AbsoluteFreq& f = o.get_param();
+  Oscillator::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
-  Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
+  Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size() - 1);
   add_pane(top, left, right);
   return {f, o};
 }
@@ -105,13 +111,14 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float 
 }
 
 Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
-  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
-  RelativeFreq& f = add_param<RelativeFreq>(root, r, d);
-  Oscillator& o = add_node<Oscillator>(w, f);
+  //  Wavedex& w = add_param<Wavedex>(*wavelib, widx);
+  //  RelativeFreq& f = add_param<RelativeFreq>(root, r, d);
+  RelativeOsc& o = add_node<RelativeOsc>(*wavelib, widx, root, r, d);
+  RelativeFreq& f = o.get_param();
+  Oscillator::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, 1, 1.0 / (root.get_frequency() << subtick_bits), 0.5 * sample_rate / root.get_frequency());
   Input& left = log_control(w, wavelib->sine_gamma_1, 0, wavelib->size());
-  current_inputs->push_back(std::move(f.get_detune()));  // TODO - ok?
-  Input& right = log_control(*current_inputs->back(), 1, 0.9, 1.1);
+  Input& right = log_control(f.get_detune(), 1, 0.9, 1.1);
   add_pane(top, left, right);
   std::cerr << "osc " << &o << " = " << o.next(0, 0) << std::endl;
   return o;
@@ -140,7 +147,7 @@ const Node& Manager::build_fm_simple() {
 
 TEST_CASE("BuildFM_SIMPLE") {
   Manager m = Manager();
-  CHECK(m.build_fm_simple().next(50, 0) == 123);
+  CHECK(m.build(m.FM_SIMPLE).next(50, 0) == 172);
   CHECK(m.n_panes() == 3);  // carrier, modulator, fm gain/balance
 }
 
@@ -192,9 +199,9 @@ const Node& Manager::build_chord() {
   PriorityMerge::Weight& w1 = add_param<PriorityMerge::Weight>(0.1);
   mrg.add_node(o1, w1);
   PriorityMerge::Weight& w2 = add_param<PriorityMerge::Weight>(0.1);
-  mrg.add_node(o1, w2);
+  mrg.add_node(o2, w2);
   PriorityMerge::Weight& w3 = add_param<PriorityMerge::Weight>(0.1);
-  mrg.add_node(o1, w3);
+  mrg.add_node(o3, w3);
   add_pane(w1, w2, w3);
   return mrg;
 }

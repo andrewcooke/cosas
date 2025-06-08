@@ -1,4 +1,5 @@
 
+#include <iostream>
 #include <algorithm>
 #include <cmath>
 
@@ -95,6 +96,7 @@ Range::Range(Input& del, float c, float lo, float hi)
 void Range::set(float value) {
   // handle disconnect here
   value = std::max(low, std::min(high, update(value)));
+  std::cerr << "range " << value << std::endl;
   delegate.set(value);
 }
 
