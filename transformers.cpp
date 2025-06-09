@@ -113,8 +113,10 @@ TEST_CASE("Folder") {
   Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);
   CHECK(f0_12.next(0, 0) == 1234);
-  Folder f1_12 = Folder(c1234, 1);
-  CHECK(f1_12.next(0, 0) == 2421);  // not sure if correct, but more +ve
+  f0_12.get_param().set(1);
+  CHECK(f0_12.next(0, 0) == 2421);  // not sure if correct, but more +ve
+  f0_12.get_param().set(2);
+  CHECK(f0_12.next(0, 0) == 4750);  // not sure if correct
   Constant cm1234 = Constant(-1234);
   Folder f1_12x = Folder(cm1234, 1);
   CHECK(f1_12x.next(0, 0) == -2421);  // symmetrical
@@ -122,10 +124,10 @@ TEST_CASE("Folder") {
   Constant cmax = Constant(sample_max);  
   Folder f0_max = Folder(cmax, 0);
   CHECK(f0_max.next(0, 0) == sample_max);
-  Folder f1_max = Folder(cmax, 1);
-  CHECK(f1_max.next(0, 0) == sample_max);
-  Folder f2_max = Folder(cmax, 2);
-  CHECK(f2_max.next(0, 0) == 0);
+  f0_max.get_param().set(1);
+  CHECK(f0_max.next(0, 0) == sample_max);
+  f0_max.get_param().set(2);
+  CHECK(f0_max.next(0, 0) == 0);
 
 }
 
