@@ -50,22 +50,4 @@ const auto dry_bal = Balance(0);
 const auto wet_bal = Balance(1);
 
 
-/*
-class Wavedex : public Param {
-
-public:
-
-  Wavedex(Wavelib& wl, size_t idx);
-  Wavetable& get_wavetable() const;
-  void set(float f ) override {};
-
-private:
-
-  Wavelib& wavelib;
-  size_t wavedex;
-  Wavetable& wavetable;  // cached
-  
-};
-*/
-
 #endif

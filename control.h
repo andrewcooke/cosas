@@ -20,7 +20,12 @@ public:
 
   Blank();
   void set(float value) override;
+  void unblank(Input* del);
 
+private:
+
+  Input* delegate;
+  
 };
 
 

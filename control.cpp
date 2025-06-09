@@ -21,9 +21,15 @@ void Change::set(float v) {
 }
 
 
-Blank::Blank() {};
+Blank::Blank() : delegate(nullptr) {};
 
-void Blank::set(float /* v */) {};
+void Blank::set(float v) {
+  if (delegate != nullptr) delegate->set(v);
+};
+
+void Blank::unblank(Input* del) {
+  delegate = del;
+}
 
 
 Sigmoid::Sigmoid(Input& del, float lin)

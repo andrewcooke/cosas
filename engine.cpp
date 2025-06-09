@@ -105,10 +105,10 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq) {
 }
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float frq, float amp) {
-  Amplitude& a = add_param<Amplitude>(amp);
-  Input& right = lin_control(a, amp, 0, 1);
-  auto [f, o] = add_abs_osc(widx, frq, right);
-  Gain& g = add_node<Gain>(o, a);
+  Blank& b = add_input<Blank>();
+  auto [f, o] = add_abs_osc(widx, frq, b);
+  Gain& g = add_node<Gain>(o, amp);
+  b.unblank(&lin_control(g.get_param(), amp, 0, 1));
   return {f, g};
 }
 
@@ -125,13 +125,11 @@ Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
 }
 
 Node& Manager::add_fm(Node& c, Node& m, float bal, float amp) {
-  Amplitude& a = add_param<Amplitude>(amp);
-  std::cerr << "created " << &a << std::endl;
-  Gain& g = add_node<Gain>(m, a);
+  Gain& g = add_node<Gain>(m, amp);
   FM& fm = add_node<FM>(c, g);
   Balance& b = add_param<Balance>(bal);
   Merge& j = add_node<Merge>(fm, c, b);
-  Input & top = lin_control(a, amp, 0, 1);
+  Input & top = lin_control(g.get_param(), amp, 0, 1);
   Input& left = lin_control(b, bal, 0, 1);
   add_pane(top, left, add_input<Blank>());
   return j;

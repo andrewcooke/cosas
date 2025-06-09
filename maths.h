@@ -22,6 +22,11 @@ inline int16_t clip_16(int32_t val) {
   return static_cast<int16_t>(val);
 }
 
+inline int16_t clip_16(uint32_t val) {
+  if (val > sample_max) return sample_max;
+  return static_cast<int16_t>(val);
+}
+
 inline int16_t clip_16(float val) {
   if (val > sample_max) return sample_max;
   if (val < sample_min) return sample_min;
@@ -30,6 +35,12 @@ inline int16_t clip_16(float val) {
 
 inline uint32_t clip_u32(uint64_t val) {
   if (val > std::numeric_limits<uint32_t>::max()) val = std::numeric_limits<uint32_t>::max();
+  return val;
+}
+
+inline uint16_t clip_u16(float val) {
+  if (val > std::numeric_limits<uint16_t>::max()) val = std::numeric_limits<uint16_t>::max();
+  else if (val < 0) val = 0;
   return val;
 }
 
@@ -101,26 +112,33 @@ TEST_CASE("MultShift8") {
 
 // 14 bits decimal, signed
 
-const int one14_bits = 14;
-const int16_t one14 = 1 << one14_bits;
+const size_t one14_bits = 14;
+const uint16_t one14 = static_cast<uint16_t>(1) << one14_bits;
 
-inline int16_t scale2mult_shift14(float f) {
-  return f * one14;
+inline uint16_t scale2mult_shift14(float f) {
+  return clip_u16(f * one14);
 }
 
-inline int16_t mult_shift14(int16_t k, int16_t x) {
-  return (k * static_cast<int32_t>(x)) >> one14_bits;
+inline int16_t mult_shift14(uint16_t k, int16_t x) {
+  bool neg = x < 0;
+  int16_t x2 = clip_16((static_cast<uint32_t>(k) * static_cast<uint16_t>(abs(x))) >> one14_bits);
+  return neg ? -x2 : x2;
 }
 
 TEST_CASE("MultShift14") {
+  CHECK(scale2mult_shift14(1) == 16384);
+  CHECK(scale2mult_shift14(2) == 32768);
+  CHECK(scale2mult_shift14(3.99) == 65372);
   CHECK(mult_shift14(scale2mult_shift14(0.33333), 300) == 99);  // almost
   CHECK(mult_shift14(scale2mult_shift14(1), 300) == 300);
-  CHECK(mult_shift14(scale2mult_shift14(-0.33333), 300) == -100);
-  CHECK(mult_shift14(scale2mult_shift14(-1), 300) == -300); 
-  CHECK(mult_shift14(scale2mult_shift14(0.33333), -300) == -100);
-  CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300); 
+  CHECK(mult_shift14(scale2mult_shift14(1.5), 300) == 450);
+  CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300);
+  CHECK(mult_shift14(scale2mult_shift14(2), -300) == -600);
+  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2) == sample_max - 1); 
+  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2 - 1) == sample_max - 3); 
+  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2) == sample_min + 1); 
+  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2 + 1) == sample_min + 3); 
 }
-
 
 
 #endif

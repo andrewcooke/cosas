@@ -11,32 +11,76 @@
 #include "transformers.h"
 
 
-Gain::Gain(const Node& nd, const Amplitude& amp)
-  : NodeTransformer(nd), amplitude(amp) {
-};
+SingleFloat::SingleFloat(const Node& nd) : SingleNode(nd), param(Value(this)) {};
 
-int16_t Gain::next(int32_t tick, int32_t phi) const {
-  std::cerr << "node " << &node << std::endl;
+SingleFloat::Value& SingleFloat::get_param() {
+  return param;
+}
+
+SingleFloat::Value::Value(SingleFloat* p) : parent(p) {};
+
+void SingleFloat::Value::set(float v) {
+  parent->value = v;
+}
+
+
+GainFloat::GainFloat(const Node& nd, float v) : SingleFloat(nd) {
+  get_param().set(v);
+}
+
+int16_t GainFloat::next(int32_t tick, int32_t phi) const {
   int16_t a = node.next(tick, phi);
-  int16_t b = amplitude.scale(a);
-  std::cerr << a << " gain " << b << std::endl;
-  return b;
+  int16_t b = clip_16(value * a);
+  return b;  
 }
 
-TEST_CASE("Gain") {
-  Amplitude a = Amplitude();
-  Constant c = Constant(220);
-  Gain g = Gain(c, a);
-  CHECK(g.next(0, 0) == 220);
-  a.set(0.1);
-  CHECK(g.next(0, 0) == 22);
+TEST_CASE("GainFloat") {
+  Constant c = Constant(100);
+  GainFloat g = GainFloat(c, 1);
+  CHECK(g.next(123, 0) == 100);
+  g.get_param().set(0.1);
+  CHECK(g.next(123, 0) == 10);
 }
+
+
+Single14::Single14(const Node& nd) : SingleNode(nd), param(Value(this)) {};
+
+Single14::Value& Single14::get_param() {
+  return param;
+}
+
+Single14::Value::Value(Single14* p) : parent(p) {};
+
+void Single14::Value::set(float v) {
+  parent->value = scale2mult_shift14(v);
+}
+
+Gain14::Gain14(const Node& nd, float v) : Single14(nd) {
+  get_param().set(v);
+}
+
+int16_t Gain14::next(int32_t tick, int32_t phi) const {
+  int16_t a = node.next(tick, phi);
+  int16_t b = mult_shift14(value, a);
+  return b;  
+}
+
+TEST_CASE("Gain14") {
+  Constant c = Constant(100);
+  Gain14 g = Gain14(c, 1);
+  CHECK(g.next(123, 0) == 100);
+  g.get_param().set(0.1);
+  CHECK(g.next(123, 0) == 9);  // almost
+}
+
+
+Gain::Gain(const Node& nd, float a) : Gain14(nd, a) {};
 
 
 // these (float based) may be too slow?
 
 OneParFunc::OneParFunc(const Node& nd, float k)
-  : NodeTransformer(nd), constant(k) {};
+  : SingleNode(nd), constant(k) {};
 
 int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
@@ -91,7 +135,7 @@ TEST_CASE("Folder") {
 
 
 MeanFilter::MeanFilter(const Node& nd, Length l)
-  : NodeTransformer(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
+  : SingleNode(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
   len.filter = this;
 };
 
@@ -127,10 +171,10 @@ TEST_CASE("MeanFilter") {
 }
 
 BaseMerge::BaseMerge(const Node& n, Weight w)
-  : nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), int16_weights(std::move(std::make_unique<std::vector<int16_t>>())) {
+  : nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), uint16_weights(std::move(std::make_unique<std::vector<uint16_t>>())) {
   add_node_wout_recalc(n, w);
   // cannot call virtual method in constructor so set reasonable default
-  int16_weights->push_back(scale2mult_shift14(w.weight));
+  uint16_weights->push_back(scale2mult_shift14(w.weight));
 }
 
 void BaseMerge::add_node_wout_recalc(const Node& n, Weight w) {
@@ -147,7 +191,7 @@ void BaseMerge::add_node(const Node& n, Weight w) {
 int16_t BaseMerge::next(int32_t tick, int32_t phi) const {
   int32_t acc = 0;
   for (size_t i = 0; i < float_weights->size(); i++) {
-    acc += mult_shift14(int16_weights->at(i), nodes->at(i)->next(tick, phi));
+    acc += mult_shift14(uint16_weights->at(i), nodes->at(i)->next(tick, phi));
   }
   return clip_16(acc);
 }
@@ -159,7 +203,7 @@ MultiMerge::MultiMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
 
 void MultiMerge::recalculate_weights() {
   // distribute equally
-  std::unique_ptr<std::vector<int16_t>> new_weights = std::make_unique<std::vector<int16_t>>();
+  std::unique_ptr<std::vector<uint16_t>> new_weights = std::make_unique<std::vector<uint16_t>>();
   float total_weight = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
   for (size_t i = 1; i < float_weights->size(); i++) {
     if (total_weight == 0) {
@@ -168,7 +212,7 @@ void MultiMerge::recalculate_weights() {
       new_weights->push_back(scale2mult_shift14(float_weights->at(i) / total_weight));
     }
   }
-  int16_weights = move(new_weights);  // atomic?
+  uint16_weights = move(new_weights);  // atomic?
 }
 
 
@@ -176,8 +220,8 @@ PriorityMerge::PriorityMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
 
 void PriorityMerge::recalculate_weights() {
   // first node gets the full amount described by it's weight
-  std::unique_ptr<std::vector<int16_t>> new_weights = std::make_unique<std::vector<int16_t>>();
-  int16_t main_weight = scale2mult_shift14(float_weights->at(0));
+  std::unique_ptr<std::vector<uint16_t>> new_weights = std::make_unique<std::vector<uint16_t>>();
+  uint16_t main_weight = scale2mult_shift14(float_weights->at(0));
   float available = 1 - float_weights->at(0);
   new_weights->push_back(main_weight);
   // other nodes are divided in proportion to their relative weights
@@ -189,7 +233,7 @@ void PriorityMerge::recalculate_weights() {
       new_weights->push_back(scale2mult_shift14(float_weights->at(i) * available / total_remaining));
     }
   }
-  int16_weights = move(new_weights);  // atomic?
+  uint16_weights = move(new_weights);  // atomic?
 }
 
 TEST_CASE("PriorityMerge") {

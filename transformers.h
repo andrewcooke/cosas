@@ -12,41 +12,105 @@
 // these have one input (modulators have two)
 
 
-class Transformer : public Node {};
-
-
-class NodeTransformer : public Transformer {
+class SingleNode : public Node {
 
 protected:
 
-  NodeTransformer(const Node& nd) : node(nd) {};
+  SingleNode(const Node& nd) : node(nd) {};
   const Node& node;
   
 };
 
 
-class Gain : public NodeTransformer {
-    
+class SingleFloat : public SingleNode {
+
 public:
+
+  class Value : public Param {
+  public:
+    Value(SingleFloat* p);
+    void set(float v) override;
+  private:
+    SingleFloat* parent;
+  };
+
+  friend class Value;
+  Value& get_param();
     
-  Gain(const Node& nd, const Amplitude& amp);
-  int16_t next(int32_t tick, int32_t phi) const override;
+protected:
+
+  SingleFloat(const Node& nd);
+  float value;
 
 private:
 
-  const Amplitude& amplitude;
+  Value param;
   
 };
 
 
+class GainFloat : public SingleFloat {
+
+public:
+  
+  GainFloat(const Node& nd, float v);
+  int16_t next(int32_t tick, int32_t phi) const override;
+  
+};
+
+
+class Single14 : public SingleNode {
+
+public:
+
+  class Value : public Param {
+  public:
+    Value(Single14* p);
+    void set(float v) override;
+  private:
+    Single14* parent;
+  };
+
+  friend class Value;
+  Value& get_param();
+    
+protected:
+
+  Single14(const Node& nd);
+  uint16_t value;
+
+private:
+
+  Value param;
+  
+};
+
+
+class Gain14 : public Single14 {
+
+public:
+  
+  Gain14(const Node& nd, float v);
+  int16_t next(int32_t tick, int32_t phi) const override;
+  
+};
+
+
+// forward to Gain14 on assumption this is faster
+class Gain : public Gain14 {
+public:
+  Gain(const Node& nd, float a);
+};
+
+
 // these need to be re-done with Inputs
-class OneParFunc : public NodeTransformer {
+class OneParFunc : public SingleNode {
 
 public:
 
   class OnePar : public Param {
   public:
-    friend class NodeTransformer;
+    friend class SingleNode;
     OnePar();
     void set(float f) override;
   private:
@@ -93,7 +157,7 @@ private:
 };
 
 
-class MeanFilter : public NodeTransformer {
+class MeanFilter : public SingleNode {
 
 public:
 
@@ -127,7 +191,7 @@ private:
 };
 
 
-class BaseMerge : public Transformer {
+class BaseMerge : public Node {
 
 public:
 
@@ -150,7 +214,7 @@ protected:
   virtual void recalculate_weights() = 0;
   std::unique_ptr<std::vector<const Node*>> nodes;
   std::unique_ptr<std::vector<float>> float_weights;
-  std::unique_ptr<std::vector<int16_t>> int16_weights;
+  std::unique_ptr<std::vector<uint16_t>> uint16_weights;
 
 private:
 
