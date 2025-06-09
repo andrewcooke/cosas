@@ -39,7 +39,7 @@ public:
     
 protected:
 
-  SingleFloat(const Node& nd);
+  SingleFloat(const Node& nd, float v);
   float value;
 
 private:
@@ -53,7 +53,7 @@ class GainFloat : public SingleFloat {
 
 public:
   
-  GainFloat(const Node& nd, float v);
+  GainFloat(const Node& nd, float amp);
   int16_t next(int32_t tick, int32_t phi) const override;
   
 };
@@ -76,7 +76,7 @@ public:
     
 protected:
 
-  Single14(const Node& nd);
+  Single14(const Node& nd, float v);
   uint16_t value;
 
 private:
@@ -90,7 +90,7 @@ class Gain14 : public Single14 {
 
 public:
   
-  Gain14(const Node& nd, float v);
+  Gain14(const Node& nd, float amp);
   int16_t next(int32_t tick, int32_t phi) const override;
   
 };
@@ -98,61 +98,52 @@ public:
 
 // forward to Gain14 on assumption this is faster
 class Gain : public Gain14 {
+  
 public:
-  Gain(const Node& nd, float a);
+  
+  Gain(const Node& nd, float amp);
+
 };
 
 
-// these need to be re-done with Inputs
-class OneParFunc : public SingleNode {
+class FloatFunc : public SingleFloat {
 
 public:
-
-  class OnePar : public Param {
-  public:
-    friend class SingleNode;
-    OnePar();
-    void set(float f) override;
-  private:
-    OneParFunc* func = nullptr;
-  };
-
-  OneParFunc(const Node& nd, float k);
+  
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
 
-  virtual float func(float k, float x) const = 0;
-  
-private:
+  FloatFunc(const Node& nd, float v);
+  // x is normalised 0-1 and this can (will) use value
+  virtual float func(float x) const = 0;  
 
-  const float constant;
+};
+
+
+class Compander : public FloatFunc {
+
+public:
+
+  Compander(const Node& nd, float gamma);
+
+private:
+  
+  float func(float x) const override;
   
 };
 
 
-class Compander : public OneParFunc {
+class Folder : public FloatFunc {
 
 public:
 
-  Compander(const Node& nd, float g);
+  // k is progrgessive, 0-1 expands and 1-2 folds
+  Folder(const Node& nd, float k);
 
 private:
   
-  float func(float k, float x) const override;
-  
-};
-
-
-class Folder : public OneParFunc {
-
-public:
-
-  Folder(const Node& nd, float g);
-
-private:
-  
-  float func(float k, float x) const override;
+  float func(float x) const override;
   
 };
 

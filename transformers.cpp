@@ -11,7 +11,8 @@
 #include "transformers.h"
 
 
-SingleFloat::SingleFloat(const Node& nd) : SingleNode(nd), param(Value(this)) {};
+SingleFloat::SingleFloat(const Node& nd, float v)
+  : SingleNode(nd), value(v), param(Value(this)) {};
 
 SingleFloat::Value& SingleFloat::get_param() {
   return param;
@@ -24,9 +25,7 @@ void SingleFloat::Value::set(float v) {
 }
 
 
-GainFloat::GainFloat(const Node& nd, float v) : SingleFloat(nd) {
-  get_param().set(v);
-}
+GainFloat::GainFloat(const Node& nd, float amp) : SingleFloat(nd, amp) {};
 
 int16_t GainFloat::next(int32_t tick, int32_t phi) const {
   int16_t a = node.next(tick, phi);
@@ -43,7 +42,8 @@ TEST_CASE("GainFloat") {
 }
 
 
-Single14::Single14(const Node& nd) : SingleNode(nd), param(Value(this)) {};
+Single14::Single14(const Node& nd, float v)
+  : SingleNode(nd), value(scale2mult_shift14(v)), param(Value(this)) {};
 
 Single14::Value& Single14::get_param() {
   return param;
@@ -55,9 +55,8 @@ void Single14::Value::set(float v) {
   parent->value = scale2mult_shift14(v);
 }
 
-Gain14::Gain14(const Node& nd, float v) : Single14(nd) {
-  get_param().set(v);
-}
+
+Gain14::Gain14(const Node& nd, float amp) : Single14(nd, amp) {};
 
 int16_t Gain14::next(int32_t tick, int32_t phi) const {
   int16_t a = node.next(tick, phi);
@@ -74,43 +73,40 @@ TEST_CASE("Gain14") {
 }
 
 
-Gain::Gain(const Node& nd, float a) : Gain14(nd, a) {};
+Gain::Gain(const Node& nd, float amp) : Gain14(nd, amp) {};
 
 
 // these (float based) may be too slow?
 
-OneParFunc::OneParFunc(const Node& nd, float k)
-  : SingleNode(nd), constant(k) {};
 
-int16_t OneParFunc::next(int32_t tick, int32_t phi) const {
+FloatFunc::FloatFunc(const Node& nd, float v) : SingleFloat(nd, v) {};
+
+int16_t FloatFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
-  bool invert = sample < 0;
+  bool neg = sample < 0;
   float x = abs(sample) / static_cast<float>(sample_max);
-  float y = func(constant, x);
-  sample = clip_16(sample_max * y);
-  if (invert) sample = -sample;
-  return sample;
+  float y = func(x);
+  int16_t new_sample = clip_16(sample_max * y);
+  if (neg) new_sample = -new_sample;
+  return new_sample;
 }
 
 
-Compander::Compander(const Node& nd, float k)
-  : OneParFunc(nd, k) {};
+Compander::Compander(const Node& nd, float gamma) : FloatFunc(nd, gamma) {};
 
-float Compander::func(float k, float x) const {
-  return pow(x, k);
+float Compander::func(float x) const {
+  return pow(x, value);
 }
 
 
-Folder::Folder(const Node& nd, float k)
-  : OneParFunc(nd, k) {};
+Folder::Folder(const Node& nd, float k) : FloatFunc(nd, k) {};
 
 // first half goes from flat to curve
 // second half actually folds
-float Folder::func(float k, float x) const {
-  if (k < 1) return x * (1 + k * (1 - x));
-  else return 1 - pow(k * x - 1, 2);
+float Folder::func(float x) const {
+  if (value < 1) return x * (1 + value * (1 - x));
+  else return 1 - pow(value * x - 1, 2);
 }
-
 
 TEST_CASE("Folder") {
 
