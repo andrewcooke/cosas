@@ -118,7 +118,7 @@ class AbsoluteOsc : public Oscillator {
 public:
 
   AbsoluteOsc(Wavelib& wl, size_t widx, float f);
-  AbsoluteFreq& get_param();  // TODO - move to superclass
+  AbsoluteFreq& get_param();
 
 private:
 

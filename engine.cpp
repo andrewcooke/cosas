@@ -134,12 +134,16 @@ Merge& Manager::add_balance(Node& a, Node& b, float bal) {
 }
 
 Node& Manager::add_fm(Node& c, Node& m, float bal, float amp) {
+  return add_fm(c, m, bal, amp, add_input<Blank>());
+}
+
+Node& Manager::add_fm(Node& c, Node& m, float bal, float amp, Input& right) {
   Gain& g = add_node<Gain>(m, amp);
   FM& fm = add_node<FM>(c, g);
   Merge& b = add_balance(fm, c, bal);
   Input & top = lin_control(g.get_param(), amp, 0, 1);
   Input& left = lin_control(b.get_param(0), bal, 0, 1);
-  add_pane(top, left, add_input<Blank>());
+  add_pane(top, left, right);
   return b;
 }
   
@@ -181,7 +185,7 @@ const Node& Manager::build_fm_fb() {
   auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440, right);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
   Merge& mrg = add_balance(flt, m, 0.5);
-  Node& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)));
+  Node& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)), mrg.get_param(0));
   latch.set_source(&fm);
   return latch;
 }
@@ -190,7 +194,7 @@ TEST_CASE("BuildFM_FB") {
   Manager m = Manager();
   int32_t amp = m.build(m.FM_FB).next(666, 0);
   CHECK(amp == -21003);  // exact value not important
-  CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance
+  CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance/flt balance
 }
 
 const Node& Manager::build_chord() {

@@ -50,6 +50,7 @@ private:
   Node& add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
   Merge& add_balance(Node& a, Node& b, float bal);
   Node& add_fm(Node& c,  Node& m, float bal, float amp);
+  Node& add_fm(Node& c,  Node& m, float bal, float amp, Input& right);
 
   const Node& build_fm_simple();
   const Node& build_fm_lfo();
