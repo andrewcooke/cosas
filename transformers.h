@@ -148,18 +148,20 @@ private:
 };
 
 
-class MeanFilter : public SingleNode {
+// warning: this relies on being called once per sample
+
+const size_t MAX_BOXCAR = 10000;
+
+class Boxcar : public SingleNode {
 
 public:
 
   class Length : public Param {
   public:
-    friend class MeanFilter;
-    Length(size_t l);
-    void set(float /* f */) override {};
+    Length(Boxcar* p);
+    void set(float v) override;
   private:
-    size_t len;
-    MeanFilter* filter = nullptr;
+    Boxcar* parent = nullptr;
   };
 
   class CircBuffer {
@@ -170,74 +172,85 @@ public:
     std::unique_ptr<std::vector<int32_t>> sums;
     mutable size_t circular_idx;
   };
-       
-  MeanFilter(const Node& nd, Length l);
+
+  friend class Length;
+  Boxcar(const Node& nd, size_t l);
   int16_t next(int32_t tick, int32_t phi) const override;
+  Length& get_param();
 
 private:
 
-  Length len;
   std::unique_ptr<CircBuffer> cbuf;
+  Length param;
   
 };
 
 
-class BaseMerge : public Node {
+// the smenatics here are maybe unexpected, but useful.  the first
+// node is weighted explicitly.  the weights for subsequent nodes are
+// then taken as relative to the first.
+
+// for use as balance between two nodes this means that the second
+// weight is ignored - it is simply the "remaining" weight, as
+// expected.
+
+// for use with a long list of nodes, it means that the first node is
+// dominant, and the rest fill in as required.
+
+class MergeFloat : public Node {
 
 public:
 
   class Weight : public Param {
   public:
-    friend class BaseMerge;
-    Weight(float w);
-    void set(float /* f */) override {};
+    Weight(MergeFloat* m, size_t i);
+    void set(float w) override;
   private:
-    float weight;
-    BaseMerge* merge = nullptr;
+    MergeFloat* merge = nullptr;
+    size_t idx;
   };
 
-  BaseMerge(const Node& n, Weight w);
-  void add_node(const Node& n, Weight w);
+  friend class Weight;
+  MergeFloat(const Node& n, float w);
+  void add_node(const Node& n, float w);
+  Weight& get_param(size_t i);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
   
-  virtual void recalculate_weights() = 0;
+  virtual void normalize();
+  void add_node(const Node& n, Weight w);
+  std::unique_ptr<std::vector<Weight>> params;
   std::unique_ptr<std::vector<const Node*>> nodes;
-  std::unique_ptr<std::vector<float>> float_weights;
+  std::unique_ptr<std::vector<float>> given_weights;
+  std::unique_ptr<std::vector<float>> norm_weights;
+
+};
+
+
+class Merge14 : public MergeFloat {
+
+public:
+  
+  friend class MergeFloat::Weight;
+  Merge14(const Node& n, float w);
+  int16_t next(int32_t tick, int32_t phi) const override;
+  
+protected:
+  
+  void normalize();
   std::unique_ptr<std::vector<uint16_t>> uint16_weights;
-
-private:
-
-  void add_node_wout_recalc(const Node& n, Weight w);
-  
   
 };
 
 
-class MultiMerge : public BaseMerge {
-
-public:
-
-  MultiMerge(const Node& n, BaseMerge::Weight w);
-
-private:
-
-  void recalculate_weights() override;
+// forward to Gain14 on assumption this is faster
+class Merge : public Merge14 {
   
-};
-
-
-class PriorityMerge : public BaseMerge {
-
 public:
-
-  PriorityMerge(const Node& n, BaseMerge::Weight w);
-
-private:
-
-  void recalculate_weights() override;
   
+  Merge(const Node& nd, float wo);
+
 };
 
 

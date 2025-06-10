@@ -13,22 +13,6 @@
 class Modulator : public Node {};
 
 
-class Merge : public Modulator {
-    
-public:
-    
-  Merge(const Node& w, const Node& d, Balance& bal);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
-private:
-
-  const Node& wet;
-  const Node& dry;
-  Balance& balance;
-  
-};
-
-
 class Mixer : public Modulator {
     
 public:

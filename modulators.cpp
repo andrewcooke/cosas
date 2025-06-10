@@ -6,13 +6,7 @@
 #include "modulators.h"
 
 
-Merge::Merge(const Node& w, const Node& d, Balance& bal)
-  : wet(w), dry(d), balance(bal) {};
-
-int16_t Merge::next(int32_t tick, int32_t phi) const {
-  return balance.combine(wet.next(tick, phi), dry.next(tick, phi));
-}
-
+// TODO - remove Amp + Bal
 
 Mixer::Mixer(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal)
   : node1(nd1), node2(nd2), amplitude(amp), balance(bal) {};

@@ -48,6 +48,7 @@ private:
   std::tuple<AbsoluteFreq&, Node&> add_abs_osc(size_t widx, float frq);
   std::tuple<AbsoluteFreq&, Node&> add_abs_osc_w_gain(size_t widx, float frq, float amp);
   Node& add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d);
+  Merge& add_balance(Node& a, Node& b, float bal);
   Node& add_fm(Node& c,  Node& m, float bal, float amp);
 
   const Node& build_fm_simple();

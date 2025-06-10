@@ -7,6 +7,9 @@
 #include "engine.h"
 
 
+const int DEFAULT_BOXCAR = 1000;
+
+
 Manager::Manager() : Manager(false) {};
 
 Manager::Manager(bool t)
@@ -124,15 +127,20 @@ Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
   return o;
 }
 
+Merge& Manager::add_balance(Node& a, Node& b, float bal) {
+  Merge& m = add_node<Merge>(a, bal);
+  m.add_node(b, 1);
+  return m;
+}
+
 Node& Manager::add_fm(Node& c, Node& m, float bal, float amp) {
   Gain& g = add_node<Gain>(m, amp);
   FM& fm = add_node<FM>(c, g);
-  Balance& b = add_param<Balance>(bal);
-  Merge& j = add_node<Merge>(fm, c, b);
+  Merge& b = add_balance(fm, c, bal);
   Input & top = lin_control(g.get_param(), amp, 0, 1);
-  Input& left = lin_control(b, bal, 0, 1);
+  Input& left = lin_control(b.get_param(0), bal, 0, 1);
   add_pane(top, left, add_input<Blank>());
-  return j;
+  return b;
 }
   
 const Node& Manager::build_fm_simple() {
@@ -161,20 +169,18 @@ const Node& Manager::build_fm_lfo() {
 TEST_CASE("BuildFM_LFO") {
   Manager m = Manager();
   int32_t amp = m.build(m.FM_LFO).next(123, 0);
-  CHECK(amp == 32450);  // exact value not important
+  CHECK(amp == 32449);  // exact value not important
   CHECK(m.n_panes() == 4);  // carrier, modulator, lfo, fm gain/balance
 }
 
+// TODO - incomplete pane
 const Node& Manager::build_fm_fb() {
-  const int DEFAULT_LENGTH = 5;
-  MeanFilter::Length l = add_param<MeanFilter::Length>(DEFAULT_LENGTH);
-  Input& right = lin_control(l, DEFAULT_LENGTH, 0, 10);
+  Latch& latch = add_node<Latch>();
+  Boxcar& flt = add_node<Boxcar>(latch, DEFAULT_BOXCAR);
+  Input& right = lin_control(flt.get_param(), DEFAULT_BOXCAR, 1, MAX_BOXCAR);
   auto [cf, c] = add_abs_osc(wavelib->sine_gamma_1, 440, right);
   Node& m = add_rel_osc(wavelib->sine_gamma_1, cf, 1, 1);
-  Latch& latch = add_node<Latch>();
-  MeanFilter& flt = add_node<MeanFilter>(latch, l);
-  Balance& mb = add_param<Balance>(0.5);
-  Merge& mrg = add_node<Merge>(flt, m, mb);
+  Merge& mrg = add_balance(flt, m, 0.5);
   Node& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)));
   latch.set_source(&fm);
   return latch;
@@ -188,19 +194,17 @@ TEST_CASE("BuildFM_FB") {
 }
 
 const Node& Manager::build_chord() {
-  PriorityMerge::Weight& w0 = add_param<PriorityMerge::Weight>(0.5);
-  auto [f0, o0] = add_abs_osc(wavelib->sine_gamma_1, 440, w0);
+  Blank& b = add_input<Blank>();
+  auto [f0, o0] = add_abs_osc(wavelib->sine_gamma_1, 440, b);
   Node& o1 = add_rel_osc(wavelib->sine_gamma_1, f0, 5/4.0, 1);
   Node& o2 = add_rel_osc(wavelib->sine_gamma_1, f0, 3/2.0, 1);
   Node& o3 = add_rel_osc(wavelib->sine_gamma_1, f0, 4/3.0, 1);
-  PriorityMerge& mrg = add_node<PriorityMerge>(o0, w0);
-  PriorityMerge::Weight& w1 = add_param<PriorityMerge::Weight>(0.1);
-  mrg.add_node(o1, w1);
-  PriorityMerge::Weight& w2 = add_param<PriorityMerge::Weight>(0.1);
-  mrg.add_node(o2, w2);
-  PriorityMerge::Weight& w3 = add_param<PriorityMerge::Weight>(0.1);
-  mrg.add_node(o3, w3);
-  add_pane(w1, w2, w3);
-  return mrg;
+  Merge& m = add_node<Merge>(o0, 0.5);
+  b.unblank(&m.get_param(0));
+  m.add_node(o1, 1);
+  m.add_node(o2, 1);
+  m.add_node(o3, 1);
+  add_pane(m.get_param(1), m.get_param(2), m.get_param(3));
+  return m;
 }
 

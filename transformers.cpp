@@ -128,19 +128,16 @@ TEST_CASE("Folder") {
   CHECK(f0_max.next(0, 0) == sample_max);
   f0_max.get_param().set(2);
   CHECK(f0_max.next(0, 0) == 0);
-
 }
 
 
-MeanFilter::MeanFilter(const Node& nd, Length l)
-  : SingleNode(nd), len(l), cbuf(std::move(std::make_unique<CircBuffer>(l.len))) {
-  len.filter = this;
-};
+Boxcar::Boxcar(const Node& nd, size_t l)
+  : SingleNode(nd), cbuf(std::move(std::make_unique<CircBuffer>(l))), param(Length(this)) {}
 
-MeanFilter::CircBuffer::CircBuffer(size_t len)
-  : sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {};
+Boxcar::CircBuffer::CircBuffer(size_t len)
+  : sums(std::move(std::make_unique<std::vector<int32_t>>(len, 0))), circular_idx(0) {}
 
-int16_t MeanFilter::CircBuffer::next(int16_t cur) {
+int16_t Boxcar::CircBuffer::next(int16_t cur) {
   for (int32_t& s : *sums) s += cur;
   int32_t next = (*sums)[circular_idx];
   (*sums)[circular_idx] = 0;
@@ -148,100 +145,135 @@ int16_t MeanFilter::CircBuffer::next(int16_t cur) {
   return clip_16(next / static_cast<int32_t>(sums->size()));
 };
 
-MeanFilter::Length::Length(size_t l) : len(l) {};
+Boxcar::Length::Length(Boxcar* p) : parent(p) {};
 
-int16_t MeanFilter::next(int32_t tick, int32_t phi) const {
+void Boxcar::Length::set(float v) {
+  size_t l = static_cast<size_t>(std::min(static_cast<float>(MAX_BOXCAR), std::max(1.f, v)));
+  parent->cbuf = std::move(std::make_unique<CircBuffer>(l));
+}
+
+int16_t Boxcar::next(int32_t tick, int32_t phi) const {
   return cbuf->next(node.next(tick, phi));
 }
 
-TEST_CASE("MeanFilter") {
-
-  Sequence s = Sequence({0, 0, 100});
-  MeanFilter mf = MeanFilter(s, 3);
-  CHECK(mf.next(0, 0) == 0);
-  CHECK(mf.next(0, 0) == 0);
-  CHECK(mf.next(0, 0) == 33);
-  CHECK(mf.next(0, 0) == 33);
-  CHECK(mf.next(0, 0) == 33);
-  CHECK(mf.next(0, 0) == 0);
-  CHECK(mf.next(0, 0) == 0);
-
+Boxcar::Length& Boxcar::get_param() {
+  return param;
 }
 
-BaseMerge::BaseMerge(const Node& n, Weight w)
-  : nodes(std::move(std::make_unique<std::vector<const Node*>>())), float_weights(std::move(std::make_unique<std::vector<float>>())), uint16_weights(std::move(std::make_unique<std::vector<uint16_t>>())) {
-  add_node_wout_recalc(n, w);
-  // cannot call virtual method in constructor so set reasonable default
-  uint16_weights->push_back(scale2mult_shift14(w.weight));
+TEST_CASE("Boxcar") {
+  Sequence s1 = Sequence({0, 0, 100});
+  Boxcar b1 = Boxcar(s1, 3);
+  CHECK(b1.next(0, 0) == 0);
+  CHECK(b1.next(0, 0) == 0);
+  CHECK(b1.next(0, 0) == 33);
+  CHECK(b1.next(0, 0) == 33);
+  CHECK(b1.next(0, 0) == 33);
+  CHECK(b1.next(0, 0) == 0);
+  CHECK(b1.next(0, 0) == 0);
+  Sequence s2 = Sequence({0, 0, 100});
+  Boxcar b2 = Boxcar(s2, 3);
+  b2.get_param().set(1);
+  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0, 0) == 100);
+  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0, 0) == 0);
 }
 
-void BaseMerge::add_node_wout_recalc(const Node& n, Weight w) {
+
+MergeFloat::MergeFloat(const Node& n, float w)
+  : params(std::move(std::make_unique<std::vector<Weight>>())),
+    nodes(std::move(std::make_unique<std::vector<const Node*>>())),
+    given_weights(std::move(std::make_unique<std::vector<float>>())),
+    norm_weights(std::move(std::make_unique<std::vector<float>>())) {
+  add_node(n, w);
+}
+
+void MergeFloat::add_node(const Node& n, float w) {
   nodes->push_back(&n);
-  w.merge = this;
-  float_weights->push_back(w.weight);
+  given_weights->push_back(w);
+  params->push_back(Weight(this, params->size()));
+  normalize();
 }
 
-void BaseMerge::add_node(const Node& n, Weight w) {
-  add_node_wout_recalc(n, w);
-  recalculate_weights();
+void MergeFloat::normalize() {
+  std::unique_ptr<std::vector<float>> new_norm_weights = std::make_unique<std::vector<float>>();
+  float weight_zero = given_weights->at(0);
+  float other_weight = accumulate(given_weights->begin() + 1, given_weights->end(), 0.0);
+  new_norm_weights->push_back(weight_zero);
+  for (size_t i = 1; i < given_weights->size(); i++) {
+    new_norm_weights->push_back((1 - weight_zero) * given_weights->at(i) / other_weight);
+  }
+  norm_weights = std::move(new_norm_weights);
 }
 
-int16_t BaseMerge::next(int32_t tick, int32_t phi) const {
+MergeFloat::Weight& MergeFloat::get_param(size_t i) {
+  return params->at(i);
+}
+
+int16_t MergeFloat::next(int32_t tick, int32_t phi) const {
+  float acc = 0;
+  for (size_t i = 0; i < norm_weights->size(); i++) {
+    acc += norm_weights->at(i) * nodes->at(i)->next(tick, phi);
+  }
+  return clip_16(acc + 0.5f);  // round to nearest
+}
+
+MergeFloat::Weight::Weight(MergeFloat* m, size_t i) : merge(m), idx(i) {}
+
+void MergeFloat::Weight::set(float v) {
+  merge->given_weights->at(idx) = v;
+  merge->normalize();
+}
+
+TEST_CASE("MergeFloat") {
+  Constant c1 = Constant(100);
+  Constant c2 = Constant(30);
+  Constant c3 = Constant(90);
+  MergeFloat m = MergeFloat(c1, 0.5);
+  m.add_node(c2, 0.1);
+  m.add_node(c3, 0.2);
+  CHECK(m.next(0, 0) == 50 + 5 + 30);
+  m.get_param(0).set(0);
+  CHECK(m.next(0, 0) == 10 + 60);
+}
+
+
+Merge14::Merge14(const Node& n, float w) : MergeFloat(n, w), uint16_weights(std::move(std::make_unique<std::vector<uint16_t>>())) {}
+
+void Merge14::normalize() {
+  MergeFloat::normalize();
+  std::unique_ptr<std::vector<uint16_t>> new_uint16_weights = std::make_unique<std::vector<uint16_t>>();  
+  for (float w: *norm_weights) {
+    new_uint16_weights->push_back(scale2mult_shift14(w));
+  }
+  uint16_weights = std::move(new_uint16_weights);
+}
+
+int16_t Merge14::next(int32_t tick, int32_t phi) const {
   int32_t acc = 0;
-  for (size_t i = 0; i < float_weights->size(); i++) {
+  for (size_t i = 0; i < uint16_weights->size(); i++) {
     acc += mult_shift14(uint16_weights->at(i), nodes->at(i)->next(tick, phi));
   }
   return clip_16(acc);
 }
 
-BaseMerge::Weight::Weight(float w) : weight(w) {};
-
-
-MultiMerge::MultiMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
-
-void MultiMerge::recalculate_weights() {
-  // distribute equally
-  std::unique_ptr<std::vector<uint16_t>> new_weights = std::make_unique<std::vector<uint16_t>>();
-  float total_weight = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
-  for (size_t i = 1; i < float_weights->size(); i++) {
-    if (total_weight == 0) {
-      new_weights->push_back(0);
-    } else {
-      new_weights->push_back(scale2mult_shift14(float_weights->at(i) / total_weight));
-    }
-  }
-  uint16_weights = move(new_weights);  // atomic?
-}
-
-
-PriorityMerge::PriorityMerge(const Node& n, Weight w) : BaseMerge(n, w) {}
-
-void PriorityMerge::recalculate_weights() {
-  // first node gets the full amount described by it's weight
-  std::unique_ptr<std::vector<uint16_t>> new_weights = std::make_unique<std::vector<uint16_t>>();
-  uint16_t main_weight = scale2mult_shift14(float_weights->at(0));
-  float available = 1 - float_weights->at(0);
-  new_weights->push_back(main_weight);
-  // other nodes are divided in proportion to their relative weights
-  float total_remaining = accumulate(float_weights->begin() + 1, float_weights->end(), 0.0);
-  for (size_t i = 1; i < float_weights->size(); i++) {
-    if (total_remaining == 0) {
-      new_weights->push_back(0);
-    } else {
-      new_weights->push_back(scale2mult_shift14(float_weights->at(i) * available / total_remaining));
-    }
-  }
-  uint16_weights = move(new_weights);  // atomic?
-}
-
-TEST_CASE("PriorityMerge") {
-  Constant c1 = Constant(100); BaseMerge::Weight w1 = BaseMerge::Weight(0.5);
-  Constant c2 = Constant(30); BaseMerge::Weight w2 = BaseMerge::Weight(0.1);
-  Constant c3 = Constant(90); BaseMerge::Weight w3 = BaseMerge::Weight(0.2);
-  PriorityMerge m = PriorityMerge(c1, w1);
-  m.add_node(c2, w2);
-  m.add_node(c3, w3);
+TEST_CASE("Merge14") {
+  Constant c1 = Constant(100);
+  Constant c2 = Constant(30);
+  Constant c3 = Constant(90);
+  Merge14 m = Merge14(c1, 0.5);
+  m.add_node(c2, 0.1);
+  m.add_node(c3, 0.2);
   CHECK(m.next(0, 0) == 50 + 5 + 30 - 2);  // close enough?
+  m.get_param(0).set(0);
+  CHECK(m.next(0, 0) == 10 + 60 - 2);  // ditto
 }
+
+
+Merge::Merge(const Node& n, float w) : Merge14(n, w) {};
+
 
 
