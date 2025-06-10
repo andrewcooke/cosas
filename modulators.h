@@ -13,23 +13,6 @@
 class Modulator : public Node {};
 
 
-class Mixer : public Modulator {
-    
-public:
-    
-  Mixer(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
-private:
-
-  const Node& node1;
-  const Node& node2;
-  Amplitude& amplitude;
-  Balance& balance;
-  
-};
-
-
 class FM : public Modulator {
 
 public:

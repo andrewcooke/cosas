@@ -7,7 +7,7 @@
 #include "maths.h"
 #include "node.h"
 #include "params.h"
-
+#include "wavelib.h"
 
 class Oscillator : public Node {
 
@@ -92,13 +92,7 @@ public:
     RelativeFreq* frequency;
   };
 
-  // TODO - maybe all not necessary?!
-  RelativeFreq(RelativeOsc* o, float f, SimpleRatio r, float d);
-  RelativeFreq(RelativeOsc* o, uint32_t f, SimpleRatio r, float d);
-  RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, SimpleRatio r, float d);
   RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r, float d);
-  RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, SimpleRatio r);
-  RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r);
   void set(float f) override;  // set ratio
   void set_detune(float f);
   void set_root(uint32_t);

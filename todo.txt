@@ -1,9 +1,0 @@
-
-make parameters just pointers?
-
-allow for detuning of ratios
-
-allow for ultra low frequencies - shift 3 bits?
-
-knob interface
-

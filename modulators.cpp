@@ -6,16 +6,6 @@
 #include "modulators.h"
 
 
-// TODO - remove Amp + Bal
-
-Mixer::Mixer(const Node& nd1, const Node& nd2, Amplitude& amp, Balance& bal)
-  : node1(nd1), node2(nd2), amplitude(amp), balance(bal) {};
-
-int16_t Mixer::next(int32_t tick, int32_t phi) const {
-  return amplitude.scale(balance.combine(node1.next(tick, phi), node2.next(tick, phi)));
-}
-
-
 FM::FM(const Node& car, const Node& mod)
   : carrier(car), modulator(mod) {};
 

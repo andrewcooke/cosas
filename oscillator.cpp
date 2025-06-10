@@ -64,26 +64,10 @@ void AbsoluteFreq::set_relative_freqs(uint32_t f) {
   for (RelativeFreq* r: relative_freqs) r->set_root(f);
 }
 
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, float f, SimpleRatio r, float d)
-  : RelativeFreq(o, hz2freq(f), r, d) {}
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, uint32_t f, SimpleRatio r, float d)
-  : Frequency(o), root(f), ratio(r), detune(scale2mult_shift8(d)), detune_param(this) {
+RelativeFreq::RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r, float d)
+  : Frequency(o), root(ref.get_frequency()), ratio(SimpleRatio(r)), detune(scale2mult_shift8(d)), detune_param(this) {
   recalculate();
 }
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, SimpleRatio r, float d)
-  : RelativeFreq(o, ref.get_frequency(), r, d) {}
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, SimpleRatio r)
-  : RelativeFreq(o, ref, r, 1) {}
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r, float d)
-  : RelativeFreq(o, ref, SimpleRatio(r), d) {}
-
-RelativeFreq::RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r)
-  : RelativeFreq(o, ref, r, 1) {}
 
 void RelativeFreq::set(float v) {
   ratio = SimpleRatio(v);
