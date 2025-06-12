@@ -130,3 +130,52 @@ TEST_CASE("SimpleRatio") {
   CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
 
 }
+
+// https://stackoverflow.com/a/15685301
+
+typedef union {
+  float f;
+  struct {
+    uint32_t m : 23;
+    uint8_t e : 8;
+    uint8_t s : 1;
+  } parts;
+} float_cast;
+
+const uint32_t hidden = 1 << 23;
+const uint32_t mask = hidden - 1;
+
+float int162float(int16_t v) {
+  uint8_t e = 72;
+  uint8_t s = v < 0;
+  uint32_t m = abs(v);
+  float_cast fc;
+  if (m == 0) {
+    fc = float_cast {.parts = {0, 0, 0}};
+  } else {
+    while (m < hidden) {
+      m = m << 1;
+      e -= 1;
+    }
+    fc = float_cast {.parts = {m & mask, e, static_cast<uint8_t>(s & 1)}};
+  }
+  std::cerr << v << " = " << fc.f << " (" << std::hex << (m & mask) << ", " << std::dec << static_cast<unsigned>(e) << ", " << static_cast<int>(s) << ")" << std::endl;
+  return fc.f;
+}
+
+TEST_CASE("int162float") {
+  std::cerr << "mask " << std::hex << mask << std::endl;
+  float_cast fc = float_cast {.f = 0.999};
+  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
+  fc = float_cast {.f = 0.499};
+  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
+  fc = float_cast {.parts = {0x7f7cee, 62, 0}};
+  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
+  fc = float_cast {.parts = {0x7ffc00, 62, 0}};
+  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
+  CHECK(abs(int162float(0)) < 0.0001);
+  CHECK(abs(int162float(sample_max / 2) - 0.5) < 0.0001);
+  CHECK(abs(int162float(sample_max) - 1) < 0.0001);
+  CHECK(abs(int162float(sample_min) + 1) < 0.0001);
+}
+  

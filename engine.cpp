@@ -177,7 +177,6 @@ TEST_CASE("BuildFM_LFO") {
   CHECK(m.n_panes() == 4);  // carrier, modulator, lfo, fm gain/balance
 }
 
-// TODO - incomplete pane
 const Node& Manager::build_fm_fb() {
   Latch& latch = add_node<Latch>();
   Boxcar& flt = add_node<Boxcar>(latch, DEFAULT_BOXCAR);

@@ -141,4 +141,9 @@ TEST_CASE("MultShift14") {
 }
 
 
+float int162float_norm(int16_t v);
+float int162float(int16_t v);
+
+//int16_t float2int16(float v);
+
 #endif
