@@ -179,3 +179,37 @@ TEST_CASE("int162float") {
   CHECK(abs(int162float(sample_min) + 1) < 0.0001);
 }
   
+
+IEEEFloat::IEEEFloat(float f) : fc({.f=f}) {};
+
+IEEEFloat::IEEEFloat(uint32_t m, uint8_t e, uint8_t s) : fc({.parts={m & mask, e, static_cast<uint8_t>(s & 1)}}) {};
+
+float IEEEFloat::f() {
+  return fc.f;
+}
+
+uint32_t IEEEFloat::m() {
+  return fc.parts.m;
+}
+
+uint8_t IEEEFloat::e() {
+  return fc.parts.e;
+}
+
+uint8_t IEEEFloat::s() {
+  return fc.parts.s;
+}
+
+void IEEEFloat::dump(std::ostream& c) {
+  c << fc.f << " (" << std::hex << (fc.parts.m & mask) << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s & 1) << ")" << std::endl;
+}
+
+TEST_CASE("IEEEFloat") {
+  std::cerr << "------------------------------" << std::endl;
+  IEEEFloat(1).dump(std::cerr);
+  IEEEFloat(0, 63, 0).dump(std::cerr);  
+  IEEEFloat(0.5).dump(std::cerr);
+  IEEEFloat(0, 191, 0).dump(std::cerr);  
+  IEEEFloat(0, 126, 0).dump(std::cerr);  
+  std::cerr << "------------------------------" << std::endl;
+}

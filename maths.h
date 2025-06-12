@@ -146,4 +146,35 @@ float int162float(int16_t v);
 
 //int16_t float2int16(float v);
 
+class IEEEFloat {
+
+public:
+
+  IEEEFloat(float f);
+  IEEEFloat(uint32_t m, uint8_t e, uint8_t s);
+
+  float f();
+  uint32_t m();
+  uint8_t e();
+  uint8_t s();
+  void dump(std::ostream& c);
+  
+private:
+
+  const uint32_t hidden = 1 << 23;
+  const uint32_t mask = hidden - 1;
+
+  typedef union {
+    float f;
+    struct {
+      uint32_t m : 23;
+      uint8_t e : 8;
+      uint8_t s : 1;
+    } parts;
+  } float_cast;
+
+  float_cast fc;
+
+};
+
 #endif
