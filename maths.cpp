@@ -131,85 +131,87 @@ TEST_CASE("SimpleRatio") {
 
 }
 
-// https://stackoverflow.com/a/15685301
 
-typedef union {
-  float f;
-  struct {
-    uint32_t m : 23;
-    uint8_t e : 8;
-    uint8_t s : 1;
-  } parts;
-} float_cast;
+IEEEFloat::IEEEFloat(double v) : IEEEFloat(static_cast<float>(v)) {};
 
-const uint32_t hidden = 1 << 23;
-const uint32_t mask = hidden - 1;
+IEEEFloat::IEEEFloat(float v) : fc({.f=v}) {};
 
-float int162float(int16_t v) {
-  uint8_t e = 72;
-  uint8_t s = v < 0;
-  uint32_t m = abs(v);
-  float_cast fc;
-  if (m == 0) {
-    fc = float_cast {.parts = {0, 0, 0}};
-  } else {
-    while (m < hidden) {
+IEEEFloat::IEEEFloat(uint32_t m, uint32_t e, uint32_t s) : fc({.u=0}) {
+  fc.u = ((s & 1) << 31) | (e & 255) << 23 | (m & mask);
+}
+
+IEEEFloat::IEEEFloat(int v) : IEEEFloat(static_cast<int16_t>(v)) {};
+
+IEEEFloat::IEEEFloat(int16_t v) : fc({.u=0}) {
+  if (v != 0) {
+    uint32_t s = static_cast<uint32_t>(v < 0) << 31;
+    uint32_t e = 127;
+    uint32_t m = static_cast<uint32_t>(abs(v)) << 8;
+    while (! (m & hidden)) {
       m = m << 1;
-      e -= 1;
+      e--;
     }
-    fc = float_cast {.parts = {m & mask, e, static_cast<uint8_t>(s & 1)}};
+    fc.u = s | (e << 23) | (m & mask);
   }
-  std::cerr << v << " = " << fc.f << " (" << std::hex << (m & mask) << ", " << std::dec << static_cast<unsigned>(e) << ", " << static_cast<int>(s) << ")" << std::endl;
-  return fc.f;
 }
-
-TEST_CASE("int162float") {
-  std::cerr << "mask " << std::hex << mask << std::endl;
-  float_cast fc = float_cast {.f = 0.999};
-  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
-  fc = float_cast {.f = 0.499};
-  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
-  fc = float_cast {.parts = {0x7f7cee, 62, 0}};
-  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
-  fc = float_cast {.parts = {0x7ffc00, 62, 0}};
-  std::cerr << fc.f << " (" << std::hex << fc.parts.m << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s) << ")" << std::endl;
-  CHECK(abs(int162float(0)) < 0.0001);
-  CHECK(abs(int162float(sample_max / 2) - 0.5) < 0.0001);
-  CHECK(abs(int162float(sample_max) - 1) < 0.0001);
-  CHECK(abs(int162float(sample_min) + 1) < 0.0001);
-}
-  
-
-IEEEFloat::IEEEFloat(float f) : fc({.f=f}) {};
-
-IEEEFloat::IEEEFloat(uint32_t m, uint8_t e, uint8_t s) : fc({.parts={m & mask, e, static_cast<uint8_t>(s & 1)}}) {};
 
 float IEEEFloat::f() {
   return fc.f;
 }
 
+uint32_t IEEEFloat::s() {
+  return (fc.u >> 31) & 1;
+}
+
+uint32_t IEEEFloat::e() {
+  return (fc.u >> 23) & 255;
+}
+
 uint32_t IEEEFloat::m() {
-  return fc.parts.m;
+  return fc.u & mask;
 }
 
-uint8_t IEEEFloat::e() {
-  return fc.parts.e;
-}
-
-uint8_t IEEEFloat::s() {
-  return fc.parts.s;
+int16_t IEEEFloat::sample() {
+  if (e()) {
+    int16_t v = static_cast<int16_t>((m() | hidden) >> (8 + 127 - e()));
+    if (s()) v = -v;
+    return v;
+  } else {
+    return 0;
+  }
 }
 
 void IEEEFloat::dump(std::ostream& c) {
-  c << fc.f << " (" << std::hex << (fc.parts.m & mask) << ", " << std::dec << static_cast<unsigned>(fc.parts.e) << ", " << static_cast<unsigned>(fc.parts.s & 1) << ")" << std::endl;
+  c << fc.f << " (" << std::hex << m() << ", " << std::dec << e() << ", " << s() << ")" << std::endl;
 }
 
-TEST_CASE("IEEEFloat") {
-  std::cerr << "------------------------------" << std::endl;
-  IEEEFloat(1).dump(std::cerr);
-  IEEEFloat(0, 63, 0).dump(std::cerr);  
-  IEEEFloat(0.5).dump(std::cerr);
-  IEEEFloat(0, 191, 0).dump(std::cerr);  
-  IEEEFloat(0, 126, 0).dump(std::cerr);  
-  std::cerr << "------------------------------" << std::endl;
+
+float sample2float(int16_t s) {
+  return IEEEFloat(s).f();
 }
+
+int16_t float2sample(float f) {
+  return IEEEFloat(std::max(-0.999969f, std::min(0.999969f, f))).sample();
+}
+
+
+
+TEST_CASE("IEEEFloat") {
+  CHECK(sample2float(sample_max) == doctest::Approx(1).epsilon(0.001));
+  CHECK(sample2float(sample_max/2) == doctest::Approx(0.5).epsilon(0.001));
+  CHECK(sample2float(0) == doctest::Approx(0).epsilon(0.001));
+  CHECK(sample2float(sample_min/2) == doctest::Approx(-0.5).epsilon(0.001));
+  CHECK(sample2float(sample_min) == doctest::Approx(-1).epsilon(0.001));
+  CHECK(float2sample(1.0) == doctest::Approx(sample_max).epsilon(0.001));
+  CHECK(float2sample(0.5) == doctest::Approx(sample_max/2).epsilon(0.001));
+  CHECK(float2sample(0.0) == doctest::Approx(0).epsilon(0.001));
+  CHECK(float2sample(-0.5) == doctest::Approx(sample_min/2).epsilon(0.001));
+  CHECK(float2sample(-1.0) == doctest::Approx(sample_min).epsilon(0.001));
+  for (int32_t s = sample_min; s <= sample_max; s += 1234) {
+    CHECK(float2sample(sample2float(s)) == doctest::Approx(s).epsilon(0.001));
+  }
+  for (float f = -1; f <= 1; f += 0.123) {
+    CHECK(sample2float(float2sample(f)) == doctest::Approx(f).epsilon(0.001));
+  }
+}
+

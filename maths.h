@@ -141,22 +141,21 @@ TEST_CASE("MultShift14") {
 }
 
 
-float int162float_norm(int16_t v);
-float int162float(int16_t v);
-
-//int16_t float2int16(float v);
-
 class IEEEFloat {
 
 public:
 
+  IEEEFloat(double f);
   IEEEFloat(float f);
-  IEEEFloat(uint32_t m, uint8_t e, uint8_t s);
+  IEEEFloat(int v);
+  IEEEFloat(int16_t v);
+  IEEEFloat(uint32_t m, uint32_t e, uint32_t s);
 
   float f();
   uint32_t m();
-  uint8_t e();
-  uint8_t s();
+  uint32_t e();
+  uint32_t s();
+  int16_t sample();
   void dump(std::ostream& c);
   
 private:
@@ -166,15 +165,17 @@ private:
 
   typedef union {
     float f;
-    struct {
-      uint32_t m : 23;
-      uint8_t e : 8;
-      uint8_t s : 1;
-    } parts;
+    uint32_t u;
   } float_cast;
 
   float_cast fc;
 
 };
+
+
+float sample2float(int16_t s);
+
+int16_t float2sample(float f);
+
 
 #endif

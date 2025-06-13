@@ -9,28 +9,21 @@
 #include "params.h"
 #include "wavelib.h"
 
-class Oscillator : public Node {
+
+class WavdexMixin;
+
+
+class BaseOscillator : public Node {
 
 public:
 
-  class Wavedex : public Param {
-  public:
-    Wavedex(Oscillator* o, Wavelib& wl);
-    void set(float val) override;
-  private:
-    Oscillator* oscillator;
-    Wavelib& wavelib;
-  };
-
-  Oscillator(Wavelib& w, size_t widx);
   friend class Frequency;
-  friend class Wavedex;
-  Wavedex& get_wavedex();
+  friend class WavedexMixin;
+  BaseOscillator(Wavetable *t);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
 
-  Wavedex wavedex;
   uint32_t frequency;
   Wavetable* wavetable;
   
@@ -41,18 +34,18 @@ class Frequency : public Param {
 
 public:
 
-  Frequency(Oscillator* o);
+  Frequency(BaseOscillator* o);
   
 protected:
 
   // on change, frequency is sent to controlled oscillator
   void set_oscillator(uint32_t f);
-  Oscillator* oscillator;
+  BaseOscillator* oscillator;
   
 };
 
 
-class AbsoluteOsc;
+class AbsDexOsc;
 class RelativeFreq;
 
 
@@ -60,7 +53,7 @@ class AbsoluteFreq : public Frequency {
   
 public:
 
-  AbsoluteFreq(AbsoluteOsc* o, float freq);
+  AbsoluteFreq(AbsDexOsc* o, float freq);
   void set(float f) override;  // set frequency (propagate to osc and rel freqs)
   uint32_t get_frequency() const;  // used by rel freq in initial setup
   // on change, frequency is sent to dependent relative freqs
@@ -77,7 +70,7 @@ private:
 };
 
 
-class RelativeOsc;
+class RelDexOsc;
 
 
 class RelativeFreq : public Frequency {
@@ -92,7 +85,7 @@ public:
     RelativeFreq* frequency;
   };
 
-  RelativeFreq(RelativeOsc* o, AbsoluteFreq& ref, float r, float d);
+  RelativeFreq(RelDexOsc* o, AbsoluteFreq& ref, float r, float d);
   void set(float f) override;  // set ratio
   void set_detune(float f);
   void set_root(uint32_t);
@@ -113,11 +106,35 @@ private:
 };
 
 
-class AbsoluteOsc : public Oscillator {
+class WavedexMixin {
 
 public:
 
-  AbsoluteOsc(Wavelib& wl, size_t widx, float f);
+  class Wavedex : public Param {
+  public:
+    Wavedex(BaseOscillator* o, Wavelib& wl);
+    void set(float val) override;
+  private:
+    BaseOscillator* oscillator;
+    Wavelib& wavelib;
+  };
+
+  friend class Wavedex;
+  WavedexMixin(BaseOscillator* o, Wavelib& wl);
+  Wavedex& get_wavedex();
+
+protected:
+
+  Wavedex wavedex;
+  
+};
+
+
+class AbsDexOsc : public BaseOscillator, public WavedexMixin {
+
+public:
+
+  AbsDexOsc(Wavelib& wl, size_t widx, float f);
   AbsoluteFreq& get_param();
 
 private:
@@ -127,11 +144,11 @@ private:
 };
 
 
-class RelativeOsc : public Oscillator {
+class RelDexOsc : public BaseOscillator, public WavedexMixin {
 
 public:
 
-  RelativeOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d);
+  RelDexOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d);
   RelativeFreq& get_param();
   
 private:

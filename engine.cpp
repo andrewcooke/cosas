@@ -93,9 +93,9 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 }
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc(size_t widx, float frq, Input& right) {
-  AbsoluteOsc& o = add_node<AbsoluteOsc>(*wavelib, widx, frq);
+  AbsDexOsc& o = add_node<AbsDexOsc>(*wavelib, widx, frq);
   AbsoluteFreq& f = o.get_param();
-  Oscillator::Wavedex& w = o.get_wavedex();
+  WavedexMixin::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
   Input& left = lin_control(w, widx, 0, wavelib->size() - 1);
   std::cerr << "sq " <<  wavelib->square_duty_05 << " sin " << wavelib->sine_gamma_1 << std::endl;
@@ -116,9 +116,9 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_osc_w_gain(size_t widx, float 
 }
 
 Node& Manager::add_rel_osc(size_t widx, AbsoluteFreq& root, float r, float d) {
-  RelativeOsc& o = add_node<RelativeOsc>(*wavelib, widx, root, r, d);
+  RelDexOsc& o = add_node<RelDexOsc>(*wavelib, widx, root, r, d);
   RelativeFreq& f = o.get_param();
-  Oscillator::Wavedex& w = o.get_wavedex();
+  WavedexMixin::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, 1, 1.0 / (root.get_frequency() << subtick_bits), 0.5 * sample_rate / root.get_frequency());
   Input& left = lin_control(w, widx, 0, wavelib->size());
   Input& right = log_control(f.get_detune(), 1, 0.9, 1.1);
