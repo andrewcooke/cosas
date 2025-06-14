@@ -56,7 +56,7 @@ class AbsoluteFreq : public Frequency {
   
 public:
 
-  AbsoluteFreq(AbsDexOsc* o, float freq);
+  AbsoluteFreq(BaseOscillator* o, float freq);
   void set(float f) override;  // set frequency (propagate to osc and rel freqs)
   uint32_t get_frequency() const;  // used by rel freq in initial setup
   // on change, frequency is sent to dependent relative freqs
@@ -175,7 +175,7 @@ public:
     
   };
 
-  PolyMixin(BaseOscillator& o);
+  PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
   friend class Ctrl;
   Param& get_shape();
   Param& get_asym();
@@ -190,11 +190,25 @@ private:
   std::unique_ptr<Ctrl> p_shape;
   std::unique_ptr<Ctrl> p_asym;
   std::unique_ptr<Ctrl> p_offset;
-  float shape = PolyTable::sine;
-  float asym = 0;
-  float offset = half_table_size;
+  BaseOscillator* oscillator;
+  float shape;
+  float asym;
+  float offset;
   std::unique_ptr<Wavetable> wavetable;
-  BaseOscillator& oscillator;
+  
+};
+
+
+class AbsPolyOsc : public BaseOscillator, public PolyMixin {
+
+public:
+
+  AbsPolyOsc(float f, size_t shp, size_t asyn, size_t off);
+  AbsoluteFreq& get_param();
+
+private:
+
+  AbsoluteFreq freq_param;
   
 };
 

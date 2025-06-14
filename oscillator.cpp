@@ -28,7 +28,7 @@ void Frequency::set_oscillator(uint32_t f) {
 }
 
 
-AbsoluteFreq::AbsoluteFreq(AbsDexOsc* o, float f)
+AbsoluteFreq::AbsoluteFreq(BaseOscillator* o, float f)
   : Frequency(o), frequency(hz2freq(f)), relative_freqs() {
   std::cerr << "AF created " << relative_freqs.size() << std::endl;
   set_oscillator(frequency);  
@@ -148,10 +148,12 @@ void PolyMixin::Ctrl::set(float v) {
 }
 
 // no except here to get rid of a complex compiler error i did not understand
-PolyMixin::PolyMixin(BaseOscillator& o) : oscillator(o) {
+PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
+  : oscillator(o), shape(s), asym(a), offset(off) {
   p_shape = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {shape = v;}));
   p_asym = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {asym = v;}));
   p_offset = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {offset = v;}));
+  update();
 }
 
 Param& PolyMixin::get_shape() {
@@ -169,5 +171,14 @@ Param& PolyMixin::get_offset() {
 void PolyMixin::update() {
   std::unique_ptr<Wavetable> save = std::move(wavetable);  // save while we modify
   wavetable = std::move(std::make_unique<PolyTable>(shape, asym, offset));  
-  oscillator.wavetable = wavetable.get();  // now old value can disappear
+  oscillator->wavetable = wavetable.get();  // now old value can disappear
 }
+
+
+AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
+  : BaseOscillator(nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {}
+
+AbsoluteFreq& AbsPolyOsc::get_param() {
+  return freq_param;
+}
+

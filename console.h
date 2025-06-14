@@ -6,9 +6,9 @@
 #include "engine.h"
 
 
-void dump(Manager::Engine e, size_t n);
 void dump_w_gain(Manager::Engine e, size_t n);
 void dump_w_wdex(Manager::Engine e, size_t n);
+void dump(Manager::Engine e, size_t n);
 
 
 #endif
