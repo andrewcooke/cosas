@@ -3,6 +3,7 @@
 #define COSA_OSCILLATOR_H
 
 #include <memory>
+#include <functional>
 
 #include "maths.h"
 #include "node.h"
@@ -11,12 +12,14 @@
 
 
 class WavdexMixin;
+class PolyMixin;
 
 
 class BaseOscillator : public Node {
 
 public:
 
+  friend class PolyMixin;
   friend class Frequency;
   friend class WavedexMixin;
   BaseOscillator(Wavetable *t);
@@ -154,6 +157,44 @@ public:
 private:
 
   RelativeFreq freq_param;
+  
+};
+
+
+class PolyMixin {
+
+public:
+
+  class Ctrl : public Param {
+  public:
+    Ctrl(PolyMixin& m, std::function<void(float)> d);
+    void set(float val) override;
+  private:
+    PolyMixin& mixin;
+    std::function<void(float)> delegate;
+    
+  };
+
+  PolyMixin(BaseOscillator& o);
+  friend class Ctrl;
+  Param& get_shape();
+  Param& get_asym();
+  Param& get_offset();
+
+protected:
+  
+  void update();
+  
+private:
+
+  std::unique_ptr<Ctrl> p_shape;
+  std::unique_ptr<Ctrl> p_asym;
+  std::unique_ptr<Ctrl> p_offset;
+  float shape = PolyTable::sine;
+  float asym = 0;
+  float offset = half_table_size;
+  std::unique_ptr<Wavetable> wavetable;
+  BaseOscillator& oscillator;
   
 };
 

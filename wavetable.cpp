@@ -123,7 +123,7 @@ Noise::Noise(uint smooth) {
 }
 
 
-PolyTable::PolyTable(size_t shape, size_t asym, float offset) {
+PolyTable::PolyTable(size_t shape, size_t asym, size_t offset) {
   make_half(half_table, shape % (square + 1), 0, offset);
   make_half(half_table, (shape + asym) % (square + 1), offset, half_table_size);  
 }

@@ -25,8 +25,9 @@ public:
   enum Engine {
     FM_SIMPLE,
     FM_LFO,
+    FM_ENV,
     FM_FB,
-    CHORD
+    CHORD,
   };
 
   Manager();

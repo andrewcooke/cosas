@@ -138,3 +138,36 @@ TEST_CASE("Detune") {
   o2.get_param().get_detune().set(0.9);
   CHECK(o2.next(1000, 0) != -32417);
 }
+
+
+PolyMixin::Ctrl::Ctrl(PolyMixin& m, std::function<void(float)> d) : mixin(m), delegate(d) {};
+
+void PolyMixin::Ctrl::set(float v) {
+  delegate(v);
+  mixin.update();
+}
+
+// no except here to get rid of a complex compiler error i did not understand
+PolyMixin::PolyMixin(BaseOscillator& o) : oscillator(o) {
+  p_shape = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {shape = v;}));
+  p_asym = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {asym = v;}));
+  p_offset = std::move(std::make_unique<Ctrl>(*this, [this](float v) noexcept {offset = v;}));
+}
+
+Param& PolyMixin::get_shape() {
+  return *p_shape;
+}
+
+Param& PolyMixin::get_asym() {
+  return *p_asym;
+}
+
+Param& PolyMixin::get_offset() {
+  return *p_offset;
+}
+
+void PolyMixin::update() {
+  std::unique_ptr<Wavetable> save = std::move(wavetable);  // save while we modify
+  wavetable = std::move(std::make_unique<PolyTable>(shape, asym, offset));  
+  oscillator.wavetable = wavetable.get();  // now old value can disappear
+}

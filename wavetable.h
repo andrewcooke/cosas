@@ -144,7 +144,7 @@ class PolyTable : public HalfWtable {
 
 public:
 
-  PolyTable(size_t shape, size_t asym, float offset);
+  PolyTable(size_t shape, size_t asym, size_t offset);
   static const size_t n_concave = 5;
   static const size_t n_convex = 5;
   static const size_t noise = 0;

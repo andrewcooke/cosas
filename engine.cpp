@@ -32,6 +32,8 @@ const Node& Manager::build(Manager::Engine engine) {
     return build_fm_simple();
   case Manager::Engine::FM_LFO:
     return build_fm_lfo();
+  case Manager::Engine::FM_ENV:
+    return build_fm_lfo();
   case Manager::Engine::FM_FB:
     return build_fm_fb();
   case Manager::Engine::CHORD:
