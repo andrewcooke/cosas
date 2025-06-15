@@ -60,9 +60,7 @@ int16_t Triangle::next(int32_t tick, int32_t phi) const {
 
 
 int16_t HalfWtable::next(int32_t tick, int32_t phi) const {
-  // careful w signs
-  while (tick + phi < static_cast<int32_t>(full_table_size)) tick += static_cast<int32_t>(full_table_size);
-  size_t full_idx = static_cast<size_t>(tick) % full_table_size;
+  size_t full_idx = tick2idx(tick + phi) % full_table_size;
   size_t half_idx = full_idx % half_table_size;
   if (full_idx < half_table_size) return half_table.at(half_idx);
   else return -half_table.at(half_table_size - 1 - half_idx);
@@ -124,8 +122,8 @@ Noise::Noise(uint smooth) {
 
 
 PolyTable::PolyTable(size_t shape, size_t asym, size_t offset) {
-  make_half(half_table, shape % (square + 1), 0, offset);
-  make_half(half_table, (shape + asym) % (square + 1), offset, half_table_size);  
+  make_half(half_table, shape % n_shapes, 0, offset);
+  make_half(half_table, (shape + asym) % n_shapes, offset, half_table_size);  
 }
 
 float PolyTable::pow2(float x, size_t n) {
@@ -137,38 +135,51 @@ float PolyTable::tox(size_t i, size_t lo, size_t hi) {
   return lo ? static_cast<float>(hi - i) / (hi - lo) : static_cast<float>(i - lo) / (hi - lo);
 }
 
-void PolyTable::make_concave(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi) {
+void PolyTable::make_concave(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * (1 - pow2(1 - tox(i, lo, hi), shape));
 }
 
-void PolyTable::make_linear(std::array<int16_t, half_table_size> table, size_t lo, size_t hi) {
+void PolyTable::make_linear(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * tox(i, lo, hi);
 }
 
-void PolyTable::make_convex(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi) {
+void PolyTable::make_convex(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * pow2(tox(i, lo, hi), shape);
 }
 
-void PolyTable::make_sine(std::array<int16_t, half_table_size> table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * sin(std::numbers::pi * tox(i, lo, hi));
+void PolyTable::make_sine(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
+  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * sin(std::numbers::pi * tox(i, lo, hi) / 2.0f);
 }
 
-void PolyTable::make_noise(std::array<int16_t, half_table_size> table, size_t lo, size_t hi) {
+void PolyTable::make_noise(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(sample_min, sample_max);
   for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * distrib(gen);
 }
 
-void PolyTable::make_square(std::array<int16_t, half_table_size> table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = lo ? sample_min : sample_max;
+void PolyTable::make_square(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
+  for (size_t i = lo; i < hi; i++) table.at(i) = lo ? sample_max : sample_min;
 }
 
-void PolyTable::make_half(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi) {
+void PolyTable::make_half(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
   if (shape == noise) make_noise(table, lo, hi);
   else if (shape < linear) make_concave(table, linear - shape + 1, lo, hi);
   else if (shape == linear) make_linear(table, lo, hi);
-  else if (shape < square) make_convex(table, shape - linear, lo, hi);
+  else if (shape == sine) make_sine(table, lo, hi);
+  else if (shape < square) make_convex(table, shape - sine + 1, lo, hi);
   else make_square(table, lo, hi);
 }
 
+TEST_CASE("PolyTable") {
+  PolyTable p1 = PolyTable(PolyTable::square, 0, quarter_table_size);
+  for (size_t i = 0; i < quarter_table_size; i++) {
+    CHECK(p1.next(i << subtick_bits, 0) == sample_min);
+    CHECK(p1.next((i + quarter_table_size) << subtick_bits, 0) == sample_max);
+  }
+  PolyTable p2 = PolyTable(PolyTable::sine, 0, quarter_table_size);
+  CHECK(p2.next(0, 0) == 0);
+  CHECK(p2.next(quarter_table_size << subtick_bits, 0) == sample_max);
+  CHECK(p2.next(half_table_size << subtick_bits, 0) == -4);  // almost 0
+  CHECK(p2.next((half_table_size + quarter_table_size) << subtick_bits, 0) == sample_min + 1);  // almost
+}

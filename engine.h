@@ -23,6 +23,8 @@ class Manager {
 public:
 
   enum Engine {
+    DEX,
+    POLY,
     FM_SIMPLE,
     FM_LFO,
     FM_ENV,
@@ -49,12 +51,15 @@ private:
   std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc(float frq, size_t widx);
   std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
   std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asyn, size_t off, Input& right);
+  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
   std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
   Node& add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d);
   Merge& add_balance(Node& a, Node& b, float bal);
   Node& add_fm(Node& c,  Node& m, float bal, float amp);
   Node& add_fm(Node& c,  Node& m, float bal, float amp, Input& right);
 
+  const Node& build_dex();
+  const Node& build_poly();
   const Node& build_fm_simple();
   const Node& build_fm_lfo();
   const Node& build_fm_env();

@@ -39,7 +39,6 @@ void Sigmoid::set(float v) {
   float v2 = v - 0.5;
   // https://www.desmos.com/calculator/rbmvnpsmrm
   float v3 = 4 * (1 - linear) * pow(v2, 3) + linear * v2 + 0.5;
-  std::cerr << v << " -> " << v3 << std::endl;
   delegate.set(v3);
 }
 
@@ -102,10 +101,8 @@ Range::Range(Input& del, float c, float lo, float hi)
   : Delegate(del), current(c), low(lo), high(hi) {};
 
 void Range::set(float value) {
-  std::cerr << value << " (" << current << ") ";
   // handle disconnect here (which will set current)
   value = std::max(low, std::min(high, update(value)));
-  std::cerr << "range " << low << "," << high << " " << value << std::endl;
   delegate.set(value);
 }
 

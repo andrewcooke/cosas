@@ -15,7 +15,6 @@ int16_t BaseOscillator::next(int32_t tick, int32_t phi) const {
   // fudge allows more variation (phi limited to sample_max)
   // but may need to worry about gain sensitivity
   int32_t phi_frac = phi_tmp >> (sample_bits - 1 - phi_fudge_bits);
-  std::cerr << "using " << &wavetable << std::endl;
   return wavetable->next(tick * freq, phi_frac);
 }
 
@@ -23,20 +22,17 @@ int16_t BaseOscillator::next(int32_t tick, int32_t phi) const {
 Frequency::Frequency(BaseOscillator* o) : oscillator(o) {}
 
 void Frequency::set_oscillator(uint32_t f) {
-  std::cerr << "set osc " << f << std::endl;
   oscillator->frequency = f;
 }
 
 
 AbsoluteFreq::AbsoluteFreq(BaseOscillator* o, float f)
-  : Frequency(o), frequency(hz2freq(f)), relative_freqs() {
-  std::cerr << "AF created " << relative_freqs.size() << std::endl;
+  : Frequency(o), frequency(f), relative_freqs() {
   set_oscillator(frequency);  
 };
 
 void AbsoluteFreq::set(float f) {
-  frequency = hz2freq(f);
-  set_oscillator(frequency);
+  set_oscillator(f);
   set_relative_freqs(frequency);
 }
 
@@ -125,18 +121,18 @@ RelativeFreq& RelDexOsc::get_param() {
 TEST_CASE("Wavedex") {
   Wavelib w = Wavelib();
   AbsDexOsc o = AbsDexOsc(w, w.sine_gamma_1, 4400);
-  CHECK(o.next(1000, 0) == -32417);
+  CHECK(o.next(1000, 0) == 5800);
   o.get_wavedex().set(w.square_duty_05);
-  CHECK(o.next(1000, 0) == -32767);
+  CHECK(o.next(1000, 0) == 32767);
 }
 
 TEST_CASE("Detune") {
   Wavelib w = Wavelib();
   AbsDexOsc o1 = AbsDexOsc(w, w.sine_gamma_1, 4400);
   RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_param(), 1, 1);
-  CHECK(o2.next(1000, 0) == -32417);
+  CHECK(o2.next(1000, 0) == 5800);
   o2.get_param().get_detune().set(0.9);
-  CHECK(o2.next(1000, 0) != -32417);
+  CHECK(o2.next(1000, 0) != 5800);
 }
 
 
@@ -169,16 +165,26 @@ Param& PolyMixin::get_offset() {
 }
 
 void PolyMixin::update() {
-  std::unique_ptr<Wavetable> save = std::move(wavetable);  // save while we modify
-  wavetable = std::move(std::make_unique<PolyTable>(shape, asym, offset));  
-  oscillator->wavetable = wavetable.get();  // now old value can disappear
+  std::unique_ptr<Wavetable> save = std::move(unq_wtable);  // save while we modify
+  unq_wtable = std::move(std::make_unique<PolyTable>(shape, asym, offset));
+  oscillator->wavetable = unq_wtable.get();  // now old value can disappear
 }
 
 
 AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
-  : BaseOscillator(nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {}
+  : BaseOscillator(nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {
+  get_param().set(f);  // push initial value
+}
 
 AbsoluteFreq& AbsPolyOsc::get_param() {
   return freq_param;
 }
 
+TEST_CASE("AbsPolyOsc") {
+  AbsPolyOsc o = AbsPolyOsc(440, PolyTable::sine, 0, quarter_table_size);
+  CHECK(o.next(0, 0) == 0);
+  // there are table_size samples a second.  a 440hz note takes 1/440s
+  // for one cycle, which is table_size/440 samples.  so a quarter of
+  // a cycle takes quarter_table_size/440. 
+  CHECK(o.next((quarter_table_size / 440) << subtick_bits, 0) == sample_max - 1);  // almost
+}

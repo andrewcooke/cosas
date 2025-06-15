@@ -137,6 +137,7 @@ class AbsDexOsc : public BaseOscillator, public WavedexMixin {
 
 public:
 
+  // TODO - f first
   AbsDexOsc(Wavelib& wl, size_t widx, float f);
   AbsoluteFreq& get_param();
 
@@ -194,7 +195,7 @@ private:
   float shape;
   float asym;
   float offset;
-  std::unique_ptr<Wavetable> wavetable;
+  std::unique_ptr<Wavetable> unq_wtable;
   
 };
 

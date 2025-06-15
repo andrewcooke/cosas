@@ -145,24 +145,25 @@ class PolyTable : public HalfWtable {
 public:
 
   PolyTable(size_t shape, size_t asym, size_t offset);
-  static const size_t n_concave = 5;
-  static const size_t n_convex = 5;
+  static const size_t n_concave = 4;
+  static const size_t n_convex = 4;
   static const size_t noise = 0;
   static const size_t linear = n_concave + 1;
   static const size_t sine = n_concave + 2;
   static const size_t square = n_concave + n_convex + 3;
+  static const size_t n_shapes = square + 1;
 
 private:
   
   float pow2(float x, size_t n);
   float tox(size_t i, size_t lo, size_t hi);
-  void make_concave(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi);
-  void make_linear(std::array<int16_t, half_table_size> table, size_t lo, size_t hi);
-  void make_convex(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi);
-  void make_sine(std::array<int16_t, half_table_size> table, size_t lo, size_t hi);
-  void make_noise(std::array<int16_t, half_table_size> table, size_t lo, size_t hi);
-  void make_square(std::array<int16_t, half_table_size> table, size_t lo, size_t hi);
-  void make_half(std::array<int16_t, half_table_size> table, size_t shape, size_t lo, size_t hi);
+  void make_concave(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
+  void make_linear(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
+  void make_convex(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
+  void make_sine(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
+  void make_noise(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
+  void make_square(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
+  void make_half(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
 
 };
 

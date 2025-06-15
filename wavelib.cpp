@@ -14,7 +14,6 @@ Wavelib::Wavelib()
 // these are calculated on startup because large/slow
 
 void Wavelib::init_wavetables() {
-  
   saw_start = all_wavetables->size();
   // do we need both sides?
   for (const auto& offset : {-1.0, -0.5, 0.0, 0.5, 1.0}) {
@@ -41,8 +40,6 @@ void Wavelib::init_wavetables() {
     if (smooth == 1) noise_smooth_1 = all_wavetables->size();
     all_wavetables->push_back(std::move(std::make_unique<Noise>(smooth)));
   }  
-
-  std::cerr << size() << " wavetables" << std::endl;
 }
 
 Wavetable& Wavelib::operator[](size_t idx) {
