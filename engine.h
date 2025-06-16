@@ -37,7 +37,7 @@ public:
   const Node& build(Engine);
   const Pane& get_pane(size_t n);
   size_t n_panes();
-  size_t n_wforms();
+  size_t n_dex();
 
 private:
 

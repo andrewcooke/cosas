@@ -20,6 +20,6 @@ const size_t quarter_table_size = sample_rate / 4;
 const uint8_t subtick_bits = 3;
 
 // see discussion in oscillator.cpp
-const size_t phi_fudge_bits = 8;
+const size_t phi_fudge_bits = 12;
 
 #endif

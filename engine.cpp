@@ -55,7 +55,7 @@ size_t Manager::n_panes() {
   return current_panes->size();
 }
 
-size_t Manager::n_wforms() {
+size_t Manager::n_dex() {
   return wavelib->size();
 }
 
@@ -179,7 +179,7 @@ const Node& Manager::build_dex() {
 }
 
 const Node& Manager::build_poly() {
-  auto [f, o] = add_abs_poly_osc(440, PolyTable::sine, 0, half_table_size);
+  auto [f, o] = add_abs_poly_osc(440, PolyTable::sine, 0, quarter_table_size);
   return o;
 }
 
