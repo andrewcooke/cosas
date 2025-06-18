@@ -102,10 +102,10 @@ void WavedexMixin::Wavedex::set(float val) {
 
 AbsDexOsc::AbsDexOsc(Wavelib& wl, size_t widx, float f)
   : BaseOscillator(&wl[widx]), WavedexMixin(this, wl), freq_param(AbsoluteFreq(this, f)) {
-  get_param().set(f);  // push initial value
+  get_freq().set(f);  // push initial value
 }
 
-AbsoluteFreq& AbsDexOsc::get_param() {
+AbsoluteFreq& AbsDexOsc::get_freq() {
   return freq_param;
 }
 
@@ -113,7 +113,7 @@ AbsoluteFreq& AbsDexOsc::get_param() {
 RelDexOsc::RelDexOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d)
   : BaseOscillator(&wl[widx]), WavedexMixin(this, wl), freq_param(RelativeFreq(this, root, f, d)) {}
 
-RelativeFreq& RelDexOsc::get_param() {
+RelativeFreq& RelDexOsc::get_freq() {
   return freq_param;
 }
 
@@ -129,9 +129,9 @@ TEST_CASE("Wavedex") {
 TEST_CASE("Detune") {
   Wavelib w = Wavelib();
   AbsDexOsc o1 = AbsDexOsc(w, w.sine_gamma_1, 4400);
-  RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_param(), 1, 1);
+  RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_freq(), 1, 1);
   CHECK(o2.next(1000, 0) == 5800);
-  o2.get_param().get_detune().set(0.9);
+  o2.get_freq().get_detune().set(0.9);
   CHECK(o2.next(1000, 0) != 5800);
 }
 
@@ -173,10 +173,10 @@ void PolyMixin::update() {
 
 AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
   : BaseOscillator(nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {
-  get_param().set(f);  // push initial value
+  get_freq().set(f);  // push initial value
 }
 
-AbsoluteFreq& AbsPolyOsc::get_param() {
+AbsoluteFreq& AbsPolyOsc::get_freq() {
   return freq_param;
 }
 

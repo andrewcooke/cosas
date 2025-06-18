@@ -35,15 +35,12 @@ public:
   };
 
   friend class Value;
-  Value& get_param();
+  //  Value& get_param();
     
 protected:
 
   SingleFloat(const Node& nd, float v);
   float value;
-
-private:
-
   Value param;
   
 };
@@ -55,6 +52,7 @@ public:
   
   GainFloat(const Node& nd, float amp);
   int16_t next(int32_t tick, int32_t phi) const override;
+  Value& get_amp();
   
 };
 
@@ -72,15 +70,12 @@ public:
   };
 
   friend class Value;
-  Value& get_param();
+  //  Value& get_param();
     
 protected:
 
   Single14(const Node& nd, float v);
   uint16_t value;
-
-private:
-
   Value param;
   
 };
@@ -92,6 +87,7 @@ public:
   
   Gain14(const Node& nd, float amp);
   int16_t next(int32_t tick, int32_t phi) const override;
+  Value& get_amp();
   
 };
 
@@ -140,7 +136,8 @@ public:
 
   // k is progrgessive, 0-1 expands and 1-2 folds
   Folder(const Node& nd, float k);
-
+  Value& get_fold();
+  
 private:
   
   float func(float x) const override;
@@ -176,7 +173,7 @@ public:
   friend class Length;
   Boxcar(const Node& nd, size_t l);
   int16_t next(int32_t tick, int32_t phi) const override;
-  Length& get_param();
+  Length& get_len();
 
 private:
 
@@ -213,14 +210,14 @@ public:
   friend class Weight;
   MergeFloat(const Node& n, float w);
   void add_node(const Node& n, float w);
-  Weight& get_param(size_t i);
+  Weight& get_weight(size_t i);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
   
   virtual void normalize();
   void add_node(const Node& n, Weight w);
-  std::unique_ptr<std::vector<Weight>> params;
+  std::unique_ptr<std::vector<Weight>> weights;
   std::unique_ptr<std::vector<const Node*>> nodes;
   std::unique_ptr<std::vector<float>> given_weights;
   std::unique_ptr<std::vector<float>> norm_weights;

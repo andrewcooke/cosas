@@ -100,7 +100,7 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx, Input& right) {
   AbsDexOsc& o = add_node<AbsDexOsc>(*wavelib, widx, frq);
-  AbsoluteFreq& f = o.get_param();
+  AbsoluteFreq& f = o.get_freq();
   WavedexMixin::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
   Input& left = lin_control(w, widx, 0, wavelib->size() - 1);
@@ -116,13 +116,13 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc_w_gain(float frq, size
   Blank& b = add_input<Blank>();
   auto [f, o] = add_abs_dex_osc(frq, widx, b);
   Gain& g = add_node<Gain>(o, amp);
-  b.unblank(&lin_control(g.get_param(), amp, 0, 1));
+  b.unblank(&lin_control(g.get_amp(), amp, 0, 1));
   return {f, g};
 }
 
 Node& Manager::add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d) {
   RelDexOsc& o = add_node<RelDexOsc>(*wavelib, widx, root, r, d);
-  RelativeFreq& f = o.get_param();
+  RelativeFreq& f = o.get_freq();
   WavedexMixin::Wavedex& w = o.get_wavedex();
   Input& top = log_control(f, 1, 1.0 / (root.get_frequency() << subtick_bits), 0.5 * sample_rate / root.get_frequency());
   Input& left = lin_control(w, widx, 0, wavelib->size());
@@ -133,7 +133,8 @@ Node& Manager::add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d
 
 std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off, Input& /* right */) {
   AbsPolyOsc& o = add_node<AbsPolyOsc>(frq, shp, asym, off);
-  AbsoluteFreq& f = o.get_param();
+  AbsoluteFreq& f = o.get_freq();
+  // TODO
   //  WavedexMixin::Wavedex& w = o.get_wavedex();
   //  Input& top = log_control(f, frq, 1.0 / (1 << subtick_bits), 0.5 * sample_rate);
   //  Input& left = lin_control(w, widx, 0, wavelib->size() - 1);
@@ -149,7 +150,7 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_poly_osc_w_gain(float frq, siz
   Blank& b = add_input<Blank>();
   auto [f, o] = add_abs_poly_osc(frq, shp, asym, off, b);
   Gain& g = add_node<Gain>(o, amp);
-  b.unblank(&lin_control(g.get_param(), amp, 0, 1));
+  b.unblank(&lin_control(g.get_amp(), amp, 0, 1));
   return {f, g};
 }
 
@@ -167,8 +168,8 @@ Node& Manager::add_fm(Node& c, Node& m, float bal, float amp, Input& right) {
   Gain& g = add_node<Gain>(m, amp);
   FM& fm = add_node<FM>(c, g);
   Merge& b = add_balance(fm, c, bal);
-  Input & top = lin_control(g.get_param(), amp, 0, 1);
-  Input& left = lin_control(b.get_param(0), bal, 0, 1);
+  Input & top = lin_control(g.get_amp(), amp, 0, 1);
+  Input& left = lin_control(b.get_weight(0), bal, 0, 1);
   add_pane(top, left, right);
   return b;
 }
@@ -179,7 +180,7 @@ const Node& Manager::build_dex() {
 }
 
 const Node& Manager::build_poly() {
-  auto [f, o] = add_abs_poly_osc(440, PolyTable::sine, 0, quarter_table_size);
+  auto [f, o] = add_abs_poly_osc(10, PolyTable::linear - 1, 0, 0.1 * quarter_table_size);
   return o;
 }
 
@@ -193,7 +194,7 @@ const Node& Manager::build_fm_simple() {
 
 TEST_CASE("BuildFM_SIMPLE") {
   Manager m = Manager();
-  CHECK(m.build(m.FM_SIMPLE).next(50, 0) == 12872);
+  CHECK(m.build(m.FM_SIMPLE).next(50, 0) == 12866);
   CHECK(m.n_panes() == 3);  // carrier, modulator, fm gain/balance
 }
 
@@ -214,22 +215,20 @@ TEST_CASE("BuildFM_LFO") {
 }
 
 const Node& Manager::build_fm_env() {
-  auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
-  Node& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
-  auto [ef, e] = add_abs_poly_osc_w_gain(0.1, PolyTable::sine, 0, half_table_size, 1);
-  Node& am = add_node<AM>(e, m);
-  Node& fm = add_fm(c, am, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)));
-  return fm;
+  const Node& fm = build_fm_simple();
+  auto [ef, e] = add_abs_poly_osc(10, PolyTable::linear - 1, 0, 0.1 * quarter_table_size);
+  Node& am = add_node<AM>(e, fm);
+  return am;
 }
 
 const Node& Manager::build_fm_fb() {
   Latch& latch = add_node<Latch>();
   Boxcar& flt = add_node<Boxcar>(latch, DEFAULT_BOXCAR);
-  Input& right = lin_control(flt.get_param(), DEFAULT_BOXCAR, 1, MAX_BOXCAR);
+  Input& right = lin_control(flt.get_len(), DEFAULT_BOXCAR, 1, MAX_BOXCAR);
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1, right);
   Node& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   Merge& mrg = add_balance(flt, m, 0.5);
-  Node& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)), mrg.get_param(0));
+  Node& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)), mrg.get_weight(0));
   latch.set_source(&fm);
   return latch;
 }
@@ -237,7 +236,7 @@ const Node& Manager::build_fm_fb() {
 TEST_CASE("BuildFM_FB") {
   Manager m = Manager();
   int32_t amp = m.build(m.FM_FB).next(666, 0);
-  CHECK(amp == -29064);  // exact value not important
+  CHECK(amp == -29058);  // exact value not important
   CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance/flt balance
 }
 
@@ -248,11 +247,11 @@ const Node& Manager::build_chord() {
   Node& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3/2.0, 1);
   Node& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4/3.0, 1);
   Merge& m = add_node<Merge>(o0, 0.5);
-  b.unblank(&m.get_param(0));
+  b.unblank(&m.get_weight(0));
   m.add_node(o1, 1);
   m.add_node(o2, 1);
   m.add_node(o3, 1);
-  add_pane(m.get_param(1), m.get_param(2), m.get_param(3));
+  add_pane(m.get_weight(1), m.get_weight(2), m.get_weight(3));
   return m;
 }
 

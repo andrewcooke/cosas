@@ -14,9 +14,9 @@
 SingleFloat::SingleFloat(const Node& nd, float v)
   : SingleNode(nd), value(v), param(Value(this)) {};
 
-SingleFloat::Value& SingleFloat::get_param() {
-  return param;
-}
+//SingleFloat::Value& SingleFloat::get_param() {
+//  return param;
+//}
 
 SingleFloat::Value::Value(SingleFloat* p) : parent(p) {};
 
@@ -33,11 +33,15 @@ int16_t GainFloat::next(int32_t tick, int32_t phi) const {
   return b;  
 }
 
+SingleFloat::Value& GainFloat::get_amp() {
+  return param;
+}
+
 TEST_CASE("GainFloat") {
   Constant c = Constant(100);
   GainFloat g = GainFloat(c, 1);
   CHECK(g.next(123, 0) == 100);
-  g.get_param().set(0.1);
+  g.get_amp().set(0.1);
   CHECK(g.next(123, 0) == 10);
 }
 
@@ -45,9 +49,9 @@ TEST_CASE("GainFloat") {
 Single14::Single14(const Node& nd, float v)
   : SingleNode(nd), value(scale2mult_shift14(v)), param(Value(this)) {};
 
-Single14::Value& Single14::get_param() {
-  return param;
-}
+//Single14::Value& Single14::get_param() {
+//  return param;
+//}
 
 Single14::Value::Value(Single14* p) : parent(p) {};
 
@@ -64,11 +68,15 @@ int16_t Gain14::next(int32_t tick, int32_t phi) const {
   return b;  
 }
 
+Single14::Value& Gain14::get_amp() {
+  return param;
+}
+
 TEST_CASE("Gain14") {
   Constant c = Constant(100);
   Gain14 g = Gain14(c, 1);
   CHECK(g.next(123, 0) == 100);
-  g.get_param().set(0.1);
+  g.get_amp().set(0.1);
   CHECK(g.next(123, 0) == 9);  // almost
 }
 
@@ -108,14 +116,20 @@ float Folder::func(float x) const {
   else return 1 - pow(value * x - 1, 2);
 }
 
+SingleFloat::Value& Folder::get_fold() {
+  return param;
+}
+
+
+
 TEST_CASE("Folder") {
 
   Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);
   CHECK(f0_12.next(0, 0) == 1234);
-  f0_12.get_param().set(1);
+  f0_12.get_fold().set(1);
   CHECK(f0_12.next(0, 0) == 2421);  // not sure if correct, but more +ve
-  f0_12.get_param().set(2);
+  f0_12.get_fold().set(2);
   CHECK(f0_12.next(0, 0) == 4750);  // not sure if correct
   Constant cm1234 = Constant(-1234);
   Folder f1_12x = Folder(cm1234, 1);
@@ -124,9 +138,9 @@ TEST_CASE("Folder") {
   Constant cmax = Constant(sample_max);  
   Folder f0_max = Folder(cmax, 0);
   CHECK(f0_max.next(0, 0) == sample_max);
-  f0_max.get_param().set(1);
+  f0_max.get_fold().set(1);
   CHECK(f0_max.next(0, 0) == sample_max);
-  f0_max.get_param().set(2);
+  f0_max.get_fold().set(2);
   CHECK(f0_max.next(0, 0) == 0);
 }
 
@@ -156,7 +170,7 @@ int16_t Boxcar::next(int32_t tick, int32_t phi) const {
   return cbuf->next(node.next(tick, phi));
 }
 
-Boxcar::Length& Boxcar::get_param() {
+Boxcar::Length& Boxcar::get_len() {
   return param;
 }
 
@@ -172,7 +186,7 @@ TEST_CASE("Boxcar") {
   CHECK(b1.next(0, 0) == 0);
   Sequence s2 = Sequence({0, 0, 100});
   Boxcar b2 = Boxcar(s2, 3);
-  b2.get_param().set(1);
+  b2.get_len().set(1);
   CHECK(b2.next(0, 0) == 0);
   CHECK(b2.next(0, 0) == 0);
   CHECK(b2.next(0, 0) == 100);
@@ -184,7 +198,7 @@ TEST_CASE("Boxcar") {
 
 
 MergeFloat::MergeFloat(const Node& n, float w)
-  : params(std::move(std::make_unique<std::vector<Weight>>())),
+  : weights(std::move(std::make_unique<std::vector<Weight>>())),
     nodes(std::move(std::make_unique<std::vector<const Node*>>())),
     given_weights(std::move(std::make_unique<std::vector<float>>())),
     norm_weights(std::move(std::make_unique<std::vector<float>>())) {
@@ -194,7 +208,7 @@ MergeFloat::MergeFloat(const Node& n, float w)
 void MergeFloat::add_node(const Node& n, float w) {
   nodes->push_back(&n);
   given_weights->push_back(w);
-  params->push_back(Weight(this, params->size()));
+  weights->push_back(Weight(this, weights->size()));
   normalize();
 }
 
@@ -209,8 +223,8 @@ void MergeFloat::normalize() {
   norm_weights = std::move(new_norm_weights);
 }
 
-MergeFloat::Weight& MergeFloat::get_param(size_t i) {
-  return params->at(i);
+MergeFloat::Weight& MergeFloat::get_weight(size_t i) {
+  return weights->at(i);
 }
 
 int16_t MergeFloat::next(int32_t tick, int32_t phi) const {
@@ -236,7 +250,7 @@ TEST_CASE("MergeFloat") {
   m.add_node(c2, 0.1);
   m.add_node(c3, 0.2);
   CHECK(m.next(0, 0) == 50 + 5 + 30);
-  m.get_param(0).set(0);
+  m.get_weight(0).set(0);
   CHECK(m.next(0, 0) == 10 + 60);
 }
 
@@ -268,7 +282,7 @@ TEST_CASE("Merge14") {
   m.add_node(c2, 0.1);
   m.add_node(c3, 0.2);
   CHECK(m.next(0, 0) == 50 + 5 + 30 - 2);  // close enough?
-  m.get_param(0).set(0);
+  m.get_weight(0).set(0);
   CHECK(m.next(0, 0) == 10 + 60 - 2);  // ditto
 }
 

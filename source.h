@@ -52,7 +52,7 @@ public:
 };
 
 
-size_t tick2idx(int32_t tick);
+size_t tick2idx(int32_t tick, int32_t phi);
 int32_t hz2tick(float hz);
 uint32_t hz2freq(float hz);
 

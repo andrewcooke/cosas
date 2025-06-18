@@ -139,7 +139,7 @@ public:
 
   // TODO - f first
   AbsDexOsc(Wavelib& wl, size_t widx, float f);
-  AbsoluteFreq& get_param();
+  AbsoluteFreq& get_freq();
 
 private:
 
@@ -153,7 +153,7 @@ class RelDexOsc : public BaseOscillator, public WavedexMixin {
 public:
 
   RelDexOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d);
-  RelativeFreq& get_param();
+  RelativeFreq& get_freq();
   
 private:
 
@@ -205,7 +205,7 @@ class AbsPolyOsc : public BaseOscillator, public PolyMixin {
 public:
 
   AbsPolyOsc(float f, size_t shp, size_t asyn, size_t off);
-  AbsoluteFreq& get_param();
+  AbsoluteFreq& get_freq();
 
 private:
 

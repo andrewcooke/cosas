@@ -27,9 +27,9 @@ void dump_w_wdex(Manager::Engine e, size_t n) {
   }
 }
 
-void dump_poly(float f, size_t shp, size_t asym, size_t off) {
+void dump_poly(float f, size_t shp, size_t asym, size_t off, size_t n) {
   AbsPolyOsc o = AbsPolyOsc(f, shp, asym, off);
-  for (size_t i = 0; i < full_table_size / 440; i++) {
+  for (size_t i = 0; i < n; i++) {
     std::cout << i << " " << o.next(i << subtick_bits, 0) << std::endl;;
   }
 }

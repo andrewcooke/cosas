@@ -14,7 +14,7 @@
 Square::Square(float duty) : duty_idx(duty * full_table_size) {}
 
 int16_t Square::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick, phi);
   if (full_idx <= duty_idx) return sample_max;
   else return -sample_max;
 }
@@ -22,7 +22,7 @@ int16_t Square::next(int32_t tick, int32_t phi) const {
 
 // handle symmetry of triangular or sine wave
 int16_t QuarterWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick, phi);
   size_t quarter_idx = full_idx % quarter_table_size;
   if (full_idx < quarter_table_size) return quarter_table.at(quarter_idx);
   else if (full_idx < 2 * quarter_table_size) return quarter_table.at(quarter_table_size - 1 - quarter_idx);
@@ -50,7 +50,7 @@ WTriangle::WTriangle() {
 const int64_t k = (static_cast<int64_t>(sample_max) << 32) / (sample_rate / 4);
 
 int16_t Triangle::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick, phi);
   size_t quarter_idx = full_idx % quarter_table_size;
   if (full_idx < quarter_table_size) return clip_16(static_cast<int64_t>(quarter_idx * k) >> 32);
   else if (full_idx < 2 * quarter_table_size) return clip_16(static_cast<int64_t>((quarter_table_size - 1 - quarter_idx) * k) >> 32);
@@ -60,7 +60,7 @@ int16_t Triangle::next(int32_t tick, int32_t phi) const {
 
 
 int16_t HalfWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick, phi);
   size_t half_idx = full_idx % half_table_size;
   if (full_idx < half_table_size) return half_table.at(half_idx);
   else return -half_table.at(half_table_size - 1 - half_idx);
@@ -79,7 +79,7 @@ WSaw::WSaw(float offset) {
 
 
 int16_t FullWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table.size();
+  size_t full_idx = tick2idx(tick, phi);
   return full_table.at(full_idx);
 }
 
@@ -90,7 +90,7 @@ Saw::Saw(float offset) :
   k2((static_cast<int64_t>(sample_max) << 32) / static_cast<int64_t>((1 - offset) * sample_rate / 4)) {}
 
 int16_t Saw::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick + phi) % full_table_size;
+  size_t full_idx = tick2idx(tick, phi);
   if (full_idx < peak_idx) return clip_16((static_cast<int64_t>(full_idx) * k1) >> 32);
   else if (full_idx < half_table_size) return clip_16((static_cast<int64_t>(half_table_size - full_idx) * k2) >> 32);
   else if (full_idx < full_table_size - peak_idx) return clip_16((-static_cast<int64_t>(full_idx - half_table_size) * k2) >> 32);
@@ -136,7 +136,7 @@ float PolyTable::tox(size_t i, size_t lo, size_t hi) {
 }
 
 void PolyTable::make_concave(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * (1 - pow2(1 - tox(i, lo, hi), shape));
+  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * pow2(tox(i, lo, hi), shape);
 }
 
 void PolyTable::make_linear(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
@@ -144,7 +144,7 @@ void PolyTable::make_linear(std::array<int16_t, half_table_size>& table, size_t 
 }
 
 void PolyTable::make_convex(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * pow2(tox(i, lo, hi), shape);
+  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * (1 - pow2(1 - tox(i, lo, hi), shape));
 }
 
 void PolyTable::make_sine(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
@@ -163,6 +163,7 @@ void PolyTable::make_square(std::array<int16_t, half_table_size>& table, size_t 
 }
 
 void PolyTable::make_half(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi) {
+  shape = shape % n_shapes;
   if (shape == noise) make_noise(table, lo, hi);
   else if (shape < linear) make_concave(table, linear - shape + 1, lo, hi);
   else if (shape == linear) make_linear(table, lo, hi);
