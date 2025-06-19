@@ -20,11 +20,11 @@ class Pane {
 
 public:
   
-  Pane(Input& top, Input& left, Input& right);
+  Pane(Input& t, Input& l, Input& r);
 
-  Input& top_knob;
-  Input& left_knob;
-  Input& right_knob;
+  Input& top;
+  Input& left;
+  Input& right;
   
 };
 

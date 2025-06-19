@@ -5,12 +5,23 @@
 #include "console.h"
 
 
+void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
+  auto m = Manager(true);
+  const Node& fm = m.build(e);
+  auto p = m.get_pane(pane);
+  for (size_t i = 0; i < n; i++) {
+    p.top.set(i / static_cast<float>(n));
+    int16_t amp = fm.next(i << subtick_bits, 0);
+    std::cout << i << " " << amp << std::endl;
+  }
+}
+
 void dump_w_gain(Manager::Engine e, size_t n) {
   auto m = Manager(true);
   const Node& fm = m.build(e);
   auto p = m.get_pane(m.n_panes()-1);
   for (size_t i = 0; i < n; i++) {
-    p.top_knob.set(i / static_cast<float>(n) - 0.5);
+    p.top.set(i / static_cast<float>(n));
     int16_t amp = fm.next(i << subtick_bits, 0);
     std::cout << i << " " << amp << std::endl;
   }
@@ -21,7 +32,7 @@ void dump_w_wdex(Manager::Engine e, size_t n) {
   const Node& fm = m.build(e);
   auto p = m.get_pane(0);
   for (size_t i = 0; i < n; i++) {
-    p.left_knob.set(m.n_dex() * i / static_cast<float>(n));
+    p.left.set(m.n_dex() * i / static_cast<float>(n));
     int16_t amp = fm.next(i << subtick_bits, 0);
     std::cout << i << " " << amp << std::endl;
   }

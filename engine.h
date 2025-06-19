@@ -45,13 +45,14 @@ private:
   template<typename ParamType, typename... Args> ParamType& add_param(Args&&... args);
   template<typename InputType, typename... Args> InputType& add_input(Args&&... args);
   Pane& add_pane(Input& top, Input& left, Input& right);
+  void swap_panes(size_t i, size_t j);
+  void rotate_panes(size_t a, size_t b);
   Input& lin_control(Input& in, float c, float lo, float hi);
   Input& log_control(Input& in, float c, float lo, float hi);
   std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc(float frq, size_t widx, Input& right);
   std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc(float frq, size_t widx);
   std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asyn, size_t off, Input& right);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
+  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asyn, size_t off);
   std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
   Node& add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d);
   Merge& add_balance(Node& a, Node& b, float bal);

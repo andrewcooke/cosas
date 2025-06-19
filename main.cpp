@@ -21,5 +21,6 @@ int main() {
   //  Wavelib w = Wavelib();
   //  dump_dex(440, w, w.sine_gamma_1);
   //  dump(Manager::Engine::FM_SIMPLE, 0.1 * sample_rate);
-  dump_w_gain(Manager::Engine::FM_ENV, 1 * sample_rate);
+  //  dump_w_gain(Manager::Engine::FM_ENV, 0.3 * sample_rate);
+  dump_w_top(Manager::Engine::CHORD, 0.3 * sample_rate, 1); // weight of first overtone
 }

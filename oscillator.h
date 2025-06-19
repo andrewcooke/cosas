@@ -92,7 +92,7 @@ public:
   void set(float f) override;  // set ratio
   void set_detune(float f);
   void set_root(uint32_t);
-  Detune& get_detune();  // expose a second param
+  Detune& get_det();  // expose a second param
 
   //  friend class Detune;
   //  friend class AbsoluteFreq;
@@ -124,7 +124,7 @@ public:
 
   friend class Wavedex;
   WavedexMixin(BaseOscillator* o, Wavelib& wl);
-  Wavedex& get_wavedex();
+  Wavedex& get_dex();
 
 protected:
 
@@ -178,9 +178,9 @@ public:
 
   PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
   friend class Ctrl;
-  Param& get_shape();
+  Param& get_shp();
   Param& get_asym();
-  Param& get_offset();
+  Param& get_off();
 
 protected:
   

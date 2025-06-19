@@ -6,6 +6,7 @@
 #include "engine.h"
 
 
+void dump_w_top(Manager::Engine e, size_t n, size_t p);
 void dump_w_gain(Manager::Engine e, size_t n);
 void dump_w_wdex(Manager::Engine e, size_t n);
 void dump_poly(float f, size_t shp, size_t asym, size_t off, size_t n);

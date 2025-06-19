@@ -73,7 +73,7 @@ void RelativeFreq::recalculate() {
   set_oscillator(f);
 }
 
-RelativeFreq::Detune& RelativeFreq::get_detune() {
+RelativeFreq::Detune& RelativeFreq::get_det() {
   return detune_param;
 }
 
@@ -87,7 +87,7 @@ void RelativeFreq::Detune::set(float v) {
 
 WavedexMixin::WavedexMixin(BaseOscillator* o, Wavelib& wl) : wavedex(o, wl) {};
 
-WavedexMixin::Wavedex& WavedexMixin::get_wavedex() {
+WavedexMixin::Wavedex& WavedexMixin::get_dex() {
   return wavedex;
 }
 
@@ -122,7 +122,7 @@ TEST_CASE("Wavedex") {
   Wavelib w = Wavelib();
   AbsDexOsc o = AbsDexOsc(w, w.sine_gamma_1, 4400);
   CHECK(o.next(1000, 0) == 5800);
-  o.get_wavedex().set(w.square_duty_05);
+  o.get_dex().set(w.square_duty_05);
   CHECK(o.next(1000, 0) == 32767);
 }
 
@@ -131,7 +131,7 @@ TEST_CASE("Detune") {
   AbsDexOsc o1 = AbsDexOsc(w, w.sine_gamma_1, 4400);
   RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_freq(), 1, 1);
   CHECK(o2.next(1000, 0) == 5800);
-  o2.get_freq().get_detune().set(0.9);
+  o2.get_freq().get_det().set(0.9);
   CHECK(o2.next(1000, 0) != 5800);
 }
 
@@ -152,7 +152,7 @@ PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   update();
 }
 
-Param& PolyMixin::get_shape() {
+Param& PolyMixin::get_shp() {
   return *p_shape;
 }
 
@@ -160,7 +160,7 @@ Param& PolyMixin::get_asym() {
   return *p_asym;
 }
 
-Param& PolyMixin::get_offset() {
+Param& PolyMixin::get_off() {
   return *p_offset;
 }
 
