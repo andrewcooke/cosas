@@ -1,6 +1,19 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+project(cosas)
+
+set(EXTERN_DIR "${CMAKE_CURRENT_LIST_DIR}/extern")
+
+include(FetchContent)
+
+FetchContent_Declare(pico-sdk
+                     GIT_REPOSITORY https://github.com/raspberrypi/pico-sdk.git
+                     GIT_TAG        master)
+FetchContent_MakeAvailable(pico-sdk)
+
+
+#[[
 # initialize the SDK based on PICO_SDK_PATH
 # note: this must happen before project()
 include(pico_sdk_import.cmake)
@@ -19,3 +32,4 @@ target_link_libraries(hello_world pico_stdlib)
 
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(hello_world)
+]]
