@@ -2,9 +2,9 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
-export PICO_SDK_PATH=`pwd`/pico-sdk
-
-#rm -fr build
+if [ ! -e pico_sdk_import.cmake ]; then
+    wget -L https://raw.github.com/raspberrypi/pico-sdk/master/pico_sdk_import.cmake
+fi
 
 mkdir -p build
 pushd build > /dev/null
