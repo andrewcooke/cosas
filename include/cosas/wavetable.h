@@ -135,7 +135,7 @@ class Noise : public FullWtable {
 public:
 
   Noise() : Noise(1) {};
-  Noise(uint smooth);
+  Noise(size_t smooth);
 
 };
 

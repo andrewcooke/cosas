@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cmath>
 
-#include "console.h"
+#include "cosas/console.h"
 
 
 void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
