@@ -16,12 +16,16 @@ FetchContent_Declare(workshop-computer
                      GIT_TAG        main)
 FetchContent_MakeAvailable(workshop-computer)
 
+pico_sdk_init()
+
 add_subdirectory(src)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(DOCTEST_CONFIG_DISABLE ON)
 add_executable(cosas hello-world.cpp)
 target_compile_features(cosas PRIVATE cxx_std_20)
-target_link_libraries(cosas PRIVATE cosas_lib)
+target_compile_definitions(cosas PRIVATE DOCTEST_CONFIG_DISABLE)
+target_link_libraries(cosas PRIVATE cosas_lib pico_stdlib)
 
 

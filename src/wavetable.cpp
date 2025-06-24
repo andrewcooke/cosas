@@ -1,9 +1,9 @@
 
 #include <algorithm>
-#include <numbers>
 #include <random>
 #include <cmath>
 #include <iostream>
+#include <cmath>
 
 #include "cosas/doctest.h"
 #include "cosas/constants.h"
@@ -33,7 +33,7 @@ int16_t QuarterWtable::next(int32_t tick, int32_t phi) const {
 
 Sine::Sine(float gamma) {
   for (size_t i = 0; i < quarter_table.size(); i++) {
-    float shape = sin(2 * std::numbers::pi * i / full_table_size);
+    float shape = sin(2 * M_PI * i / full_table_size);
     if (gamma != 1) {shape = pow(shape, gamma);}
     quarter_table.at(i) = clip_16(shape * sample_max);
   }
@@ -148,7 +148,7 @@ void PolyTable::make_convex(std::array<int16_t, half_table_size>& table, size_t 
 }
 
 void PolyTable::make_sine(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * sin(std::numbers::pi * tox(i, lo, hi) / 2.0f);
+  for (size_t i = lo; i < hi; i++) table.at(i) = sample_max * sin(M_PI * tox(i, lo, hi) / 2.0f);
 }
 
 void PolyTable::make_noise(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi) {
