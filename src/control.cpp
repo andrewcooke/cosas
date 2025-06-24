@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-#include "doctest.h"
+#include "cosas/doctest.h"
 
-#include "control.h"
+#include "cosas/control.h"
 
 
 Delegate::Delegate(Input& del) : delegate(del) {};

@@ -2,10 +2,10 @@
 #ifndef COSA_MODULATORS_H
 #define COSA_MODULATORS_H
 
-#include "constants.h"
-#include "params.h"
-#include "transformers.h"
-#include "node.h"
+#include "cosas/constants.h"
+#include "cosas/params.h"
+#include "cosas/transformers.h"
+#include "cosas/node.h"
 
 
 // constructor takes two nodes

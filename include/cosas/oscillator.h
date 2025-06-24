@@ -5,10 +5,10 @@
 #include <memory>
 #include <functional>
 
-#include "maths.h"
-#include "node.h"
-#include "params.h"
-#include "wavelib.h"
+#include "cosas/maths.h"
+#include "cosas/node.h"
+#include "cosas/params.h"
+#include "cosas/wavelib.h"
 
 
 class WavdexMixin;

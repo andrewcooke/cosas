@@ -5,8 +5,8 @@
 #include <cstdint>
 #include <array>
 
-#include "constants.h"
-#include "source.h"
+#include "cosas/constants.h"
+#include "cosas/source.h"
 
 
 // since fp is slow we generally use lookup tables for waveforms.

@@ -1,7 +1,7 @@
 
 #include <iostream>
 
-#include "node.h"
+#include "cosas/node.h"
 
 
 Constant::Constant(const int16_t v) : value(v) {};

@@ -5,10 +5,10 @@
 #include <cmath>
 #include <memory>
 
-#include "doctest.h"
-#include "constants.h"
-#include "maths.h"
-#include "transformers.h"
+#include "cosas/doctest.h"
+#include "cosas/constants.h"
+#include "cosas/maths.h"
+#include "cosas/transformers.h"
 
 
 SingleFloat::SingleFloat(const Node& nd, float v)

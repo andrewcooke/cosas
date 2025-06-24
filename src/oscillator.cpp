@@ -1,9 +1,9 @@
 
 #include <iostream>
 
-#include "constants.h"
-#include "oscillator.h"
-#include "engine.h"
+#include "cosas/constants.h"
+#include "cosas/oscillator.h"
+#include "cosas/engine.h"
 
 
 BaseOscillator::BaseOscillator(Wavetable* t) : wavetable(t) {};

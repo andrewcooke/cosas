@@ -2,8 +2,8 @@
 #include <iostream>
 #include <cstdint>
 
-#include "maths.h"
-#include "modulators.h"
+#include "cosas/maths.h"
+#include "cosas/modulators.h"
 
 
 FM::FM(const Node& car, const Node& mod)

@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 
-#include "wavetable.h"
+#include "cosas/wavetable.h"
 
 
 class Wavelib {

@@ -5,10 +5,10 @@
 #include <cmath>
 #include <iostream>
 
-#include "doctest.h"
-#include "constants.h"
-#include "maths.h"
-#include "wavetable.h"
+#include "cosas/doctest.h"
+#include "cosas/constants.h"
+#include "cosas/maths.h"
+#include "cosas/wavetable.h"
 
 
 Square::Square(float duty) : duty_idx(duty * full_table_size) {}

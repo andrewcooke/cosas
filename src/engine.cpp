@@ -3,8 +3,8 @@
 #include <memory>
 #include <stdexcept>
 
-#include "modulators.h"
-#include "engine.h"
+#include "cosas/modulators.h"
+#include "cosas/engine.h"
 
 
 const int DEFAULT_BOXCAR = 1000;

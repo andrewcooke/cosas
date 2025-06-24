@@ -18,6 +18,7 @@ FetchContent_MakeAvailable(workshop-computer)
 
 add_subdirectory(src)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(cosas hello-world.cpp)
 target_compile_features(cosas PRIVATE cxx_std_20)

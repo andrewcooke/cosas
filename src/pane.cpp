@@ -1,5 +1,5 @@
 
-#include "pane.h"
+#include "cosas/pane.h"
 
 
 Pane::Pane(Input& t, Input& l, Input& r)

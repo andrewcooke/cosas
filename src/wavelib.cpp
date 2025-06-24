@@ -1,9 +1,9 @@
 
 #include <iostream>
 
-#include "doctest.h"
+#include "cosas/doctest.h"
 
-#include "wavelib.h"
+#include "cosas/wavelib.h"
 
 
 Wavelib::Wavelib()

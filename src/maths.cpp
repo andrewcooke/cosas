@@ -2,8 +2,8 @@
 #include <cmath>
 #include <iostream>
 
-#include "doctest.h"
-#include "maths.h"
+#include "cosas/doctest.h"
+#include "cosas/maths.h"
 
 
 SimpleRatio::SimpleRatio(int16_t b, uint8_t s, bool t, bool f)

@@ -5,9 +5,9 @@
 #include <ostream>
 #include <cstdint>
 
-#include "doctest.h"
+#include "cosas/doctest.h"
 
-#include "constants.h"
+#include "cosas/constants.h"
 
 
 inline int16_t clip_16(int64_t val) {
@@ -102,12 +102,12 @@ inline int32_t mult_shift8(int16_t k, int32_t x) {
 }
 
 TEST_CASE("MultShift8") {
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), 300) == 99);  // almost
-  CHECK(mult_shift8(scale2mult_shift8(1), 300) == 300); 
-  CHECK(mult_shift8(scale2mult_shift8(-0.33333), 300) == -100);
-  CHECK(mult_shift8(scale2mult_shift8(-1), 300) == -300); 
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), -300) == -100);
-  CHECK(mult_shift8(scale2mult_shift8(1), -300) == -300); 
+  CHECK(mult_shift8(scale2mult_shift8(0.33333), INT32_C(300)) == 99);  // almost
+  CHECK(mult_shift8(scale2mult_shift8(1), INT32_C(300)) == 300); 
+  CHECK(mult_shift8(scale2mult_shift8(-0.33333), INT32_C(300)) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(-1), INT32_C(300)) == -300); 
+  CHECK(mult_shift8(scale2mult_shift8(0.33333), -INT32_C(300)) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(1), -INT32_C(300)) == -300); 
 }
 
 // 14 bits decimal, signed

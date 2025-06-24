@@ -2,8 +2,8 @@
 #ifndef COSA_CONSOLE_H
 #define COSA_CONSOLE_H
 
-#include "source.h"
-#include "engine.h"
+#include "cosas/source.h"
+#include "cosas/engine.h"
 
 
 void dump_w_top(Manager::Engine e, size_t n, size_t p);

@@ -4,9 +4,9 @@
 
 #include <vector>
 
-#include "constants.h"
-#include "params.h"
-#include "node.h"
+#include "cosas/constants.h"
+#include "cosas/params.h"
+#include "cosas/node.h"
 
 
 // these have one input (modulators have two)

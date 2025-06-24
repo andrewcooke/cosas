@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-#include "control.h"
+#include "cosas/control.h"
 
 
 // a pane describes what is controlled by the current "view" of the

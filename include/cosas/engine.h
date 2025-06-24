@@ -6,12 +6,12 @@
 #include <vector>
 #include <memory>
 
-#include "modulators.h"
-#include "wavelib.h"
-#include "node.h"
-#include "oscillator.h"
-#include "params.h"
-#include "pane.h"
+#include "cosas/modulators.h"
+#include "cosas/wavelib.h"
+#include "cosas/node.h"
+#include "cosas/oscillator.h"
+#include "cosas/params.h"
+#include "cosas/pane.h"
 
 
 // forward decl
