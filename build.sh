@@ -3,5 +3,6 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 pushd build > /dev/null
-cmake --build .
+cmake --build . "$@"
+
 

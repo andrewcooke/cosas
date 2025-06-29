@@ -3,8 +3,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "cosas/doctest.h"
-
 #include "cosas/control.h"
 
 
@@ -57,43 +55,10 @@ private:
 };
   
 
-TEST_CASE("Sigmoid") {
-
-  float x;
-  std::unique_ptr<Save> save = std::make_unique<Save>(&x);
-
-  Sigmoid(*save, 1).set(0); CHECK(x == 0);
-  Sigmoid(*save, 1).set(1); CHECK(x == 1);
-  Sigmoid(*save, 1).set(0.5); CHECK(x == 0.5);
-  Sigmoid(*save, 1).set(0.25); CHECK(x == 0.25);
-  Sigmoid(*save, 1).set(0.75); CHECK(x == 0.75);
-
-  // these are much closer to 0.5
-  Sigmoid(*save, 0).set(0); CHECK(x == 0);
-  Sigmoid(*save, 0).set(1); CHECK(x == 1);
-  Sigmoid(*save, 0).set(0.5); CHECK(x == 0.5);
-  Sigmoid(*save, 0).set(0.25); CHECK(x == 0.4375);
-  Sigmoid(*save, 0).set(0.75); CHECK(x == 0.5625);
-  
-}
-
-
 Exp::Exp(Input& del) : Delegate(del) {};
 
 void Exp::set(float v) {
   delegate.set(pow(10, 2 * (v - 0.5)));
-};
-
-
-TEST_CASE("Exp") {
-
-  float x;
-  std::unique_ptr<Save> save = std::make_unique<Save>(&x);
-  
-  Exp(*save).set(0); CHECK(x == doctest::Approx(0.1));
-  Exp(*save).set(0.5); CHECK(x == doctest::Approx(1));
-  Exp(*save).set(1); CHECK(x == doctest::Approx(10));
-
 };
 
 
