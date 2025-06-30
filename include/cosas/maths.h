@@ -125,12 +125,12 @@ public:
   IEEEFloat(int16_t v);
   IEEEFloat(uint32_t m, uint32_t e, uint32_t s);
 
-  float f();
-  uint32_t m();
-  uint32_t e();
-  uint32_t s();
-  int16_t sample();
-  void dump(std::ostream& c);
+  float f() const;
+  uint32_t m() const;
+  uint32_t e() const;
+  uint32_t s() const;
+  int16_t sample() const;
+  void dump(std::ostream& c) const;
   
 private:
 

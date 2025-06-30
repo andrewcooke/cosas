@@ -12,7 +12,7 @@ const int DEFAULT_BOXCAR = 1000;
 
 Manager::Manager() : Manager(false) {};
 
-Manager::Manager(bool t)
+Manager::Manager(const bool t)
   : wavelib(std::move(std::make_unique<Wavelib>())),
     current_nodes(std::move(std::make_unique<std::vector<std::unique_ptr<Node>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
@@ -47,15 +47,15 @@ const Node& Manager::build(Manager::Engine engine) {
   }
 }
 
-const Pane& Manager::get_pane(size_t n) {
+const Pane& Manager::get_pane(size_t n) const {
   return *current_panes->at(n);
 }
 
-size_t Manager::n_panes() {
+size_t Manager::n_panes() const {
   return current_panes->size();
 }
 
-size_t Manager::n_dex() {
+size_t Manager::n_dex() const {
   return wavelib->size();
 }
 

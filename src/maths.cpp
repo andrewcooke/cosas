@@ -146,33 +146,33 @@ IEEEFloat::IEEEFloat(int16_t v) : fc({.u=0}) {
   }
 }
 
-float IEEEFloat::f() {
+float IEEEFloat::f() const {
   return fc.f;
 }
 
-uint32_t IEEEFloat::s() {
+uint32_t IEEEFloat::s() const {
   return (fc.u >> 31) & 1;
 }
 
-uint32_t IEEEFloat::e() {
+uint32_t IEEEFloat::e() const {
   return (fc.u >> 23) & 255;
 }
 
-uint32_t IEEEFloat::m() {
+uint32_t IEEEFloat::m() const {
   return fc.u & mask;
 }
 
-int16_t IEEEFloat::sample() {
+int16_t IEEEFloat::sample() const {
   if (e()) {
-    int16_t v = static_cast<int16_t>((m() | hidden) >> (8 + 127 - e()));
-    if (s()) v = -v;
+    auto v = static_cast<int16_t>((m() | hidden) >> (8 + 127 - e()));
+    if (s()) v = static_cast<int16_t>(-v);
     return v;
   } else {
     return 0;
   }
 }
 
-void IEEEFloat::dump(std::ostream& c) {
+void IEEEFloat::dump(std::ostream& c) const {
   c << fc.f << " (" << std::hex << m() << ", " << std::dec << e() << ", " << s() << ")" << std::endl;
 }
 

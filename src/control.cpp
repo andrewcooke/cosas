@@ -6,10 +6,10 @@
 #include "cosas/control.h"
 
 
-Delegate::Delegate(Input& del) : delegate(del) {};
+Delegate::Delegate(Input& del) : delegate(del) {}
 
 
-Change::Change(Input& del) : Delegate(del) {};
+Change::Change(Input& del) : Delegate(del) {}
 
 void Change::set(float v) {
   if (v != prev) {
@@ -19,24 +19,24 @@ void Change::set(float v) {
 }
 
 
-Blank::Blank() : delegate(nullptr) {};
+Blank::Blank() : delegate(nullptr) {}
 
 void Blank::set(float v) {
   if (delegate != nullptr) delegate->set(v);
-};
+}
 
 void Blank::unblank(Input* del) {
   delegate = del;
 }
 
 
-Sigmoid::Sigmoid(Input& del, float lin)
+Sigmoid::Sigmoid(Input& del, const float lin)
   : Delegate(del), linear(lin) {};
 
 void Sigmoid::set(float v) {
-  float v2 = v - 0.5;
+  const float v2 = v - 0.5f;
   // https://www.desmos.com/calculator/rbmvnpsmrm
-  float v3 = 4 * (1 - linear) * pow(v2, 3) + linear * v2 + 0.5;
+  const float v3 = 4 * (1 - linear) * pow(v2, 3) + linear * v2 + 0.5f;
   delegate.set(v3);
 }
 
@@ -44,8 +44,8 @@ void Sigmoid::set(float v) {
 Exp::Exp(Input& del) : Delegate(del) {};
 
 void Exp::set(float v) {
-  delegate.set(pow(10, 2 * (v - 0.5)));
-};
+  delegate.set(powf(10, 2 * (v - 0.5)));
+}
 
 
 Range::Range(Input& del, float c, float lo, float hi)

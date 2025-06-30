@@ -33,11 +33,11 @@ public:
   };
 
   Manager();
-  Manager(bool t);
+  explicit Manager(bool t);
   const Node& build(Engine);
-  const Pane& get_pane(size_t n);
-  size_t n_panes();
-  size_t n_dex();
+  const Pane& get_pane(size_t n) const;
+  size_t n_panes() const;
+  size_t n_dex() const;
 
 private:
 

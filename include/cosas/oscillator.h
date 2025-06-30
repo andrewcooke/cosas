@@ -11,10 +11,6 @@
 #include "cosas/wavelib.h"
 
 
-class WavdexMixin;
-class PolyMixin;
-
-
 class BaseOscillator : public Node {
 
 public:
@@ -22,14 +18,14 @@ public:
   friend class PolyMixin;
   friend class Frequency;
   friend class WavedexMixin;
-  BaseOscillator(Wavetable *t);
+  BaseOscillator( Wavetable *t);
   int16_t next(int32_t tick, int32_t phi) const override;
 
 protected:
 
   uint32_t frequency;
   Wavetable* wavetable;
-  
+
 };
 
 

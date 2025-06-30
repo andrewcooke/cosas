@@ -3,12 +3,12 @@ cmake_minimum_required(VERSION 3.13)
 
 if (BUILD STREQUAL "pico")
 
-   #set(PICO_BOARD mtm_computer_16mb CACHE STRING "Board type")
-   set(PICO_BOARD pico CACHE STRING "Board type")
-   set(PICO_SDK_FETCH_FROM_GIT on)
-   include(pico_sdk_import.cmake)
+    #set(PICO_BOARD mtm_computer_16mb CACHE STRING "Board type")
+    set(PICO_BOARD pico CACHE STRING "Board type")
+    set(PICO_SDK_FETCH_FROM_GIT on)
+    include(pico_sdk_import.cmake)
 
-   pico_sdk_init()
+    pico_sdk_init()
 
 endif()
 
@@ -31,7 +31,7 @@ else()
 
     include(FetchContent)
     FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG "master")
-    FetchContent_MakeAvailable(doctest)	
+    FetchContent_MakeAvailable(doctest)
 
     # tests, run_tests
     add_subdirectory(test)
