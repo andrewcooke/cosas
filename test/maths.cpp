@@ -1,12 +1,10 @@
 
-#include "CppUTest/TestHarness.h"
+#include "doctest/doctest.h"
 
 #include "cosas/maths.h"
 
-TEST_GROUP(Maths) {};
 
-
-TEST(Maths, SimpleRatio) {
+TEST_CASE("Maths, SimpleRatio") {
 
   CHECK(SimpleRatio(0.1) == SimpleRatio(-1, 1, false, true));
   CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
@@ -15,7 +13,7 @@ TEST(Maths, SimpleRatio) {
 }
 
 
-TEST(Maths, IEEEFloat) {
+TEST_CASE("Maths, IEEEFloat") {
   CHECK(sample2float(sample_max) == doctest::Approx(1).epsilon(0.001));
   CHECK(sample2float(sample_max/2) == doctest::Approx(0.5).epsilon(0.001));
   CHECK(sample2float(0) == doctest::Approx(0).epsilon(0.001));
@@ -35,7 +33,7 @@ TEST(Maths, IEEEFloat) {
 }
 
 
-TEST(Maths, MultShift8) {
+TEST_CASE("Maths, MultShift8") {
   CHECK(mult_shift8(scale2mult_shift8(0.33333), INT32_C(300)) == 99);  // almost
   CHECK(mult_shift8(scale2mult_shift8(1), INT32_C(300)) == 300); 
   CHECK(mult_shift8(scale2mult_shift8(-0.33333), INT32_C(300)) == -100);
@@ -45,7 +43,7 @@ TEST(Maths, MultShift8) {
 }
 
 
-TEST(Maths, MultShift14) {
+TEST_CASE("Maths, MultShift14") {
   CHECK(scale2mult_shift14(1) == 16384);
   CHECK(scale2mult_shift14(2) == 32768);
   CHECK(scale2mult_shift14(3.99) == 65372);

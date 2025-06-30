@@ -1,13 +1,10 @@
 
-#include "CppUTest/TestHarness.h"
+#include "doctest/doctest.h"
 
 #include "cosas/oscillator.h"
 
 
-TEST_GROUP(Oscillator)
-
-
-TEST(Oscillator, Wavedex) {
+TEST_CASE("Oscillator, Wavedex") {
   Wavelib w = Wavelib();
   AbsDexOsc o = AbsDexOsc(w, w.sine_gamma_1, 4400);
   CHECK(o.next(1000, 0) == 5800);
@@ -16,7 +13,7 @@ TEST(Oscillator, Wavedex) {
 }
 
 
-TEST(Oscillator, Detune) {
+TEST_CASE("Oscillator, Detune") {
   Wavelib w = Wavelib();
   AbsDexOsc o1 = AbsDexOsc(w, w.sine_gamma_1, 4400);
   RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_freq(), 1, 1);
@@ -26,7 +23,7 @@ TEST(Oscillator, Detune) {
 }
 
 
-TEST(Oscillator, AbsPolyOsc) {
+TEST_CASE("Oscillator, AbsPolyOsc") {
   AbsPolyOsc o = AbsPolyOsc(440, PolyTable::sine, 0, quarter_table_size);
   CHECK(o.next(0, 0) == 0);
   // there are table_size samples a second.  a 440hz note takes 1/440s

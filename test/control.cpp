@@ -1,5 +1,5 @@
 
-#include "CppUTest/TestHarness.h"
+#include "doctest/doctest.h"
 
 #include "cosas/control.h"
 
@@ -18,10 +18,7 @@ private:
 };
   
 
-TEST_GROUP(Control) {};
-
-
-TEST(Control, Sigmoid) {
+TEST_CASE("Control, Sigmoid") {
 
   float x;
   std::unique_ptr<Save> save = std::make_unique<Save>(&x);
@@ -42,16 +39,13 @@ TEST(Control, Sigmoid) {
 }
 
 
-TEST(Control, Exp) {
+TEST_CASE("Control, Exp") {
 
   float x;
   std::unique_ptr<Save> save = std::make_unique<Save>(&x);
   
-  Exp(*save).set(0); DOUBLES_EQUAL(x, 0.1, 0.001);
-  Exp(*save).set(0.5); DOUBLES_EQUAL(x, 1, 0.001);
-  Exp(*save).set(1); DOUBLES_EQUAL(x, 10, 0.001);
+  Exp(*save).set(0); CHECK(x == doctest::Approx(0.1));
+  Exp(*save).set(0.5); CHECK(x == doctest::Approx(1));
+  Exp(*save).set(1); CHECK(x == doctest::Approx(10));
 
 }
-
-
-

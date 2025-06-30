@@ -12,16 +12,11 @@ if (BUILD STREQUAL "pico")
 
 endif()
 
-project(
-  cosas
-  VERSION 0.0
-  DESCRIPTION "just trying to get cmake working"
-  LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
+project(cosas VERSION 0.0 DESCRIPTION "just trying to get cmake working" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# cosas_lib
 add_subdirectory(src)
 
 if (BUILD STREQUAL "pico")
@@ -33,6 +28,10 @@ if (BUILD STREQUAL "pico")
     pico_enable_stdio_usb(holawea 1)  # allow serial over usb
 
 else()
+
+    include(FetchContent)
+    FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG "master")
+    FetchContent_MakeAvailable(doctest)	
 
     # tests, run_tests
     add_subdirectory(test)

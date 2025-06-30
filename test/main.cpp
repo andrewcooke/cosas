@@ -1,7 +1,4 @@
 
-#include "CppUTest/CommandLineTestRunner.h"
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-int main(int ac, char** av)
-{
-    return CommandLineTestRunner::RunAllTests(ac, av);
-}
+#include "doctest/doctest.h"

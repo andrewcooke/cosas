@@ -1,13 +1,10 @@
 
-#include "CppUTest/TestHarness.h"
+#include "doctest/doctest.h"
 
 #include "cosas/transformers.h"
 
 
-TEST_GROUP(Transformers)
-
-
-TEST(Transformers, GainFloat) {
+TEST_CASE("Transformers, GainFloat") {
   Constant c = Constant(100);
   GainFloat g = GainFloat(c, 1);
   CHECK(g.next(123, 0) == 100);
@@ -16,7 +13,7 @@ TEST(Transformers, GainFloat) {
 }
 
 
-TEST(Transformers, Gain14) {
+TEST_CASE("Transformers, Gain14") {
   Constant c = Constant(100);
   Gain14 g = Gain14(c, 1);
   CHECK(g.next(123, 0) == 100);
@@ -25,7 +22,7 @@ TEST(Transformers, Gain14) {
 }
 
 
-TEST(Transformers, Folder) {
+TEST_CASE("Transformers, Folder") {
   Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);
   CHECK(f0_12.next(0, 0) == 1234);
@@ -47,7 +44,7 @@ TEST(Transformers, Folder) {
 }
 
 
-TEST(Transformers, Boxcar) {
+TEST_CASE("Transformers, Boxcar") {
   Sequence s1 = Sequence({0, 0, 100});
   Boxcar b1 = Boxcar(s1, 3);
   CHECK(b1.next(0, 0) == 0);
@@ -70,7 +67,7 @@ TEST(Transformers, Boxcar) {
 }
 
 
-TEST(Transformers, MergeFloat) {
+TEST_CASE("Transformers, MergeFloat") {
   Constant c1 = Constant(100);
   Constant c2 = Constant(30);
   Constant c3 = Constant(90);
@@ -83,7 +80,7 @@ TEST(Transformers, MergeFloat) {
 }
 
 
-TEST(Transformers, Merge14) {
+TEST_CASE("Transformers, Merge14") {
   Constant c1 = Constant(100);
   Constant c2 = Constant(30);
   Constant c3 = Constant(90);
