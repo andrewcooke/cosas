@@ -17,30 +17,21 @@
 // i guess this should also include output...
 
 class Pane {
-
 public:
-  
   Pane(Input& t, Input& l, Input& r);
-
   Input& top;
   Input& left;
   Input& right;
-  
 };
 
 
 class PaneSet {
-
 public:
-  
   PaneSet();
   void append(std::unique_ptr<Pane> p);
-
 private:
-
   std::vector<std::unique_ptr<Pane>> panes;
-  
 };
-  
+
 
 #endif

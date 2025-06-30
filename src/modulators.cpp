@@ -1,7 +1,4 @@
 
-#include <iostream>
-#include <cstdint>
-
 #include "cosas/maths.h"
 #include "cosas/modulators.h"
 

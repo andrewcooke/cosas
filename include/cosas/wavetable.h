@@ -16,155 +16,113 @@
 class Wavetable : public Source {};
 
 
-class Square : public Wavetable {
-
+class Square final : public Wavetable {
 public:
-
   Square() : Square(0.5) {};
-  Square(float duty);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
+  explicit Square(float duty);
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 private:
-
   size_t duty_idx;
-  
 };
 
 
 class QuarterWtable : public Wavetable {
-
 public:
-  
-  int16_t next(int32_t tick, int32_t phi) const override;
-  
+  QuarterWtable();
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-
-  std::array<int16_t, quarter_table_size> quarter_table;
-
+  std::array<int16_t, QUARTER_TABLE_SIZE> quarter_table;
 };
 
 
-class Sine : public QuarterWtable {
-
+class Sine final : public QuarterWtable {
 public:
-
   Sine() : Sine(1) {};
-  Sine(float gamma);
-
+  explicit Sine(float gamma);
 };
 
 
 // this uses a wavetable and a lot more memory
-class WTriangle : public QuarterWtable {
-
+class WTriangle final : public QuarterWtable {
 public:
-
   WTriangle();
-
 };
 
 
 // this uses division by multiplication and a lot less memory
-class Triangle : public Wavetable {
-
+class Triangle final : public Wavetable {
 public:
-
   Triangle() = default;
-  int16_t next(int32_t tick, int32_t phi) const override;
-
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 };
-  
+
 
 class HalfWtable : public Wavetable {
-
 public:
-  
-  int16_t next(int32_t tick, int32_t phi) const override;
-  
+  HalfWtable();
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-
-  std::array<int16_t, half_table_size> half_table;
-
+  std::array<int16_t, HALF_TABLE_SIZE> half_table;
 };
 
 
-class WSaw : public HalfWtable {
-
+class WSaw final : public HalfWtable {
 public:
-
   // a regular saw can be done with a quarter wavetable, but with a
   // different unpacking logic.  for full generalility, however, we
   // need half (and even then it's complex).  offset from -1 to 1.
-  WSaw(float offset);
-
+  explicit WSaw(float offset);
 };
 
 
 // this uses division by multiplication and a lot less memory
-class Saw : public Wavetable {
-
+class Saw final : public Wavetable {
 public:
-
-  Saw(float offset);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
+  explicit Saw(float offset);
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 private:
-
   size_t peak_idx;
   int64_t k1;
   int64_t k2;
-  
 };
-  
+
 
 class FullWtable : public Wavetable {
-
 public:
-  
-  int16_t next(int32_t tick, int32_t phi) const override;
-  
+  FullWtable();
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-
-  std::array<int16_t, full_table_size> full_table;
-
+  std::array<int16_t, FULL_TABLE_SIZE> full_table;
 };
 
 
-class Noise : public FullWtable {
-
+class Noise final : public FullWtable {
 public:
-
   Noise() : Noise(1) {};
-  Noise(size_t smooth);
-
+  explicit Noise(size_t smooth);
 };
 
 
-class PolyTable : public HalfWtable {
-
+class PolyTable final : public HalfWtable {
 public:
-
   PolyTable(size_t shape, size_t asym, size_t offset);
-  static const size_t n_concave = 4;
-  static const size_t n_convex = 4;
-  static const size_t noise = 0;
-  static const size_t linear = n_concave + 1;
-  static const size_t sine = n_concave + 2;
-  static const size_t square = n_concave + n_convex + 3;
-  static const size_t n_shapes = square + 1;
-
+  static constexpr size_t N_CONCAVE = 4;
+  static constexpr size_t N_CONVEX = 4;
+  static constexpr size_t NOISE = 0;
+  static constexpr size_t LINEAR = N_CONCAVE + 1;
+  static constexpr size_t SINE = N_CONCAVE + 2;
+  static constexpr size_t SQUARE = N_CONCAVE + N_CONVEX + 3;
+  static constexpr size_t N_SHAPES = SQUARE + 1;
 private:
-  
   float pow2(float x, size_t n);
   float tox(size_t i, size_t lo, size_t hi);
-  void make_concave(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
-  void make_linear(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
-  void make_convex(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
-  void make_sine(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
-  void make_noise(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
-  void make_square(std::array<int16_t, half_table_size>& table, size_t lo, size_t hi);
-  void make_half(std::array<int16_t, half_table_size>& table, size_t shape, size_t lo, size_t hi);
-
+  void make_concave(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
+  void make_linear(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  void make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
+  void make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  void make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  void make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  void make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
 };
 
 

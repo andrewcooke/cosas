@@ -2,25 +2,27 @@
 #ifndef COSA_CONSTANTS_H
 #define COSA_CONSTANTS_H
 
-#include <cstddef>
 #include <limits>
 #include <cstdint>
+// ReSharper disable once CppUnusedIncludeDirective
+#include <cstddef>  // needed for size_t
 
 
-const uint32_t sample_rate = 44100;
-const uint8_t sample_bits = 16;
-const int16_t sample_max = std::numeric_limits<int16_t>::max();
-const int16_t sample_min = -sample_max;  // throw away one value because i don't like the asymmetry
+constexpr uint32_t SAMPLE_RATE = 44100;
+constexpr uint8_t SAMPLE_BITS = 16;
+constexpr int16_t SAMPLE_MAX = std::numeric_limits<int16_t>::max();
+constexpr int16_t SAMPLE_MIN = -SAMPLE_MAX;  // throw away one value because i don't like the asymmetry
 
 // leads to omega = f (see source.h)
-const size_t full_table_size = sample_rate;
-const size_t half_table_size = sample_rate / 2;
-const size_t quarter_table_size = sample_rate / 4;
+constexpr size_t FULL_TABLE_SIZE = SAMPLE_RATE;
+constexpr size_t HALF_TABLE_SIZE = SAMPLE_RATE / 2;
+constexpr size_t QUARTER_TABLE_SIZE = SAMPLE_RATE / 4;
 
-const uint8_t subtick_bits = 3;
-const size_t full_table_sub = full_table_size << subtick_bits;
+constexpr uint8_t SUBTICK_BITS = 3;
+constexpr size_t FULL_TABLE_SUB = FULL_TABLE_SIZE << SUBTICK_BITS;
 
 // see discussion in oscillator.cpp
-const size_t phi_fudge_bits = 12;
+constexpr size_t PHI_FUDGE_BITS = 12;
+
 
 #endif

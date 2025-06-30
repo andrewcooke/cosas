@@ -6,9 +6,9 @@
 
 TEST_CASE("Wavelib, Square") {
   Wavelib w = Wavelib();
-  CHECK(w[w.square_duty_05].next(0 << subtick_bits) == sample_max);
-  CHECK(w[w.square_duty_05].next(half_table_size << subtick_bits) == sample_max);
-  CHECK(w[w.square_duty_05].next((half_table_size+1) << subtick_bits) == sample_min);
-  CHECK(w[w.square_duty_05].next((full_table_size-1) << subtick_bits) == sample_min);
-  CHECK(w[w.square_duty_05].next(full_table_size << subtick_bits) == sample_max);
+  CHECK(w[w.square_duty_05].next(0 << SUBTICK_BITS) == SAMPLE_MAX);
+  CHECK(w[w.square_duty_05].next(HALF_TABLE_SIZE << SUBTICK_BITS) == SAMPLE_MAX);
+  CHECK(w[w.square_duty_05].next((HALF_TABLE_SIZE+1) << SUBTICK_BITS) == SAMPLE_MIN);
+  CHECK(w[w.square_duty_05].next((FULL_TABLE_SIZE-1) << SUBTICK_BITS) == SAMPLE_MIN);
+  CHECK(w[w.square_duty_05].next(FULL_TABLE_SIZE << SUBTICK_BITS) == SAMPLE_MAX);
 }

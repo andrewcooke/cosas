@@ -6,32 +6,32 @@
 #include "cosas/engine.h"
 
 
-BaseOscillator::BaseOscillator(Wavetable* t) : wavetable(t) {};
+BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), wavetable(t) {};
 
-int16_t BaseOscillator::next(int32_t tick, int32_t phi) const {
-  int64_t freq = frequency;
+int16_t BaseOscillator::next(const int32_t tick, const int32_t phi) const {
+  const int64_t freq = frequency;
   // convert phi from sample_min-sample_max to -pi-pi (kinda)
-  int64_t phi_tmp = phi * freq;
+  const int64_t phi_tmp = phi * freq;
   // fudge allows more variation (phi limited to sample_max)
   // but may need to worry about gain sensitivity
-  int32_t phi_frac = phi_tmp >> (sample_bits - 1 - phi_fudge_bits);
-  return wavetable->next(tick * freq, phi_frac);
+  const auto phi_frac = static_cast<int32_t>(phi_tmp >> (SAMPLE_BITS - 1 - PHI_FUDGE_BITS));
+  return wavetable->next(static_cast<int32_t>(tick * freq), phi_frac);
 }
 
 
 Frequency::Frequency(BaseOscillator* o) : oscillator(o) {}
 
-void Frequency::set_oscillator(uint32_t f) {
+void Frequency::set_oscillator(const uint32_t f) const {  // const because it affects chained oscillator, not us
   oscillator->frequency = f;
 }
 
 
-AbsoluteFreq::AbsoluteFreq(BaseOscillator* o, float f)
-  : Frequency(o), frequency(f), relative_freqs() {
-  set_oscillator(frequency);  
+// TODO - what's hapoening here w frequency and set_oscillator and types?
+AbsoluteFreq::AbsoluteFreq(BaseOscillator* o, const float f) : Frequency(o), frequency(f) {
+  set_oscillator(frequency);
 };
 
-void AbsoluteFreq::set(float f) {
+void AbsoluteFreq::set(const float f) {
   set_oscillator(f);
   set_relative_freqs(frequency);
 }
@@ -44,7 +44,7 @@ void AbsoluteFreq::add_relative_freq(RelativeFreq* f) {
   relative_freqs.push_back(f);
 }
 
-void AbsoluteFreq::set_relative_freqs(uint32_t f) {
+void AbsoluteFreq::set_relative_freqs(const uint32_t f) const {
   for (RelativeFreq* r: relative_freqs) r->set_root(f);
 }
 
@@ -100,8 +100,8 @@ void WavedexMixin::Wavedex::set(float val) {
 }
 
 
-AbsDexOsc::AbsDexOsc(Wavelib& wl, size_t widx, float f)
-  : BaseOscillator(&wl[widx]), WavedexMixin(this, wl), freq_param(AbsoluteFreq(this, f)) {
+AbsDexOsc::AbsDexOsc(float f, Wavelib& wl, size_t widx)
+  : BaseOscillator(0, &wl[widx]), WavedexMixin(this, wl), freq_param(AbsoluteFreq(this, f)) {
   get_freq().set(f);  // push initial value
 }
 
@@ -111,7 +111,10 @@ AbsoluteFreq& AbsDexOsc::get_freq() {
 
 
 RelDexOsc::RelDexOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d)
-  : BaseOscillator(&wl[widx]), WavedexMixin(this, wl), freq_param(RelativeFreq(this, root, f, d)) {}
+  : BaseOscillator(0, &wl[widx]), WavedexMixin(this, wl), freq_param(RelativeFreq(this, root, f, d)) {
+  get_freq().set(f);  // push initial value
+}
+
 
 RelativeFreq& RelDexOsc::get_freq() {
   return freq_param;
@@ -154,7 +157,7 @@ void PolyMixin::update() {
 
 
 AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
-  : BaseOscillator(nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {
+  : BaseOscillator(0, nullptr), PolyMixin(this, shp, a, off), freq_param(AbsoluteFreq(this, f)) {
   get_freq().set(f);  // push initial value
 }
 

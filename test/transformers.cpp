@@ -34,11 +34,11 @@ TEST_CASE("Transformers, Folder") {
   Folder f1_12x = Folder(cm1234, 1);
   CHECK(f1_12x.next(0, 0) == -2421);  // symmetrical
   
-  Constant cmax = Constant(sample_max);  
+  Constant cmax = Constant(SAMPLE_MAX);  
   Folder f0_max = Folder(cmax, 0);
-  CHECK(f0_max.next(0, 0) == sample_max);
+  CHECK(f0_max.next(0, 0) == SAMPLE_MAX);
   f0_max.get_fold().set(1);
-  CHECK(f0_max.next(0, 0) == sample_max);
+  CHECK(f0_max.next(0, 0) == SAMPLE_MAX);
   f0_max.get_fold().set(2);
   CHECK(f0_max.next(0, 0) == 0);
 }

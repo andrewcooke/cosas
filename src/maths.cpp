@@ -5,11 +5,11 @@
 #include "cosas/maths.h"
 
 
-SimpleRatio::SimpleRatio(int16_t b, uint8_t s, bool t, bool f)
+SimpleRatio::SimpleRatio(const int8_t b, const uint8_t s, const bool t, const bool f)
   : bits(b), scale(s), third(t), fifth(f) {};
 
-float SimpleRatio::error(float other) const {
-  float val = as_float();
+float SimpleRatio::error(const float other) const {
+  const float val = as_float();
   if (val == other) return 0;
   if (val > other) return val / other - 1;
   return other / val - 1;
@@ -28,22 +28,22 @@ static SimpleRatio best(float target, SimpleRatio sr1, SimpleRatio sr2) {
 // octave is implicit in the base 2 bits so does not need to be
 // included below.
 
-static SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
+static SimpleRatio from_below(const float target, const int8_t bits, const SimpleRatio lo) {
   // larger, but no more than double
   SimpleRatio b =
-     best(target, lo, SimpleRatio(bits - 1,  3, false, false));  // x 3/2 perfect fifth
-  b = best(target, b, SimpleRatio(bits + 2,  1, true,  false));  // x 4/3 perfect fourth
-  b = best(target, b, SimpleRatio(bits,      5, true,  false));  // x 5/3 major sixth
-  b = best(target, b, SimpleRatio(bits - 2,  5, false, false));  // x 5/4 major third
-  b = best(target, b, SimpleRatio(bits + 1,  3, false, true));   // x 6/5 minor third
-  b = best(target, b, SimpleRatio(bits + 3,  1, false, true));   // x 8/5 minor sixth
+    best(target, lo, SimpleRatio(bits - 1, 3, false, false)); // x 3/2 perfect fifth
+  b = best(target, b, SimpleRatio(bits + 2, 1, true, false)); // x 4/3 perfect fourth
+  b = best(target, b, SimpleRatio(bits, 5, true, false)); // x 5/3 major sixth
+  b = best(target, b, SimpleRatio(bits - 2, 5, false, false)); // x 5/4 major third
+  b = best(target, b, SimpleRatio(bits + 1, 3, false, true)); // x 6/5 minor third
+  b = best(target, b, SimpleRatio(bits + 3, 1, false, true)); // x 8/5 minor sixth
 
   // extended range
-  b = best(target, b, SimpleRatio(bits - 2,  7, false, false));  // x 7/4
-  b = best(target, b, SimpleRatio(bits,      7, false, true));   // x 7/5
-  b = best(target, b, SimpleRatio(bits,      9, false, true));   // x 9/5
-  b = best(target, b, SimpleRatio(bits - 1,  7, true,  false));  // x 7/6
-  b = best(target, b, SimpleRatio(bits - 1, 11, true,  false));  // x 11/6
+  b = best(target, b, SimpleRatio(bits - 2, 7, false, false)); // x 7/4
+  b = best(target, b, SimpleRatio(bits, 7, false, true)); // x 7/5
+  b = best(target, b, SimpleRatio(bits, 9, false, true)); // x 9/5
+  b = best(target, b, SimpleRatio(bits - 1, 7, true, false)); // x 7/6
+  b = best(target, b, SimpleRatio(bits - 1, 11, true, false)); // x 11/6
 
   return b;
 }
@@ -51,29 +51,29 @@ static SimpleRatio from_below(float target, int8_t bits, SimpleRatio lo) {
 static SimpleRatio from_above(float target, int8_t bits, SimpleRatio hi) {
   // smaller, but no less than half
   SimpleRatio b =
-     best(target, hi, SimpleRatio(bits,      3, false, true));   // x 3/5 major sixth
-  b = best(target, b, SimpleRatio(bits - 3,  5, false, false));  // x 5/8 minor sixth
-  b = best(target, b, SimpleRatio(bits + 1,  1, true,  false));  // x 2/3 perfect fifth
-  b = best(target, b, SimpleRatio(bits + 2,  3, false, false));  // x 3/4 perfect fourth
-  b = best(target, b, SimpleRatio(bits + 2,  1, false, true));   // x 4/5 major third
-  b = best(target, b, SimpleRatio(bits - 1,  5, true,  false));  // x 5/6 minor third
+    best(target, hi, SimpleRatio(bits, 3, false, true)); // x 3/5 major sixth
+  b = best(target, b, SimpleRatio(bits - 3, 5, false, false)); // x 5/8 minor sixth
+  b = best(target, b, SimpleRatio(bits + 1, 1, true, false)); // x 2/3 perfect fifth
+  b = best(target, b, SimpleRatio(bits + 2, 3, false, false)); // x 3/4 perfect fourth
+  b = best(target, b, SimpleRatio(bits + 2, 1, false, true)); // x 4/5 major third
+  b = best(target, b, SimpleRatio(bits - 1, 5, true, false)); // x 5/6 minor third
 
   // matching values for those above are not possible (no seventh, ninth or eleventh)
-  b = best(target, b, SimpleRatio(bits - 4,  9, false, false));  // x 9/16
-  b = best(target, b, SimpleRatio(bits - 4, 11, false, false));  // x 11/16
-  b = best(target, b, SimpleRatio(bits - 4, 13, false, false));  // x 13/16
-  b = best(target, b, SimpleRatio(bits - 3,  7, false, false));  // x 7/8
-  b = best(target, b, SimpleRatio(bits - 4, 15, false, false));  // x 15/16
+  b = best(target, b, SimpleRatio(bits - 4, 9, false, false)); // x 9/16
+  b = best(target, b, SimpleRatio(bits - 4, 11, false, false)); // x 11/16
+  b = best(target, b, SimpleRatio(bits - 4, 13, false, false)); // x 13/16
+  b = best(target, b, SimpleRatio(bits - 3, 7, false, false)); // x 7/8
+  b = best(target, b, SimpleRatio(bits - 4, 15, false, false)); // x 15/16
 
   return b;
 };
 
 SimpleRatio::SimpleRatio(float target) {
   if (target != 0) {
-    int8_t b = log2(target);
-    SimpleRatio sr = best(target,
-			  from_below(target, b, SimpleRatio(b,     1, false, false)),
-			  from_above(target, b, SimpleRatio(b + 1, 1, false, false)));
+    auto b = static_cast<int8_t>(log2f(target));
+    const SimpleRatio sr = best(target,
+                            from_below(target, b, SimpleRatio(b, 1, false, false)),
+                            from_above(target, b, SimpleRatio(b + 1, 1, false, false)));
     bits = sr.bits;
     scale = sr.scale;
     third = sr.third;
@@ -118,27 +118,27 @@ std::ostream& operator<<(std::ostream& os, const SimpleRatio& sr) {
   return os;
 }
 
-bool SimpleRatio::operator== (const SimpleRatio& other) const {
+bool SimpleRatio::operator==(const SimpleRatio& other) const {
   return other.bits == bits && other.scale == scale && other.third == third && other.fifth == fifth;
 }
 
 
 IEEEFloat::IEEEFloat(double v) : IEEEFloat(static_cast<float>(v)) {};
 
-IEEEFloat::IEEEFloat(float v) : fc({.f=v}) {};
+IEEEFloat::IEEEFloat(float v) : fc({.f = v}) {};
 
-IEEEFloat::IEEEFloat(uint32_t m, uint32_t e, uint32_t s) : fc({.u=0}) {
+IEEEFloat::IEEEFloat(uint32_t m, uint32_t e, uint32_t s) : fc({.u = 0}) {
   fc.u = ((s & 1) << 31) | (e & 255) << 23 | (m & mask);
 }
 
 IEEEFloat::IEEEFloat(int v) : IEEEFloat(static_cast<int16_t>(v)) {};
 
-IEEEFloat::IEEEFloat(int16_t v) : fc({.u=0}) {
+IEEEFloat::IEEEFloat(int16_t v) : fc({.u = 0}) {
   if (v != 0) {
     uint32_t s = static_cast<uint32_t>(v < 0) << 31;
     uint32_t e = 127;
     uint32_t m = static_cast<uint32_t>(abs(v)) << 8;
-    while (! (m & hidden)) {
+    while (!(m & hidden)) {
       m = m << 1;
       e--;
     }
@@ -167,7 +167,8 @@ int16_t IEEEFloat::sample() const {
     auto v = static_cast<int16_t>((m() | hidden) >> (8 + 127 - e()));
     if (s()) v = static_cast<int16_t>(-v);
     return v;
-  } else {
+  }
+  else {
     return 0;
   }
 }

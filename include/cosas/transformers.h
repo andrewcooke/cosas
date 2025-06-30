@@ -4,7 +4,6 @@
 
 #include <vector>
 
-#include "cosas/constants.h"
 #include "cosas/params.h"
 #include "cosas/node.h"
 
@@ -13,173 +12,125 @@
 
 
 class SingleNode : public Node {
-
 protected:
-
-  SingleNode(const Node& nd) : node(nd) {};
+  explicit SingleNode(const Node& nd) : node(nd) {};
   const Node& node;
-  
 };
 
 
 class SingleFloat : public SingleNode {
-
 public:
-
-  class Value : public Param {
+  class Value final : public Param {
   public:
-    Value(SingleFloat* p);
+    explicit Value(SingleFloat* p);
     void set(float v) override;
   private:
     SingleFloat* parent;
   };
-
   friend class Value;
-  //  Value& get_param();
-    
 protected:
-
   SingleFloat(const Node& nd, float v);
   float value;
   Value param;
-  
 };
 
 
-class GainFloat : public SingleFloat {
-
+class GainFloat final : public SingleFloat {
 public:
-  
   GainFloat(const Node& nd, float amp);
-  int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
   Value& get_amp();
-  
 };
 
 
 class Single14 : public SingleNode {
-
 public:
-
-  class Value : public Param {
+  class Value final : public Param {
   public:
-    Value(Single14* p);
+    explicit Value(Single14* p);
     void set(float v) override;
   private:
     Single14* parent;
   };
-
   friend class Value;
-  //  Value& get_param();
-    
 protected:
-
   Single14(const Node& nd, float v);
   uint16_t value;
   Value param;
-  
 };
 
 
 class Gain14 : public Single14 {
-
 public:
-  
   Gain14(const Node& nd, float amp);
-  int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
   Value& get_amp();
-  
 };
 
 
 // forward to Gain14 on assumption this is faster
 class Gain : public Gain14 {
-  
 public:
-  
   Gain(const Node& nd, float amp);
-
 };
 
 
 class FloatFunc : public SingleFloat {
-
 public:
-  
-  int16_t next(int32_t tick, int32_t phi) const override;
-
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-
   FloatFunc(const Node& nd, float v);
   // x is normalised 0-1 and this can (will) use value
-  virtual float func(float x) const = 0;  
-
+  [[nodiscard]] virtual float func(float x) const = 0;
 };
 
 
-class Compander : public FloatFunc {
-
+class Compander final : public FloatFunc {
 public:
-
   Compander(const Node& nd, float gamma);
-
 private:
-  
-  float func(float x) const override;
-  
+  [[nodiscard]] float func(float x) const override;
 };
 
 
-class Folder : public FloatFunc {
-
+class Folder final : public FloatFunc {
 public:
-
   // k is progrgessive, 0-1 expands and 1-2 folds
   Folder(const Node& nd, float k);
   Value& get_fold();
-  
 private:
-  
-  float func(float x) const override;
-  
+  [[nodiscard]] float func(float x) const override;
 };
 
 
 // warning: this relies on being called once per sample
 
-const size_t MAX_BOXCAR = 10000;
+constexpr size_t MAX_BOXCAR = 10000;
 
-class Boxcar : public SingleNode {
-
+class Boxcar final : public SingleNode {
 public:
-
-  class Length : public Param {
+  class Length final : public Param {
   public:
-    Length(Boxcar* p);
+    explicit Length(Boxcar* p);
     void set(float v) override;
   private:
     Boxcar* parent = nullptr;
   };
-
   class CircBuffer {
   public:
-    CircBuffer(size_t l);
+    explicit CircBuffer(size_t l);
     int16_t next(int16_t cur);
   private:
     std::unique_ptr<std::vector<int32_t>> sums;
     mutable size_t circular_idx;
   };
-
   friend class Length;
   Boxcar(const Node& nd, size_t l);
-  int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
   Length& get_len();
-
 private:
-
   std::unique_ptr<CircBuffer> cbuf;
   Length param;
-  
 };
 
 
@@ -195,10 +146,8 @@ private:
 // dominant, and the rest fill in as required.
 
 class MergeFloat : public Node {
-
 public:
-
-  class Weight : public Param {
+  class Weight final : public Param {
   public:
     Weight(MergeFloat* m, size_t i);
     void set(float w) override;
@@ -206,48 +155,35 @@ public:
     MergeFloat* merge = nullptr;
     size_t idx;
   };
-
   friend class Weight;
   MergeFloat(const Node& n, float w);
   void add_node(const Node& n, float w);
   Weight& get_weight(size_t i);
-  int16_t next(int32_t tick, int32_t phi) const override;
-
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-  
   virtual void normalize();
-  void add_node(const Node& n, Weight w);
   std::unique_ptr<std::vector<Weight>> weights;
   std::unique_ptr<std::vector<const Node*>> nodes;
   std::unique_ptr<std::vector<float>> given_weights;
   std::unique_ptr<std::vector<float>> norm_weights;
-
 };
 
 
 class Merge14 : public MergeFloat {
-
 public:
-  
-  friend class MergeFloat::Weight;
+  friend class Weight;
   Merge14(const Node& n, float w);
-  int16_t next(int32_t tick, int32_t phi) const override;
-  
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-  
-  void normalize();
+  void normalize() override;
   std::unique_ptr<std::vector<uint16_t>> uint16_weights;
-  
 };
 
 
 // forward to Gain14 on assumption this is faster
 class Merge : public Merge14 {
-  
 public:
-  
   Merge(const Node& nd, float wo);
-
 };
 
 

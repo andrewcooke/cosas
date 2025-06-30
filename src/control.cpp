@@ -36,7 +36,7 @@ Sigmoid::Sigmoid(Input& del, const float lin)
 void Sigmoid::set(float v) {
   const float v2 = v - 0.5f;
   // https://www.desmos.com/calculator/rbmvnpsmrm
-  const float v3 = 4 * (1 - linear) * pow(v2, 3) + linear * v2 + 0.5f;
+  const float v3 = 4.0f * (1.0f - linear) * powf(v2, 3.0f) + linear * v2 + 0.5f;
   delegate.set(v3);
 }
 
@@ -44,7 +44,7 @@ void Sigmoid::set(float v) {
 Exp::Exp(Input& del) : Delegate(del) {};
 
 void Exp::set(float v) {
-  delegate.set(powf(10, 2 * (v - 0.5)));
+  delegate.set(powf(10.0f, 2.0f * (v - 0.5f)));
 }
 
 

@@ -22,33 +22,31 @@ class Node : public Source {};
 
 // useful for testing
 
-class Constant : public Node {
+class Constant final : public Node {
 
 public:
 
-  Constant(const int16_t v);
-  int16_t next(int32_t tick, int32_t phi) const override;
+  Constant(int16_t v); // NOLINT(*-explicit-constructor)
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
   const int16_t value;
-  
 };
 
 extern Constant zero;
 
 
-class Sequence : public Node {
+class Sequence final : public Node {
 
 public:
 
   Sequence(std::initializer_list<int16_t> vs);
-  int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 
 private:
 
   std::unique_ptr<std::list<int16_t>> values;
-  
 };
 
 
@@ -59,7 +57,7 @@ private:
 // and implemented with mutable to avoid polluting the Node/Source
 // interface.
 
-class Latch : public Node {
+class Latch final : public Node {
 
 public:
 
@@ -74,21 +72,15 @@ private:
   mutable const Source* source;
   mutable bool on = false;
   mutable int16_t previous = 0;
-  
 };
 
 
 class SetOnInScope {
-  
 public:
-
-  SetOnInScope(const Latch* l);
+  explicit SetOnInScope(const Latch* l);
   ~SetOnInScope();
-  
 private:
-
   const Latch* latch;
-
 };
 
 

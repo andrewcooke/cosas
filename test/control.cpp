@@ -1,4 +1,6 @@
 
+#include <memory>
+
 #include "doctest/doctest.h"
 
 #include "cosas/control.h"

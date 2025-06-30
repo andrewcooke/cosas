@@ -14,17 +14,17 @@ TEST_CASE("Maths, SimpleRatio") {
 
 
 TEST_CASE("Maths, IEEEFloat") {
-  CHECK(sample2float(sample_max) == doctest::Approx(1).epsilon(0.001));
-  CHECK(sample2float(sample_max/2) == doctest::Approx(0.5).epsilon(0.001));
+  CHECK(sample2float(SAMPLE_MAX) == doctest::Approx(1).epsilon(0.001));
+  CHECK(sample2float(SAMPLE_MAX/2) == doctest::Approx(0.5).epsilon(0.001));
   CHECK(sample2float(0) == doctest::Approx(0).epsilon(0.001));
-  CHECK(sample2float(sample_min/2) == doctest::Approx(-0.5).epsilon(0.001));
-  CHECK(sample2float(sample_min) == doctest::Approx(-1).epsilon(0.001));
-  CHECK(float2sample(1.0) == doctest::Approx(sample_max).epsilon(0.001));
-  CHECK(float2sample(0.5) == doctest::Approx(sample_max/2).epsilon(0.001));
+  CHECK(sample2float(SAMPLE_MIN/2) == doctest::Approx(-0.5).epsilon(0.001));
+  CHECK(sample2float(SAMPLE_MIN) == doctest::Approx(-1).epsilon(0.001));
+  CHECK(float2sample(1.0) == doctest::Approx(SAMPLE_MAX).epsilon(0.001));
+  CHECK(float2sample(0.5) == doctest::Approx(SAMPLE_MAX/2).epsilon(0.001));
   CHECK(float2sample(0.0) == doctest::Approx(0).epsilon(0.001));
-  CHECK(float2sample(-0.5) == doctest::Approx(sample_min/2).epsilon(0.001));
-  CHECK(float2sample(-1.0) == doctest::Approx(sample_min).epsilon(0.001));
-  for (int32_t s = sample_min; s <= sample_max; s += 1234) {
+  CHECK(float2sample(-0.5) == doctest::Approx(SAMPLE_MIN/2).epsilon(0.001));
+  CHECK(float2sample(-1.0) == doctest::Approx(SAMPLE_MIN).epsilon(0.001));
+  for (int32_t s = SAMPLE_MIN; s <= SAMPLE_MAX; s += 1234) {
     CHECK(float2sample(sample2float(s)) == doctest::Approx(s).epsilon(0.001));
   }
   for (float f = -1; f <= 1; f += 0.123) {
@@ -52,10 +52,10 @@ TEST_CASE("Maths, MultShift14") {
   CHECK(mult_shift14(scale2mult_shift14(1.5), 300) == 450);
   CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300);
   CHECK(mult_shift14(scale2mult_shift14(2), -300) == -600);
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2) == sample_max - 1); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2 - 1) == sample_max - 3); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2) == sample_min + 1); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2 + 1) == sample_min + 3); 
+  CHECK(mult_shift14(scale2mult_shift14(2), (SAMPLE_MAX - 1) / 2) == SAMPLE_MAX - 1);
+  CHECK(mult_shift14(scale2mult_shift14(2), (SAMPLE_MAX - 1) / 2 - 1) == SAMPLE_MAX - 3);
+  CHECK(mult_shift14(scale2mult_shift14(2), (SAMPLE_MIN + 1) / 2) == SAMPLE_MIN + 1);
+  CHECK(mult_shift14(scale2mult_shift14(2), (SAMPLE_MIN + 1) / 2 + 1) == SAMPLE_MIN + 3);
 }
 
 

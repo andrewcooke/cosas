@@ -5,14 +5,14 @@
 
 
 TEST_CASE("Wavetable, PolyTable") {
-  PolyTable p1 = PolyTable(PolyTable::square, 0, quarter_table_size);
-  for (size_t i = 0; i < quarter_table_size; i++) {
-    CHECK(p1.next(i << subtick_bits, 0) == sample_min);
-    CHECK(p1.next((i + quarter_table_size) << subtick_bits, 0) == sample_max);
+  PolyTable p1 = PolyTable(PolyTable::SQUARE, 0, QUARTER_TABLE_SIZE);
+  for (size_t i = 0; i < QUARTER_TABLE_SIZE; i++) {
+    CHECK(p1.next(i << SUBTICK_BITS, 0) == SAMPLE_MIN);
+    CHECK(p1.next((i + QUARTER_TABLE_SIZE) << SUBTICK_BITS, 0) == SAMPLE_MAX);
   }
-  PolyTable p2 = PolyTable(PolyTable::sine, 0, quarter_table_size);
+  PolyTable p2 = PolyTable(PolyTable::SINE, 0, QUARTER_TABLE_SIZE);
   CHECK(p2.next(0, 0) == 0);
-  CHECK(p2.next(quarter_table_size << subtick_bits, 0) == sample_max);
-  CHECK(p2.next(half_table_size << subtick_bits, 0) == -4);  // almost 0
-  CHECK(p2.next((half_table_size + quarter_table_size) << subtick_bits, 0) == sample_min + 1);  // almost
+  CHECK(p2.next(QUARTER_TABLE_SIZE << SUBTICK_BITS, 0) == SAMPLE_MAX);
+  CHECK(p2.next(HALF_TABLE_SIZE << SUBTICK_BITS, 0) == -4);  // almost 0
+  CHECK(p2.next((HALF_TABLE_SIZE + QUARTER_TABLE_SIZE) << SUBTICK_BITS, 0) == SAMPLE_MIN + 1);  // almost
 }

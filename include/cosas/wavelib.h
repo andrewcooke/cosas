@@ -9,13 +9,10 @@
 
 
 class Wavelib {
-
 public:
-
   Wavelib();
   Wavetable& operator[](size_t idx);
   size_t size();
-
   // ideally, these would be constants
   size_t sine_start;
   size_t sine_gamma_1;
@@ -25,13 +22,9 @@ public:
   size_t saw_offset_0;
   size_t noise_start;
   size_t noise_smooth_1;
-
 private:
-  
   void init_wavetables();
-  
   std::unique_ptr<std::vector<std::unique_ptr<Wavetable>>> all_wavetables;
-
 };
 
 

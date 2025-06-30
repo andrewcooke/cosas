@@ -75,9 +75,9 @@ FloatFunc::FloatFunc(const Node& nd, float v) : SingleFloat(nd, v) {};
 int16_t FloatFunc::next(int32_t tick, int32_t phi) const {
   int16_t sample = node.next(tick, phi);
   bool neg = sample < 0;
-  float x = abs(sample) / static_cast<float>(sample_max);
+  float x = abs(sample) / static_cast<float>(SAMPLE_MAX);
   float y = func(x);
-  int16_t new_sample = clip_16(sample_max * y);
+  int16_t new_sample = clip_16(SAMPLE_MAX * y);
   if (neg) new_sample = -new_sample;
   return new_sample;
 }
