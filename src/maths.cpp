@@ -2,7 +2,6 @@
 #include <cmath>
 #include <iostream>
 
-#include "cosas/doctest.h"
 #include "cosas/maths.h"
 
 
@@ -123,14 +122,6 @@ bool SimpleRatio::operator== (const SimpleRatio& other) const {
   return other.bits == bits && other.scale == scale && other.third == third && other.fifth == fifth;
 }
 
-TEST_CASE("SimpleRatio") {
-
-  CHECK(SimpleRatio(0.1) == SimpleRatio(-1, 1, false, true));
-  CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
-  CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
-
-}
-
 
 IEEEFloat::IEEEFloat(double v) : IEEEFloat(static_cast<float>(v)) {};
 
@@ -192,26 +183,5 @@ float sample2float(int16_t s) {
 
 int16_t float2sample(float f) {
   return IEEEFloat(std::max(-0.999969f, std::min(0.999969f, f))).sample();
-}
-
-
-
-TEST_CASE("IEEEFloat") {
-  CHECK(sample2float(sample_max) == doctest::Approx(1).epsilon(0.001));
-  CHECK(sample2float(sample_max/2) == doctest::Approx(0.5).epsilon(0.001));
-  CHECK(sample2float(0) == doctest::Approx(0).epsilon(0.001));
-  CHECK(sample2float(sample_min/2) == doctest::Approx(-0.5).epsilon(0.001));
-  CHECK(sample2float(sample_min) == doctest::Approx(-1).epsilon(0.001));
-  CHECK(float2sample(1.0) == doctest::Approx(sample_max).epsilon(0.001));
-  CHECK(float2sample(0.5) == doctest::Approx(sample_max/2).epsilon(0.001));
-  CHECK(float2sample(0.0) == doctest::Approx(0).epsilon(0.001));
-  CHECK(float2sample(-0.5) == doctest::Approx(sample_min/2).epsilon(0.001));
-  CHECK(float2sample(-1.0) == doctest::Approx(sample_min).epsilon(0.001));
-  for (int32_t s = sample_min; s <= sample_max; s += 1234) {
-    CHECK(float2sample(sample2float(s)) == doctest::Approx(s).epsilon(0.001));
-  }
-  for (float f = -1; f <= 1; f += 0.123) {
-    CHECK(sample2float(float2sample(f)) == doctest::Approx(f).epsilon(0.001));
-  }
 }
 

@@ -5,8 +5,6 @@
 #include <ostream>
 #include <cstdint>
 
-#include "cosas/doctest.h"
-
 #include "cosas/constants.h"
 
 
@@ -101,15 +99,6 @@ inline int32_t mult_shift8(int16_t k, int32_t x) {
   return (k * static_cast<int64_t>(x)) >> one8_bits;
 }
 
-TEST_CASE("MultShift8") {
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), INT32_C(300)) == 99);  // almost
-  CHECK(mult_shift8(scale2mult_shift8(1), INT32_C(300)) == 300); 
-  CHECK(mult_shift8(scale2mult_shift8(-0.33333), INT32_C(300)) == -100);
-  CHECK(mult_shift8(scale2mult_shift8(-1), INT32_C(300)) == -300); 
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), -INT32_C(300)) == -100);
-  CHECK(mult_shift8(scale2mult_shift8(1), -INT32_C(300)) == -300); 
-}
-
 // 14 bits decimal, signed
 
 const size_t one14_bits = 14;
@@ -123,21 +112,6 @@ inline int16_t mult_shift14(uint16_t k, int16_t x) {
   bool neg = x < 0;
   int16_t x2 = clip_16((static_cast<uint32_t>(k) * static_cast<uint16_t>(abs(x))) >> one14_bits);
   return neg ? -x2 : x2;
-}
-
-TEST_CASE("MultShift14") {
-  CHECK(scale2mult_shift14(1) == 16384);
-  CHECK(scale2mult_shift14(2) == 32768);
-  CHECK(scale2mult_shift14(3.99) == 65372);
-  CHECK(mult_shift14(scale2mult_shift14(0.33333), 300) == 99);  // almost
-  CHECK(mult_shift14(scale2mult_shift14(1), 300) == 300);
-  CHECK(mult_shift14(scale2mult_shift14(1.5), 300) == 450);
-  CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300);
-  CHECK(mult_shift14(scale2mult_shift14(2), -300) == -600);
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2) == sample_max - 1); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_max - 1) / 2 - 1) == sample_max - 3); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2) == sample_min + 1); 
-  CHECK(mult_shift14(scale2mult_shift14(2), (sample_min + 1) / 2 + 1) == sample_min + 3); 
 }
 
 

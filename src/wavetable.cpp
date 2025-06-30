@@ -5,7 +5,6 @@
 #include <iostream>
 #include <cmath>
 
-#include "cosas/doctest.h"
 #include "cosas/constants.h"
 #include "cosas/maths.h"
 #include "cosas/wavetable.h"
@@ -98,7 +97,7 @@ int16_t Saw::next(int32_t tick, int32_t phi) const {
 }
 
 
-Noise::Noise(uint smooth) {
+Noise::Noise(size_t smooth) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(sample_min, sample_max);
@@ -172,15 +171,3 @@ void PolyTable::make_half(std::array<int16_t, half_table_size>& table, size_t sh
   else make_square(table, lo, hi);
 }
 
-TEST_CASE("PolyTable") {
-  PolyTable p1 = PolyTable(PolyTable::square, 0, quarter_table_size);
-  for (size_t i = 0; i < quarter_table_size; i++) {
-    CHECK(p1.next(i << subtick_bits, 0) == sample_min);
-    CHECK(p1.next((i + quarter_table_size) << subtick_bits, 0) == sample_max);
-  }
-  PolyTable p2 = PolyTable(PolyTable::sine, 0, quarter_table_size);
-  CHECK(p2.next(0, 0) == 0);
-  CHECK(p2.next(quarter_table_size << subtick_bits, 0) == sample_max);
-  CHECK(p2.next(half_table_size << subtick_bits, 0) == -4);  // almost 0
-  CHECK(p2.next((half_table_size + quarter_table_size) << subtick_bits, 0) == sample_min + 1);  // almost
-}

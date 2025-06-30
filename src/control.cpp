@@ -41,20 +41,6 @@ void Sigmoid::set(float v) {
 }
 
 
-class Save : public Input {
-
-public:
-
-  Save(float *sav) : saved(sav) {};
-  void set(float val) override {*saved = val;}
-  
-private:
-  
-  float *saved;
-  
-};
-  
-
 Exp::Exp(Input& del) : Delegate(del) {};
 
 void Exp::set(float v) {

@@ -237,12 +237,6 @@ const Node& Manager::build_fm_simple() {
   return fm;
 }
 
-TEST_CASE("BuildFM_SIMPLE") {
-  Manager m = Manager();
-  CHECK(m.build(m.FM_SIMPLE).next(50, 0) == 12866);
-  CHECK(m.n_panes() == 3);  // carrier, modulator, fm gain/balance
-}
-
 // panes:
 //   1 - freq/dex/blk
 //   2 - freq/dex/det
@@ -255,13 +249,6 @@ const Node& Manager::build_fm_lfo() {
   Node& am = add_node<AM>(l, m);
   Node& fm = add_fm(c, am, 0.5, 1.0 / (1 << (phi_fudge_bits - 4)));
   return fm;
-}
-
-TEST_CASE("BuildFM_LFO") {
-  Manager m = Manager();
-  int32_t amp = m.build(m.FM_LFO).next(123, 0);
-  CHECK(amp == 26914);  // exact value not important
-  CHECK(m.n_panes() == 4);  // carrier, modulator, lfo, fm gain/balance
 }
 
 // panes:
@@ -293,13 +280,6 @@ const Node& Manager::build_fm_fb() {
   return latch;
 }
 
-TEST_CASE("BuildFM_FB") {
-  Manager m = Manager();
-  int32_t amp = m.build(m.FM_FB).next(666, 0);
-  CHECK(amp == -29058);  // exact value not important
-  CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance/flt balance
-}
-
 // panes:
 //   1 - freq/dex/wt0
 //   2 - wt1/wt2/wt3  (rotated to posn)
@@ -322,7 +302,3 @@ const Node& Manager::build_chord() {
   return m;
 }
 
-TEST_CASE("BuildChord") {
-  Manager m = Manager();
-  m.build(m.CHORD);
-}
