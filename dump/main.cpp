@@ -3,7 +3,8 @@
 
 #include "cosas/engine.h"
 #include "cosas/constants.h"
-#include "cosas/console.h"
+
+#include "console.h"
 
 
 int main() {

@@ -36,4 +36,7 @@ else()
     # tests, run_tests
     add_subdirectory(test)
 
+    # dump
+    add_subdirectory(dump)
+
 endif()
