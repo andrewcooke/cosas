@@ -123,8 +123,8 @@ public:
   [[nodiscard]] int16_t sample() const;
   void dump(std::ostream& c) const;
 private:
-  const uint32_t hidden = 1 << 23;
-  const uint32_t mask = hidden - 1;
+  constexpr static uint32_t HIDDEN = 1 << 23;
+  constexpr static uint32_t MASK = HIDDEN - 1;
   typedef union {
     float f;
     uint32_t u;

@@ -18,7 +18,7 @@ void Wavelib::init_wavetables() {
     if (offset == 0.0) saw_offset_0 = all_wavetables->size();
     all_wavetables->push_back(std::move(std::make_unique<WSaw>(offset)));
   }
-  
+
   sine_start = all_wavetables->size();
   for (const auto& gamma : {4.0, 2.0, 1.0, 0.5, 0.25}) {
     if (gamma == 1.0) sine_gamma_1 = all_wavetables->size();
@@ -37,14 +37,13 @@ void Wavelib::init_wavetables() {
   for (const auto& smooth : {1, 4, 16, 64, 256}) {
     if (smooth == 1) noise_smooth_1 = all_wavetables->size();
     all_wavetables->push_back(std::move(std::make_unique<Noise>(smooth)));
-  }  
+  }
 }
 
-Wavetable& Wavelib::operator[](size_t idx) {
+Wavetable& Wavelib::operator[](size_t idx) const {
   return *all_wavetables->at(idx);
 }
 
-size_t Wavelib::size() {
+size_t Wavelib::size() const {
   return all_wavetables->size();
 }
-

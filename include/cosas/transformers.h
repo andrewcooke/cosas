@@ -57,6 +57,7 @@ protected:
   Single14(const Node& nd, float v);
   uint16_t value;
   Value param;
+  const float v;
 };
 
 
@@ -119,7 +120,7 @@ public:
   class CircBuffer {
   public:
     explicit CircBuffer(size_t l);
-    int16_t next(int16_t cur);
+    int16_t next(int16_t cur) const;
   private:
     std::unique_ptr<std::vector<int32_t>> sums;
     mutable size_t circular_idx;
@@ -158,7 +159,7 @@ public:
   friend class Weight;
   MergeFloat(const Node& n, float w);
   void add_node(const Node& n, float w);
-  Weight& get_weight(size_t i);
+  Weight& get_weight(size_t i) const;
   [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
   virtual void normalize();

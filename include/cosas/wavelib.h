@@ -11,8 +11,8 @@
 class Wavelib {
 public:
   Wavelib();
-  Wavetable& operator[](size_t idx);
-  size_t size();
+  Wavetable& operator[](size_t idx) const;
+  [[nodiscard]] size_t size() const;
   // ideally, these would be constants
   size_t sine_start;
   size_t sine_gamma_1;

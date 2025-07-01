@@ -27,7 +27,7 @@ public:
 
 class PaneSet {
 public:
-  PaneSet();
+  PaneSet() = default;
   void append(std::unique_ptr<Pane> p);
 private:
   std::vector<std::unique_ptr<Pane>> panes;

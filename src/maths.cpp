@@ -128,7 +128,7 @@ IEEEFloat::IEEEFloat(double v) : IEEEFloat(static_cast<float>(v)) {};
 IEEEFloat::IEEEFloat(float v) : fc({.f = v}) {};
 
 IEEEFloat::IEEEFloat(uint32_t m, uint32_t e, uint32_t s) : fc({.u = 0}) {
-  fc.u = ((s & 1) << 31) | (e & 255) << 23 | (m & mask);
+  fc.u = ((s & 1) << 31) | (e & 255) << 23 | (m & MASK);
 }
 
 IEEEFloat::IEEEFloat(int v) : IEEEFloat(static_cast<int16_t>(v)) {};
@@ -138,11 +138,11 @@ IEEEFloat::IEEEFloat(int16_t v) : fc({.u = 0}) {
     uint32_t s = static_cast<uint32_t>(v < 0) << 31;
     uint32_t e = 127;
     uint32_t m = static_cast<uint32_t>(abs(v)) << 8;
-    while (!(m & hidden)) {
+    while (!(m & HIDDEN)) {
       m = m << 1;
       e--;
     }
-    fc.u = s | (e << 23) | (m & mask);
+    fc.u = s | (e << 23) | (m & MASK);
   }
 }
 
@@ -159,16 +159,15 @@ uint32_t IEEEFloat::e() const {
 }
 
 uint32_t IEEEFloat::m() const {
-  return fc.u & mask;
+  return fc.u & MASK;
 }
 
 int16_t IEEEFloat::sample() const {
   if (e()) {
-    auto v = static_cast<int16_t>((m() | hidden) >> (8 + 127 - e()));
+    auto v = static_cast<int16_t>((m() | HIDDEN) >> (8 + 127 - e()));
     if (s()) v = static_cast<int16_t>(-v);
     return v;
-  }
-  else {
+  } else {
     return 0;
   }
 }
