@@ -16,10 +16,10 @@ size_t tick2idx(int32_t tick, int32_t phi) {
   return (static_cast<uint32_t>(tick) >> SUBTICK_BITS) % FULL_TABLE_SIZE;
 }
 
-int32_t hz2tick(float hz) {
+int32_t hz2tick(const float hz) {
   return static_cast<int32_t>(hz * (1 << SUBTICK_BITS));
 }
 
-uint32_t hz2freq(float hz) {
-  return static_cast<uint32_t>(abs(hz) * (1 << SUBTICK_BITS));
+uint32_t hz2freq(const float hz) {
+  return static_cast<uint32_t>(fabsf(hz) * (1 << SUBTICK_BITS));
 }

@@ -7,9 +7,9 @@
 TEST_CASE("Oscillator, Wavedex") {
   Wavelib w = Wavelib();
   AbsDexOsc o = AbsDexOsc(4400, w, w.sine_gamma_1);
-  CHECK(o.next(1000, 0) == 5800);
+  CHECK(o.next(1000, 0) == -32417);
   o.get_dex_param().set(w.square_duty_05);
-  CHECK(o.next(1000, 0) == 32767);
+  CHECK(o.next(1000, 0) == -32767);
 }
 
 
@@ -17,18 +17,32 @@ TEST_CASE("Oscillator, Detune") {
   Wavelib w = Wavelib();
   AbsDexOsc o1 = AbsDexOsc(4400, w, w.sine_gamma_1);
   RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_freq_param(), 1, 1);
-  CHECK(o2.next(1000, 0) == 5800);
+  CHECK(o2.next(1000, 0) == -32417);
   o2.get_freq_param().get_det_param().set(0.9);
-  CHECK(o2.next(1000, 0) != 5800);
+  CHECK(o2.next(1000, 0) != -32417);
+}
+
+
+TEST_CASE("Oscillator, AbsDexOsc") {
+  Wavelib w = Wavelib();
+  AbsDexOsc o = AbsDexOsc(440, w, w.sine_gamma_1);
+  // there are table_size samples a second.  a 440hz note takes 1/440s
+  // for one cycle, which is sample_rate/440 samples.
+  CHECK(o.next(0.0 * SAMPLE_RATE / 440, 0) == 0);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MAX) < 1000);
+  CHECK(abs(o.next(0.5 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.75 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
+  CHECK(abs(o.next(1.0 * SAMPLE_RATE / 440, 0) - 0) < 1000);
 }
 
 
 TEST_CASE("Oscillator, AbsPolyOsc") {
   AbsPolyOsc o = AbsPolyOsc(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE);
   // there are table_size samples a second.  a 440hz note takes 1/440s
-  // for one cycle, which is table_size/440 samples.  so a quarter of
-  // a cycle takes quarter_table_size/440. 
-  CHECK(o.next(0.0 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MAX);  // almost
-  CHECK(o.next(0.5 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MIN);  // almost
-  CHECK(o.next(1.0 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MAX);  // almost
+  // for one cycle, which is sample_rate/440 samples.
+  CHECK(o.next(0.0 * SAMPLE_RATE / 440, 0) == 0);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MAX) < 1000);
+  CHECK(abs(o.next(0.5 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.75 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
+  CHECK(abs(o.next(1.0 * SAMPLE_RATE / 440, 0) - 0) < 1000);
 }

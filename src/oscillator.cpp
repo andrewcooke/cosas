@@ -25,13 +25,13 @@ void FrequencyParam::set_oscillator(const uint32_t f) const {  // const because 
 }
 
 
-// TODO - what's hapoening here w frequency and set_oscillator and types?
-AbsFreqParam::AbsFreqParam(BaseOscillator* o, const float f) : FrequencyParam(o), frequency(f) {
+AbsFreqParam::AbsFreqParam(BaseOscillator* o, const float f) : FrequencyParam(o), frequency(hz2freq(f)) {
   set_oscillator(frequency);
 };
 
 void AbsFreqParam::set(const float f) {
-  set_oscillator(f);
+  frequency = hz2freq(f);
+  set_oscillator(frequency);
   set_relative_freqs(frequency);
 }
 
@@ -100,9 +100,7 @@ void WavedexMixin::WavedexParam::set(float val) {
 
 
 AbsDexOsc::AbsDexOsc(float f, Wavelib& wl, size_t widx)
-  : BaseOscillator(0, &wl[widx]), WavedexMixin(this, wl), freq_param(AbsFreqParam(this, f)) {
-  get_freq_param().set(f);  // push initial value
-}
+  : BaseOscillator(hz2freq(f), &wl[widx]), WavedexMixin(this, wl), freq_param(AbsFreqParam(this, f)) {}
 
 AbsFreqParam& AbsDexOsc::get_freq_param() {
   return freq_param;
@@ -156,9 +154,7 @@ void PolyMixin::update() {
 
 
 AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
-  : BaseOscillator(0, nullptr), PolyMixin(this, shp, a, off), freq_param(AbsFreqParam(this, f)) {
-  get_freq_param().set(f);  // push initial value
-}
+  : BaseOscillator(hz2freq(f), nullptr), PolyMixin(this, shp, a, off), freq_param(AbsFreqParam(this, f)) {}
 
 AbsFreqParam& AbsPolyOsc::get_freq_param() {
   return freq_param;

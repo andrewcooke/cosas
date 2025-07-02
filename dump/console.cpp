@@ -47,7 +47,7 @@ void dump_poly(float f, size_t shp, size_t asym, size_t off, size_t n) {
 }
 
 void dump_dex(float f, Wavelib& w, size_t idx) {
-  AbsDexOsc o = AbsDexOsc(w, idx, f);
+  AbsDexOsc o = AbsDexOsc(f, w, idx);
   for (size_t i = 0; i < FULL_TABLE_SIZE / 440; i++) {
     std::cout << i << " " << o.next(i << SUBTICK_BITS, 0) << std::endl;;
   }
@@ -57,7 +57,7 @@ void dump(Manager::Engine e, size_t n) {
   auto m = Manager();
   const Node& fm = m.build(e);
   for (size_t i = 0; i < n; i++) {
-    int16_t amp = fm.next(i << SUBTICK_BITS, 0);
+    int16_t amp = fm.next(i, 0);
     std::cout << i << " " << amp << std::endl;
   }
 }
