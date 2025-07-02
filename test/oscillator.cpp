@@ -25,14 +25,10 @@ TEST_CASE("Oscillator, Detune") {
 
 TEST_CASE("Oscillator, AbsPolyOsc") {
   AbsPolyOsc o = AbsPolyOsc(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE);
-  CHECK(o.next(0, 0) == 0);
   // there are table_size samples a second.  a 440hz note takes 1/440s
   // for one cycle, which is table_size/440 samples.  so a quarter of
   // a cycle takes quarter_table_size/440. 
-  CHECK(o.next((QUARTER_TABLE_SIZE / 440) << SUBTICK_BITS, 0) == SAMPLE_MAX - 1);  // almost
-}
-
-
-TEST_CASE("Oscillator, Frequency") {
-
+  CHECK(o.next(0.0 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MAX);  // almost
+  CHECK(o.next(0.5 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MIN);  // almost
+  CHECK(o.next(1.0 * QUARTER_TABLE_SIZE / 440, 0) == SAMPLE_MAX);  // almost
 }
