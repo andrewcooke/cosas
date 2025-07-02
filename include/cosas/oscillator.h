@@ -67,7 +67,7 @@ public:
     RelFreqParam* rel_freq_param;
   };
   friend class DetuneParam;
-  RelFreqParam(RelDexOsc* o, AbsFreqParam& ref, float r, float d);
+  RelFreqParam(BaseOscillator* o, AbsFreqParam& ref, float r, float d);
   void set(float f) override;  // set ratio
   void set_root(uint32_t r);
   DetuneParam& get_det_param();  // expose a second param
@@ -130,9 +130,9 @@ public:
   };
   PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
   friend class CtrlParam;
-  Param& get_shp_param();
-  Param& get_asym_param();
-  Param& get_off_param();
+  Param& get_shp_param() const;
+  Param& get_asym_param() const;
+  Param& get_off_param() const;
 protected:
   void update();
 private:
@@ -147,12 +147,21 @@ private:
 };
 
 
-class AbsPolyOsc : public BaseOscillator, public PolyMixin {
+class AbsPolyOsc final : public BaseOscillator, public PolyMixin {
 public:
   AbsPolyOsc(float f, size_t shp, size_t asyn, size_t off);
   AbsFreqParam& get_freq_param();
 private:
   AbsFreqParam freq_param;
+};
+
+
+class RelPolyOsc final : public BaseOscillator, public PolyMixin {
+public:
+  RelPolyOsc(size_t shp, size_t asym, size_t off, AbsFreqParam& root, float f, float d);
+  RelFreqParam& get_freq_param();
+private:
+  RelFreqParam freq_param;
 };
 
 

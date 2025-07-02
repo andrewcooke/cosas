@@ -4,7 +4,7 @@
 #include "cosas/wavelib.h"
 
 
-Wavelib::Wavelib()
+Wavelib::Wavelib() // NOLINT(*-pro-type-member-init)
   : all_wavetables(std::move(std::make_unique<std::vector<std::unique_ptr<Wavetable>>>())) {
   init_wavetables();
 }

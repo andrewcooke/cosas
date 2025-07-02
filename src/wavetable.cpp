@@ -2,8 +2,6 @@
 #include <algorithm>
 #include <random>
 #include <cmath>
-#include <iostream>
-#include <cmath>
 
 #include "cosas/constants.h"
 #include "cosas/maths.h"
@@ -141,34 +139,35 @@ float PolyTable::pow2(float x, size_t n) {
 }
 
 float PolyTable::tox(size_t i, size_t lo, size_t hi) {
-  return lo ? static_cast<float>(hi - i) / (hi - lo) : static_cast<float>(i - lo) / (hi - lo);
+  return lo ? static_cast<float>(hi - i) / static_cast<float>(hi - lo)
+            : static_cast<float>(i - lo) / static_cast<float>(hi - lo);
 }
 
 void PolyTable::make_concave(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = SAMPLE_MAX * pow2(tox(i, lo, hi), shape);
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * pow2(tox(i, lo, hi), shape));
 }
 
 void PolyTable::make_linear(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = SAMPLE_MAX * tox(i, lo, hi);
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * tox(i, lo, hi));
 }
 
 void PolyTable::make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = SAMPLE_MAX * (1 - pow2(1 - tox(i, lo, hi), shape));
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * (1 - pow2(1 - tox(i, lo, hi), shape)));
 }
 
 void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = SAMPLE_MAX * sin(M_PI * tox(i, lo, hi) / 2.0f);
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sin(M_PI * tox(i, lo, hi) / 2.0f));
 }
 
 void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(SAMPLE_MIN, SAMPLE_MAX);
-  for (size_t i = lo; i < hi; i++) table.at(i) = SAMPLE_MAX * distrib(gen);
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * distrib(gen));
 }
 
 void PolyTable::make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = lo ? SAMPLE_MAX : SAMPLE_MIN;
+  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(lo ? SAMPLE_MAX : SAMPLE_MIN);
 }
 
 void PolyTable::make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi) {

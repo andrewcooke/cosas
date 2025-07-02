@@ -31,3 +31,8 @@ TEST_CASE("Oscillator, AbsPolyOsc") {
   // a cycle takes quarter_table_size/440. 
   CHECK(o.next((QUARTER_TABLE_SIZE / 440) << SUBTICK_BITS, 0) == SAMPLE_MAX - 1);  // almost
 }
+
+
+TEST_CASE("Oscillator, Frequency") {
+
+}

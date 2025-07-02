@@ -47,7 +47,7 @@ void AbsFreqParam::set_relative_freqs(const uint32_t f) const {
   for (RelFreqParam* r: relative_freqs) r->set_root(f);
 }
 
-RelFreqParam::RelFreqParam(RelDexOsc* o, AbsFreqParam& ref, float r, float d)
+RelFreqParam::RelFreqParam(BaseOscillator* o, AbsFreqParam& ref, float r, float d)
   : FrequencyParam(o), root(ref.get_frequency()), ratio(SimpleRatio(r)), detune(scale2mult_shift8(d)), detune_param(this) {
   recalculate();
 }
@@ -93,8 +93,8 @@ WavedexMixin::WavedexParam& WavedexMixin::get_dex_param() {
 WavedexMixin::WavedexParam::WavedexParam(BaseOscillator* o, Wavelib& wl) : oscillator(o), wavelib(wl) {};
 
 void WavedexMixin::WavedexParam::set(float val) {
-  size_t n = wavelib.size() - 1;
-  size_t widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
+  const size_t n = wavelib.size() - 1;
+  const size_t widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
   oscillator->wavetable = &wavelib[widx];
 }
 
@@ -136,15 +136,15 @@ PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   update();
 }
 
-Param& PolyMixin::get_shp_param() {
+Param& PolyMixin::get_shp_param() const {
   return *shape_param;
 }
 
-Param& PolyMixin::get_asym_param() {
+Param& PolyMixin::get_asym_param() const {
   return *asym_param;
 }
 
-Param& PolyMixin::get_off_param() {
+Param& PolyMixin::get_off_param() const {
   return *offset_param;
 }
 
@@ -161,6 +161,16 @@ AbsPolyOsc::AbsPolyOsc(float f, size_t shp, size_t a, size_t off)
 }
 
 AbsFreqParam& AbsPolyOsc::get_freq_param() {
+  return freq_param;
+}
+
+
+RelPolyOsc::RelPolyOsc(size_t shp, size_t asym, size_t off, AbsFreqParam& root, float f, float d)
+  : BaseOscillator(0, nullptr), PolyMixin(this, shp, asym, off), freq_param(RelFreqParam(this, root, f, d)) {
+  get_freq_param().set(f);  // push initial value
+}
+
+RelFreqParam& RelPolyOsc::get_freq_param() {
   return freq_param;
 }
 

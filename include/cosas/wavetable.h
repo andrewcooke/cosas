@@ -114,15 +114,15 @@ public:
   static constexpr size_t SQUARE = N_CONCAVE + N_CONVEX + 3;
   static constexpr size_t N_SHAPES = SQUARE + 1;
 private:
-  float pow2(float x, size_t n);
-  float tox(size_t i, size_t lo, size_t hi);
-  void make_concave(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
-  void make_linear(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
-  void make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
-  void make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
-  void make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
-  void make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
-  void make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
+  static float pow2(float x, size_t n);
+  static float tox(size_t i, size_t lo, size_t hi);
+  static void make_concave(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
+  static void make_linear(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
+  static void make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
 };
 
 
