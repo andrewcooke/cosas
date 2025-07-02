@@ -11,6 +11,7 @@ void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
   const auto p = m.get_pane(pane);
   for (size_t i = 0; i < n; i++) {
     p.top.set(i / static_cast<float>(n));
+    // TODO - i think this is wrong.  why the shift?  it's frequency that's scaled so we can go below unity
     const int16_t amp = fm.next(static_cast<int32_t>(i << SUBTICK_BITS), 0);
     std::cout << i << " " << amp << std::endl;
   }

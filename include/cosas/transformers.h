@@ -159,7 +159,7 @@ public:
   friend class Weight;
   MergeFloat(const Node& n, float w);
   void add_node(const Node& n, float w);
-  Weight& get_weight(size_t i) const;
+  [[nodiscard]] Weight& get_weight(size_t i) const;
   [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
   virtual void normalize();
@@ -182,9 +182,9 @@ protected:
 
 
 // forward to Gain14 on assumption this is faster
-class Merge : public Merge14 {
+class Merge final : public Merge14 {
 public:
-  Merge(const Node& nd, float wo);
+  Merge(const Node& n, float w);
 };
 
 

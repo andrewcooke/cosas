@@ -194,7 +194,5 @@ int16_t Merge14::next(const int32_t tick, const int32_t phi) const {
 }
 
 
-Merge::Merge(const Node& nd, const float wo) : Merge14(nd, wo) {};
-
-
+Merge::Merge(const Node& n, const float w) : Merge14(n, w) {};
 

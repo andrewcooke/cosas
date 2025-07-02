@@ -45,12 +45,12 @@ private:
   void rotate_panes(size_t a, size_t b) const;
   Input& lin_control(Input& in, float c, float lo, float hi);
   Input& log_control(Input& in, float c, float lo, float hi);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc(float frq, size_t widx, Input& right);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc(float frq, size_t widx);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
-  std::tuple<AbsoluteFreq&, Node&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
-  Node& add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d);
+  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc(float frq, size_t widx, Input& right);
+  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc(float frq, size_t widx);
+  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
+  std::tuple<AbsFreqParam&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
+  std::tuple<AbsFreqParam&, Node&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
+  Node& add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d);
   Merge& add_balance(Node& a, Node& b, float bal);
   Node& add_fm(Node& c,  Node& m, float bal, float amp);
   Node& add_fm(Node& c,  Node& m, float bal, float amp, Input& right);

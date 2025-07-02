@@ -123,10 +123,10 @@ Input& Manager::log_control(Input& in, float c, float lo, float hi) {
 
 // panes:
 //   1 - freq/dex/arg
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx, Input& right) {
+std::tuple<AbsFreqParam&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx, Input& right) {
   auto& o = add_node<AbsDexOsc>(frq, *wavelib, widx);
-  AbsoluteFreq& f = o.get_freq();
-  WavedexMixin::Wavedex& w = o.get_dex();
+  AbsFreqParam& f = o.get_freq_param();
+  WavedexMixin::WavedexParam& w = o.get_dex_param();
   Input& top = log_control(f, frq, 1.0 / (1 << SUBTICK_BITS), 0.5 * SAMPLE_RATE);
   Input& left = lin_control(w, static_cast<float>(widx), 0, static_cast<float>(wavelib->size() - 1));
   add_pane(top, left, right);
@@ -135,13 +135,13 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx
 
 // panes:
 //   1 - freq/dex/blk
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx) {
+std::tuple<AbsFreqParam&, Node&> Manager::add_abs_dex_osc(float frq, size_t widx) {
   return add_abs_dex_osc(frq, widx, add_input<Blank>());
 }
 
 // panes:
 //   1 - freq/dex/gain
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc_w_gain(float frq, size_t widx, float amp) {
+std::tuple<AbsFreqParam&, Node&> Manager::add_abs_dex_osc_w_gain(float frq, size_t widx, float amp) {
   auto& b = add_input<Blank>();
   auto [f, o] = add_abs_dex_osc(frq, widx, b);
   Gain& g = add_node<Gain>(o, amp);
@@ -151,13 +151,13 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_dex_osc_w_gain(float frq, size
 
 // panes:
 //   1 - freq/dex/det
-Node& Manager::add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d) {
+Node& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d) {
   auto& o = add_node<RelDexOsc>(*wavelib, widx, root, r, d);
-  RelativeFreq& f = o.get_freq();
+  RelFreqParam& f = o.get_freq_param();
   Input& top = log_control(f, 1, 1.0f / static_cast<float>(root.get_frequency() << SUBTICK_BITS),
                            0.5f * SAMPLE_RATE / static_cast<float>(root.get_frequency()));
-  Input& left = lin_control(o.get_dex(), static_cast<float>(widx), 0, static_cast<float>(wavelib->size()));
-  Input& right = log_control(f.get_det(), 1, 0.9, 1.1);
+  Input& left = lin_control(o.get_dex_param(), static_cast<float>(widx), 0, static_cast<float>(wavelib->size()));
+  Input& right = log_control(f.get_det_param(), 1, 0.9, 1.1);
   add_pane(top, left, right);
   return o;
 }
@@ -165,13 +165,13 @@ Node& Manager::add_rel_dex_osc(AbsoluteFreq& root, size_t widx, float r, float d
 // panes:
 //   1 - off/shp/asym
 //   (freq not mapped)
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
+std::tuple<AbsFreqParam&, Node&> Manager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_node<AbsPolyOsc>(frq, shp, asym, off);
-  AbsoluteFreq& f = o.get_freq();
-  Input& top = lin_control(o.get_off(), QUARTER_TABLE_SIZE, 0, HALF_TABLE_SIZE);
-  Input& left = lin_control(o.get_shp(), PolyTable::SINE, 0, PolyTable::N_SHAPES);
+  AbsFreqParam& f = o.get_freq_param();
+  Input& top = lin_control(o.get_off_param(), QUARTER_TABLE_SIZE, 0, HALF_TABLE_SIZE);
+  Input& left = lin_control(o.get_shp_param(), PolyTable::SINE, 0, PolyTable::N_SHAPES);
   int n2 = PolyTable::N_SHAPES >> 1;
-  Input& right = lin_control(o.get_asym(), 0, static_cast<float>(-n2), static_cast<float>(PolyTable::N_SHAPES - n2));
+  Input& right = lin_control(o.get_asym_param(), 0, static_cast<float>(-n2), static_cast<float>(PolyTable::N_SHAPES - n2));
   add_pane(top, left, right);
   return {f, o};
 }
@@ -179,7 +179,7 @@ std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_poly_osc(float frq, size_t shp
 // panes:
 //   1 - freq/blk/gain
 //   2 - off/shp/asym
-std::tuple<AbsoluteFreq&, Node&> Manager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
+std::tuple<AbsFreqParam&, Node&> Manager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
                                                                   const size_t off, float amp) {
   auto& top = add_input<Blank>();
   auto& left = add_input<Blank>();
@@ -296,9 +296,9 @@ const Node& Manager::build_fm_fb() {
 const Node& Manager::build_chord() {
   auto& b = add_input<Blank>();
   auto [f0, o0] = add_abs_dex_osc(440, wavelib->sine_gamma_1, b);
-  Node& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0, 1);
-  Node& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0, 1);
-  Node& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0, 1);
+  const Node& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0, 1);
+  const Node& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0, 1);
+  const Node& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0, 1);
   auto& m = add_node<Merge>(o0, 0.5);
   b.unblank(&m.get_weight(0));
   m.add_node(o1, 1);

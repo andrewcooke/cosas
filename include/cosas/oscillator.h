@@ -11,22 +11,23 @@
 #include "cosas/wavelib.h"
 
 
+// looks up the waveform in a wavetable, given the frequency
 class BaseOscillator : public Node {
 public:
   friend class PolyMixin;
-  friend class Frequency;
+  friend class FrequencyParam;
   friend class WavedexMixin;
   BaseOscillator(uint32_t f, Wavetable *t);
   [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
 protected:
-  uint32_t frequency;
+  uint32_t frequency;  // subtick units
   Wavetable* wavetable;
 };
 
 
-class Frequency : public Param {
+class FrequencyParam : public Param {
 public:
-  explicit Frequency(BaseOscillator* o);
+  explicit FrequencyParam(BaseOscillator* o);
 protected:
   // on change, frequency is sent to controlled oscillator
   void set_oscillator(uint32_t f) const;
@@ -35,121 +36,123 @@ protected:
 
 
 class AbsDexOsc;
-class RelativeFreq;
+class RelFreqParam;
 
 
-class AbsoluteFreq final : public Frequency {
+class AbsFreqParam final : public FrequencyParam {
 public:
-  AbsoluteFreq(BaseOscillator* o, float freq);
+  AbsFreqParam(BaseOscillator* o, float f);
   void set(float f) override;  // set frequency (propagate to osc and rel freqs)
   [[nodiscard]] uint32_t get_frequency() const;  // used by rel freq in initial setup
   // on change, frequency is sent to dependent relative freqs
-  void add_relative_freq(RelativeFreq* f);
+  void add_relative_freq(RelFreqParam* f);
 private:
   void set_relative_freqs(uint32_t f) const;
   // we have subtick_bits of fraction so 16 bits is insufficient
   uint32_t frequency;
-  std::vector<RelativeFreq*> relative_freqs;
+  std::vector<RelFreqParam*> relative_freqs;
 };
 
 
 class RelDexOsc;
 
 
-class RelativeFreq final : public Frequency {
+class RelFreqParam final : public FrequencyParam {
 public:
-  class Detune final : public Param {
+  class DetuneParam final : public Param {
   public:
-    explicit Detune(RelativeFreq* f);
+    explicit DetuneParam(RelFreqParam* f);
     void set(float val) override;
   private:
-    RelativeFreq* frequency;
+    RelFreqParam* rel_freq_param;
   };
-  RelativeFreq(RelDexOsc* o, AbsoluteFreq& ref, float r, float d);
+  friend class DetuneParam;
+  RelFreqParam(RelDexOsc* o, AbsFreqParam& ref, float r, float d);
   void set(float f) override;  // set ratio
+  void set_root(uint32_t r);
+  DetuneParam& get_det_param();  // expose a second param
+protected:
   void set_detune(float f);
-  void set_root(uint32_t);
-  Detune& get_det();  // expose a second param
 private:
   void recalculate();
   uint32_t root;
   SimpleRatio ratio;
   int16_t detune;
-  Detune detune_param;
+  DetuneParam detune_param;
 };
 
 
 class WavedexMixin {
 public:
-  class Wavedex : public Param {
+  class WavedexParam : public Param {
   public:
-    Wavedex(BaseOscillator* o, Wavelib& wl);
+    WavedexParam(BaseOscillator* o, Wavelib& wl);
     void set(float val) override;
   private:
     BaseOscillator* oscillator;
     Wavelib& wavelib;
   };
-  friend class Wavedex;
+  friend class WavedexParam;
   WavedexMixin(BaseOscillator* o, Wavelib& wl);
-  Wavedex& get_dex();
+  WavedexParam& get_dex_param();
 protected:
-  Wavedex wavedex;
+  WavedexParam wavedex;
 };
 
 
 class AbsDexOsc final : public BaseOscillator, public WavedexMixin {
 public:
   AbsDexOsc(float f, Wavelib& wl, size_t widx);
-  AbsoluteFreq& get_freq();
+  AbsFreqParam& get_freq_param();
 private:
-  AbsoluteFreq freq_param;
+  AbsFreqParam freq_param;
 };
 
 
 class RelDexOsc final : public BaseOscillator, public WavedexMixin {
 public:
-  RelDexOsc(Wavelib& wl, size_t widx, AbsoluteFreq& root, float f, float d);
-  RelativeFreq& get_freq();
+  RelDexOsc(Wavelib& wl, size_t widx, AbsFreqParam& root, float f, float d);
+  RelFreqParam& get_freq_param();
 private:
-  RelativeFreq freq_param;
+  RelFreqParam freq_param;
 };
 
 
 class PolyMixin {
 public:
-  class Ctrl : public Param {
+  class CtrlParam : public Param {
   public:
-    Ctrl(PolyMixin& m, std::function<void(float)> d);
+    CtrlParam(PolyMixin& m, std::function<void(float)> d);
     void set(float val) override;
   private:
     PolyMixin& mixin;
     std::function<void(float)> delegate;
   };
   PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
-  friend class Ctrl;
-  Param& get_shp();
-  Param& get_asym();
-  Param& get_off();
+  friend class CtrlParam;
+  Param& get_shp_param();
+  Param& get_asym_param();
+  Param& get_off_param();
 protected:
   void update();
 private:
-  std::unique_ptr<Ctrl> p_shape;
-  std::unique_ptr<Ctrl> p_asym;
-  std::unique_ptr<Ctrl> p_offset;
+  std::unique_ptr<CtrlParam> shape_param;
+  std::unique_ptr<CtrlParam> asym_param;
+  std::unique_ptr<CtrlParam> offset_param;
   BaseOscillator* oscillator;
   float shape;
   float asym;
   float offset;
-  std::unique_ptr<Wavetable> unq_wtable;
+  std::unique_ptr<Wavetable> wtable;
 };
 
 
 class AbsPolyOsc : public BaseOscillator, public PolyMixin {
 public:
   AbsPolyOsc(float f, size_t shp, size_t asyn, size_t off);
-  AbsoluteFreq& get_freq();
+  AbsFreqParam& get_freq_param();
 private:
-  AbsoluteFreq freq_param;
+  AbsFreqParam freq_param;
 };
 
 
