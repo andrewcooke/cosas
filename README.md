@@ -1,8 +1,10 @@
 
-# Cosas
+# cosas
 
-Various utilities for the Music Thing Workshop Computer.
+various utilities and applications for the Music Thing Workshop Computer.
 
-The plan is to have a unified UI.  And presumably static linking to generate minimal size.
+the plan is to have a unified UI via the weas library.
 
-Current status (2025-06-30) - can build and dploy an empty program to pico and also run tests on amd64.
+significant waypoints:
+* 2025-07-03 - can flash LEDs on the pico
+* 2025-06-30 - can generate waveforms on the laptop and deploy an empty program to the pico
