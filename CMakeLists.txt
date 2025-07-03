@@ -26,7 +26,7 @@ if (BUILD STREQUAL "pico")
 
 else()
 
-    #testing is only on laptop
+    # testing is only on laptop
     include(FetchContent)
     FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG "master")
     FetchContent_MakeAvailable(doctest)
