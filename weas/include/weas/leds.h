@@ -15,7 +15,7 @@ private:
     static constexpr uint BASE_GPIO = 10;
 public:
     static LEDs& get();
-    void set(uint index, uint8_t brightness);
+    void set(uint index, uint8_t b);
 };
 
 
