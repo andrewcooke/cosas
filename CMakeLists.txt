@@ -22,6 +22,7 @@ if (BUILD STREQUAL "pico")
 
     # apps to deploy on cards
     add_subdirectory(holawea)
+    add_subdirectory(luzwea)
 
 else()
 

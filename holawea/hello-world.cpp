@@ -1,5 +1,5 @@
 
-#include <stdio.h>
+#include <cstdio>
 #include "pico/stdlib.h"
 
 int main() {
@@ -10,4 +10,3 @@ int main() {
     }
     return 0;
 }
-
