@@ -10,7 +10,7 @@ if (BUILD STREQUAL "pico")
     pico_sdk_init()
 endif()
 
-project(cosas VERSION 0.0 DESCRIPTION "just trying to get cmake working" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
+project(cosas VERSION 0.0 DESCRIPTION "ac's code for mtm" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
