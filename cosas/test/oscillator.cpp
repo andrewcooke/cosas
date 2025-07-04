@@ -30,9 +30,9 @@ TEST_CASE("Oscillator, AbsDexOsc") {
   // for one cycle, which is sample_rate/440 samples.
   CHECK(o.next(0.0 * SAMPLE_RATE / 440, 0) == 0);
   CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MAX) < 1000);
-  CHECK(abs(o.next(0.5 * SAMPLE_RATE / 440, 0) - 0) < 1000);
-  CHECK(abs(o.next(0.75 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
-  CHECK(abs(o.next(1.0 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - 0) < 1000);
 }
 
 
@@ -42,7 +42,7 @@ TEST_CASE("Oscillator, AbsPolyOsc") {
   // for one cycle, which is sample_rate/440 samples.
   CHECK(o.next(0.0 * SAMPLE_RATE / 440, 0) == 0);
   CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MAX) < 1000);
-  CHECK(abs(o.next(0.5 * SAMPLE_RATE / 440, 0) - 0) < 1000);
-  CHECK(abs(o.next(0.75 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
-  CHECK(abs(o.next(1.0 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - 0) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - SAMPLE_MIN) < 1000);
+  CHECK(abs(o.next(0.25 * SAMPLE_RATE / 440, 0) - 0) < 1000);
 }
