@@ -16,5 +16,18 @@ int main() {
                 sleep_ms(1);
             }
         }
+        for (uint16_t n = 0; n < 0xfff; n++) {
+            leds.display12bits(n);
+            sleep_ms(1);
+        }
+        for (uint delay = 100; delay > 2; delay = 0.75 * delay) {
+            for (uint c = 0; c < 2; c++) {
+                for (uint8_t n = 0; n < 10; n++) {
+                    leds.column10levels(c, n);
+                    sleep_ms(delay);
+                }
+            }
+        }
+        leds.all(false);
     }
 }
