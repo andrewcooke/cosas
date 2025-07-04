@@ -12,7 +12,7 @@
 
 
 // looks up the waveform in a wavetable, given the frequency
-class BaseOscillator : public Node {
+class BaseOscillator : public RelSource {
 public:
   friend class PolyMixin;
   friend class FrequencyParam;

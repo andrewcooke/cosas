@@ -1,10 +1,10 @@
 
 #include "pico/time.h"
 #include "pico/types.h"
-#include "weas/leds.h"
+#include "weas/led.h"
 
 int main() {
-    LEDs& leds = LEDs::get();
+    LED& leds = LED::get();
     while (true) {
         for (uint led = 0; led < 6; led++) {
             for (uint8_t b = 0; b < 0xff; b++) {

@@ -13,7 +13,7 @@
 // note that we can use fp to generate tables because it's done
 // up-front (even, we could load from disc).
 
-class Wavetable : public Source {};
+class Wavetable : public AbsSource {};
 
 
 class Square final : public Wavetable {

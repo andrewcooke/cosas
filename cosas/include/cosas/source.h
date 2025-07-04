@@ -5,16 +5,18 @@
 #include <cstdint>
 
 
-class Source {
+class AbsSource {
 public:
-  // make sure we cleanly delete subclasses via a base pointer
-  virtual ~Source() = default;
-  // tick needs to be signed because phi can be negative and we need
-  // to add the two.  also, next is perhaps not const because of Latch?
-  // note - we can't merge phi into tick becuse it depends on the
-  // source frequency (see oscillator.cpp)
+  virtual ~AbsSource() = default;
   [[nodiscard]] virtual int16_t next(int32_t tick, int32_t phi) const = 0;
-  [[nodiscard]] int16_t next(int32_t tick) const;
+};
+
+
+class RelSource {
+public:
+  virtual ~RelSource() = default;
+  // typically delta is 1
+  [[nodiscard]] virtual int16_t next(int32_t delta, int32_t phi) const = 0;
 };
 
 

@@ -9,25 +9,14 @@
 #include "cosas/source.h"
 
 
-// nodes are sources that are connected into an engine.
-
-// at some point they will include support for confuration (and likely
-// this will no longer be empty)
-
-// constant nodes are parametrised by mutable params, which
-// encapsulate the user input
-
-class Node : public Source {};
-
-
 // useful for testing
 
-class Constant final : public Node {
+class Constant final : public RelSource {
 
 public:
 
   Constant(int16_t v); // NOLINT(*-explicit-constructor)
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
 
 private:
 
@@ -37,12 +26,12 @@ private:
 extern Constant zero;
 
 
-class Sequence final : public Node {
+class Sequence final : public RelSource {
 
 public:
 
   Sequence(std::initializer_list<int16_t> vs);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
 
 private:
 
@@ -57,19 +46,19 @@ private:
 // and implemented with mutable to avoid polluting the Node/Source
 // interface.
 
-class Latch final : public Node {
+class Latch final : public RelSource {
 
 public:
 
   Latch();
-  void set_source(const Source* s) const;
-  int16_t next(int32_t tick, int32_t phi) const override;
+  void set_source(const RelSource* s) const;
+  int16_t next(int32_t delta, int32_t phi) const override;
 
   friend class SetOnInScope;
 
 private:
 
-  mutable const Source* source;
+  mutable const RelSource* source;
   mutable bool on = false;
   mutable int16_t previous = 0;
 };

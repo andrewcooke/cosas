@@ -5,11 +5,6 @@
 #include "cosas/constants.h"
 
 
-int16_t Source::next(int32_t tick) const {
-  return next(tick, 0);
-}
-
-
 size_t tick2idx(int32_t tick, int32_t phi) {
   // TODO - % may be expensive
   tick = (tick % static_cast<int32_t>(FULL_TABLE_SUB)) + phi;

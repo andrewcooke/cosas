@@ -29,14 +29,14 @@ int16_t Sequence::next(int32_t /* tick */, int32_t /* phi */) const {
 
 Latch::Latch() : source(&zero) {};
 
-void Latch::set_source(const Source* s) const {
+void Latch::set_source(const RelSource* s) const {
   source = s;
 }
 
-int16_t Latch::next(int32_t tick, int32_t phi) const {
+int16_t Latch::next(int32_t delta, int32_t phi) const {
   if (! on) {
     auto s = SetOnInScope(this);
-    previous = source->next(tick, phi);
+    previous = source->next(delta, phi);
   }
   return previous;
 }

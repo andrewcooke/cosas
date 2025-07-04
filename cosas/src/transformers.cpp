@@ -10,8 +10,8 @@
 #include "cosas/transformers.h"
 
 
-SingleFloat::SingleFloat(const Node& nd, float v)
-  : SingleNode(nd), value(v), param(Value(this)) {};
+SingleFloat::SingleFloat(const RelSource& nd, float v)
+  : SingleSource(nd), value(v), param(Value(this)) {};
 
 SingleFloat::Value::Value(SingleFloat* p) : parent(p) {};
 
@@ -20,10 +20,10 @@ void SingleFloat::Value::set(float v) {
 }
 
 
-GainFloat::GainFloat(const Node& nd, float amp) : SingleFloat(nd, amp) {};
+GainFloat::GainFloat(const RelSource& nd, float amp) : SingleFloat(nd, amp) {};
 
-int16_t GainFloat::next(const int32_t tick, const int32_t phi) const {
-  const int16_t a = node.next(tick, phi);
+int16_t GainFloat::next(const int32_t delta, const int32_t phi) const {
+  const int16_t a = src.next(delta, phi);
   return clip_16(value * static_cast<float>(a));
 }
 
@@ -32,8 +32,8 @@ SingleFloat::Value& GainFloat::get_amp() {
 }
 
 
-Single14::Single14(const Node& nd, const float v)
-  : SingleNode(nd), value(scale2mult_shift14(v)), param(Value(this)), v(v) {};
+Single14::Single14(const RelSource& nd, const float v)
+  : SingleSource(nd), value(scale2mult_shift14(v)), param(Value(this)), v(v) {};
 
 Single14::Value::Value(Single14* p) : parent(p) {};
 
@@ -42,10 +42,10 @@ void Single14::Value::set(const float v) {
 }
 
 
-Gain14::Gain14(const Node& nd, const float amp) : Single14(nd, amp) {};
+Gain14::Gain14(const RelSource& nd, const float amp) : Single14(nd, amp) {};
 
-int16_t Gain14::next(const int32_t tick, const int32_t phi) const {
-  int16_t a = node.next(tick, phi);
+int16_t Gain14::next(const int32_t delta, const int32_t phi) const {
+  int16_t a = src.next(delta, phi);
   int16_t b = mult_shift14(value, a);
   return b;
 }
@@ -55,16 +55,16 @@ Single14::Value& Gain14::get_amp() {
 }
 
 
-Gain::Gain(const Node& nd, float amp) : Gain14(nd, amp) {};
+Gain::Gain(const RelSource& nd, float amp) : Gain14(nd, amp) {};
 
 
 // these (float based) may be too slow?
 
 
-FloatFunc::FloatFunc(const Node& nd, float v) : SingleFloat(nd, v) {};
+FloatFunc::FloatFunc(const RelSource& nd, float v) : SingleFloat(nd, v) {};
 
-int16_t FloatFunc::next(const int32_t tick, const int32_t phi) const {
-  const int16_t sample = node.next(tick, phi);
+int16_t FloatFunc::next(const int32_t delta, const int32_t phi) const {
+  const int16_t sample = src.next(delta, phi);
   const bool neg = sample < 0;
   const float x = static_cast<float>(abs(sample)) / static_cast<float>(SAMPLE_MAX);
   const float y = func(x);
@@ -74,14 +74,14 @@ int16_t FloatFunc::next(const int32_t tick, const int32_t phi) const {
 }
 
 
-Compander::Compander(const Node& nd, float gamma) : FloatFunc(nd, gamma) {};
+Compander::Compander(const RelSource& nd, float gamma) : FloatFunc(nd, gamma) {};
 
 auto Compander::func(float x) const -> float {
   return powf(x, value);
 }
 
 
-Folder::Folder(const Node& nd, float k) : FloatFunc(nd, k) {};
+Folder::Folder(const RelSource& nd, float k) : FloatFunc(nd, k) {};
 
 // first half goes from flat to curve
 // second half actually folds
@@ -96,8 +96,8 @@ SingleFloat::Value& Folder::get_fold() {
 
 
 
-Boxcar::Boxcar(const Node& nd, size_t l)
-  : SingleNode(nd), cbuf(std::move(std::make_unique<CircBuffer>(l))), param(Length(this)) {}
+Boxcar::Boxcar(const RelSource& nd, size_t l)
+  : SingleSource(nd), cbuf(std::move(std::make_unique<CircBuffer>(l))), param(Length(this)) {}
 
 Boxcar::CircBuffer::CircBuffer(size_t l)
   : sums(std::move(std::make_unique<std::vector<int32_t>>(l, 0))), circular_idx(0) {}
@@ -118,8 +118,8 @@ void Boxcar::Length::set(const float v) {
   parent->cbuf = std::move(std::make_unique<CircBuffer>(l));
 }
 
-int16_t Boxcar::next(int32_t tick, int32_t phi) const {
-  return cbuf->next(node.next(tick, phi));
+int16_t Boxcar::next(int32_t delta, int32_t phi) const {
+  return cbuf->next(src.next(delta, phi));
 }
 
 Boxcar::Length& Boxcar::get_len() {
@@ -127,16 +127,16 @@ Boxcar::Length& Boxcar::get_len() {
 }
 
 
-MergeFloat::MergeFloat(const Node& n, const float w)
+MergeFloat::MergeFloat(const RelSource& n, const float w)
   : weights(std::move(std::make_unique<std::vector<Weight>>())),
-    nodes(std::move(std::make_unique<std::vector<const Node*>>())),
+    sources(std::move(std::make_unique<std::vector<const RelSource*>>())),
     given_weights(std::move(std::make_unique<std::vector<float>>())),
     norm_weights(std::move(std::make_unique<std::vector<float>>())) {
-  add_node(n, w);
+  add_source(n, w);
 }
 
-void MergeFloat::add_node(const Node& n, const float w) {
-  nodes->push_back(&n);
+void MergeFloat::add_source(const RelSource& n, const float w) {
+  sources->push_back(&n);
   given_weights->push_back(w);
   weights->push_back(Weight(this, weights->size()));
   normalize();
@@ -160,7 +160,7 @@ MergeFloat::Weight& MergeFloat::get_weight(size_t i) const {
 int16_t MergeFloat::next(const int32_t tick, const int32_t phi) const {
   float acc = 0;
   for (size_t i = 0; i < norm_weights->size(); i++) {
-    acc += norm_weights->at(i) * static_cast<float>(nodes->at(i)->next(tick, phi));
+    acc += norm_weights->at(i) * static_cast<float>(sources->at(i)->next(tick, phi));
   }
   return clip_16(acc + 0.5f);  // round to nearest
 }
@@ -173,7 +173,7 @@ void MergeFloat::Weight::set(float v) {
 }
 
 
-Merge14::Merge14(const Node& n, const float w)
+Merge14::Merge14(const RelSource& n, const float w)
   : MergeFloat(n, w), uint16_weights(std::move(std::make_unique<std::vector<uint16_t>>())) {}
 
 void Merge14::normalize() {
@@ -188,11 +188,11 @@ void Merge14::normalize() {
 int16_t Merge14::next(const int32_t tick, const int32_t phi) const {
   int32_t acc = 0;
   for (size_t i = 0; i < uint16_weights->size(); i++) {
-    acc += mult_shift14(uint16_weights->at(i), nodes->at(i)->next(tick, phi));
+    acc += mult_shift14(uint16_weights->at(i), sources->at(i)->next(tick, phi));
   }
   return clip_16(acc);
 }
 
 
-Merge::Merge(const Node& n, const float w) : Merge14(n, w) {};
+Merge::Merge(const RelSource& n, const float w) : Merge14(n, w) {};
 

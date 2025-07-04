@@ -1,20 +1,20 @@
 
-#ifndef WEA_LEDS_H
-#define WEA_LEDS_H
+#ifndef WEA_LED_H
+#define WEA_LED_H
 
 #include <cstdint>
 #include <sys/types.h>
 
 
-class LEDs {
+class LED {
 private:
-    LEDs();
+    LED();
     static constexpr uint BASE_GPIO = 10;
 public:
     // singleton - prevent copying
-    LEDs(const LEDs&) = delete;
-    LEDs& operator=(const LEDs&) = delete;
-    static LEDs& get();
+    LED(const LED&) = delete;
+    LED& operator=(const LED&) = delete;
+    static LED& get();
     void set(uint index, uint8_t b);
     void set(uint index, bool x);
     void all(uint8_t x);

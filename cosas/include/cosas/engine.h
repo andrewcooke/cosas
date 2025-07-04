@@ -30,14 +30,14 @@ public:
 
   Manager();
   explicit Manager(bool t);
-  const Node& build(Engine);
+  const RelSource& build(Engine);
   [[nodiscard]] const Pane& get_pane(size_t n) const;
   [[nodiscard]] size_t n_panes() const;
   [[nodiscard]] size_t n_dex() const;
 
 private:
 
-  template<typename NodeType, typename... Args> NodeType& add_node(Args&&... args);
+  template<typename SourceType, typename... Args> SourceType& add_source(Args&&... args);
   template<typename ParamType, typename... Args> ParamType& add_param(Args&&... args);
   template<typename InputType, typename... Args> InputType& add_input(Args&&... args);
   Pane& add_pane(Input& top, Input& left, Input& right) const;
@@ -45,26 +45,26 @@ private:
   void rotate_panes(size_t a, size_t b) const;
   Input& lin_control(Input& in, float c, float lo, float hi);
   Input& log_control(Input& in, float c, float lo, float hi);
-  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc(float frq, size_t widx, Input& right);
-  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc(float frq, size_t widx);
-  std::tuple<AbsFreqParam&, Node&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
-  std::tuple<AbsFreqParam&, Node&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
-  std::tuple<AbsFreqParam&, Node&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
-  Node& add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d);
-  Merge& add_balance(Node& a, Node& b, float bal);
-  Node& add_fm(Node& c,  Node& m, float bal, float amp);
-  Node& add_fm(Node& c,  Node& m, float bal, float amp, Input& right);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc(float frq, size_t widx, Input& right);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc(float frq, size_t widx);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
+  RelSource& add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d);
+  Merge& add_balance(RelSource& a, RelSource& b, float bal);
+  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
+  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Input& right);
 
-  const Node& build_dex();
-  const Node& build_poly();
-  const Node& build_fm_simple();
-  const Node& build_fm_lfo();
-  const Node& build_fm_env();
-  const Node& build_fm_fb();
-  const Node& build_chord();
+  const RelSource& build_dex();
+  const RelSource& build_poly();
+  const RelSource& build_fm_simple();
+  const RelSource& build_fm_lfo();
+  const RelSource& build_fm_env();
+  const RelSource& build_fm_fb();
+  const RelSource& build_chord();
 
   std::unique_ptr<Wavelib> wavelib;
-  std::unique_ptr<std::vector<std::unique_ptr<Node>>> current_nodes;
+  std::unique_ptr<std::vector<std::unique_ptr<RelSource>>> current_sources;
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
   std::unique_ptr<std::vector<std::unique_ptr<Input>>> current_inputs;
   std::unique_ptr<std::vector<std::unique_ptr<Pane>>> current_panes;
