@@ -8,7 +8,6 @@
 
 #include "cosas/transformers.h"
 #include "cosas/wavelib.h"
-#include "cosas/node.h"
 #include "cosas/oscillator.h"
 #include "cosas/params.h"
 #include "cosas/pane.h"
@@ -30,7 +29,7 @@ public:
 
   Manager();
   explicit Manager(bool t);
-  const RelSource& build(Engine);
+  RelSource& build(Engine);
   [[nodiscard]] const Pane& get_pane(size_t n) const;
   [[nodiscard]] size_t n_panes() const;
   [[nodiscard]] size_t n_dex() const;
@@ -55,13 +54,13 @@ private:
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Input& right);
 
-  const RelSource& build_dex();
-  const RelSource& build_poly();
-  const RelSource& build_fm_simple();
-  const RelSource& build_fm_lfo();
-  const RelSource& build_fm_env();
-  const RelSource& build_fm_fb();
-  const RelSource& build_chord();
+  RelSource& build_dex();
+  RelSource& build_poly();
+  RelSource& build_fm_simple();
+  RelSource& build_fm_lfo();
+  RelSource& build_fm_env();
+  RelSource& build_fm_fb();
+  RelSource& build_chord();
 
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<RelSource>>> current_sources;

@@ -6,7 +6,6 @@
 #include <functional>
 
 #include "cosas/maths.h"
-#include "cosas/node.h"
 #include "cosas/params.h"
 #include "cosas/wavelib.h"
 
@@ -18,10 +17,12 @@ public:
   friend class FrequencyParam;
   friend class WavedexMixin;
   BaseOscillator(uint32_t f, Wavetable *t);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
 protected:
   uint32_t frequency;  // subtick units
-  Wavetable* wavetable;
+  AbsSource* abs_source;
+private:
+  uint32_t tick = 0;
 };
 
 

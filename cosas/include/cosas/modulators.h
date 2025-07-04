@@ -12,22 +12,22 @@ class Modulator : public RelSource {};
 
 class FM : public Modulator {
 public:
-  FM(const RelSource& car, const RelSource& mod);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
+  FM(RelSource& car, RelSource& mod);
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
 private:
-  const RelSource& carrier;
-  const RelSource& modulator;
+  RelSource& carrier;
+  RelSource& modulator;
 };
 
 
 class AM : public Modulator {
 public:
   // note that this is not symmetric - nd1 is mixed against the ring mod output
-  AM(const RelSource& src1, const RelSource& src2);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  AM(RelSource& src1, RelSource& src2);
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
 private:
-  const RelSource& src1;
-  const RelSource& src2;
+  RelSource& src1;
+  RelSource& src2;
 };
 
 

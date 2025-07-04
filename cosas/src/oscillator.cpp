@@ -6,15 +6,17 @@
 #include "cosas/engine.h"
 
 
-BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), wavetable(t) {};
+BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), abs_source(t) {};
 
-int16_t BaseOscillator::next(const int32_t tick, const int32_t phi) const {
+int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
+  // this could be a bitwise or for efficiency?
+  tick = (tick + delta) % (SAMPLE_RATE << SUBTICK_BITS);  // after this many ticks any frequency wraps
   // convert phi from sample_min-sample_max to -pi-pi (kinda)
   const int64_t phi_tmp = phi * frequency;
   // fudge allows more variation (phi limited to sample_max)
   // but may need to worry about gain sensitivity
   const auto phi_frac = static_cast<int32_t>(phi_tmp >> (SAMPLE_BITS - 1 - PHI_FUDGE_BITS));
-  return wavetable->next(static_cast<int32_t>(tick * frequency), phi_frac);
+  return abs_source->next(static_cast<int32_t>(tick * frequency), phi_frac);
 }
 
 
@@ -95,7 +97,7 @@ WavedexMixin::WavedexParam::WavedexParam(BaseOscillator* o, Wavelib& wl) : oscil
 void WavedexMixin::WavedexParam::set(float val) {
   const size_t n = wavelib.size() - 1;
   const size_t widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
-  oscillator->wavetable = &wavelib[widx];
+  oscillator->abs_source = &wavelib[widx];
 }
 
 
@@ -149,7 +151,7 @@ Param& PolyMixin::get_off_param() const {
 void PolyMixin::update() {
   std::unique_ptr<Wavetable> save = std::move(wtable);  // save while we modify
   wtable = std::move(std::make_unique<PolyTable>(shape, asym, offset));
-  oscillator->wavetable = wtable.get();  // now old value can disappear
+  oscillator->abs_source = wtable.get();  // now old value can disappear
 }
 
 

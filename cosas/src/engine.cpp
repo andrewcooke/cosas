@@ -19,7 +19,7 @@ Manager::Manager(const bool t)
     current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())),
     test(t) {};
 
-const RelSource& Manager::build(Manager::Engine engine) {
+RelSource& Manager::build(Manager::Engine engine) {
   current_sources->clear();
   current_params->clear();
   current_inputs->clear();
@@ -218,7 +218,7 @@ RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Inp
 
 // panes:
 //   1 - freq/dex/blk
-const RelSource& Manager::build_dex() {
+RelSource& Manager::build_dex() {
   auto [f, o] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   return o;
 }
@@ -226,7 +226,7 @@ const RelSource& Manager::build_dex() {
 // panes:
 //   1 - freq/blank/blk
 //   2 - off/shp/asym
-const RelSource& Manager::build_poly() {
+RelSource& Manager::build_poly() {
   auto [f, o] = add_abs_poly_osc(10, PolyTable::LINEAR - 1, 0,
                                                    static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   return o;
@@ -236,7 +236,7 @@ const RelSource& Manager::build_poly() {
 //   1 - freq/dex/blk
 //   2 - freq/dex/det
 //   3 - gain/wet/blk
-const RelSource& Manager::build_fm_simple() {
+RelSource& Manager::build_fm_simple() {
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   // i don't understand this 3.  is it subtick_bits?
@@ -249,7 +249,7 @@ const RelSource& Manager::build_fm_simple() {
 //   2 - freq/dex/det
 //   3 - freq/dex/blk
 //   4 - gain/wet/blk
-const RelSource& Manager::build_fm_lfo() {
+RelSource& Manager::build_fm_lfo() {
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   auto [lf, l] = add_abs_dex_osc_w_gain(1, wavelib->sine_gamma_1, 1);
@@ -263,8 +263,8 @@ const RelSource& Manager::build_fm_lfo() {
 //   2 - freq/dex/det
 //   3 - gain/wet/blk
 //   4 - off/shp/asym
-const RelSource& Manager::build_fm_env() {
-  const RelSource& fm = build_fm_simple();
+RelSource& Manager::build_fm_env() {
+  RelSource& fm = build_fm_simple();
   auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0, 0.1f * QUARTER_TABLE_SIZE);
   RelSource& am = add_source<AM>(e, fm);
   dynamic_cast<Blank&>(get_pane(0).right).unblank(&log_control(ef, 1, 1.0 / (1 << SUBTICK_BITS), 0.5f * SAMPLE_RATE));
@@ -275,14 +275,14 @@ const RelSource& Manager::build_fm_env() {
 //   1 - freq/dex/len
 //   2 - freq/dex/det
 //   3 - gain/wet/fb
-const RelSource& Manager::build_fm_fb() {
+RelSource& Manager::build_fm_fb() {
   auto& latch = add_source<Latch>();
   auto& flt = add_source<Boxcar>(latch, DEFAULT_BOXCAR);
   Input& right = lin_control(flt.get_len(), DEFAULT_BOXCAR, 1, MAX_BOXCAR);
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1, right);
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   Merge& mrg = add_balance(flt, m, 0.5);
-  const RelSource& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (PHI_FUDGE_BITS - 4)), mrg.get_weight(0));
+  RelSource& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (PHI_FUDGE_BITS - 4)), mrg.get_weight(0));
   latch.set_source(&fm);
   return latch;
 }
@@ -293,12 +293,12 @@ const RelSource& Manager::build_fm_fb() {
 //   3 - freq/dex/det
 //   4 - freq/dex/det
 //   5 - freq/dex/det
-const RelSource& Manager::build_chord() {
+RelSource& Manager::build_chord() {
   auto& b = add_input<Blank>();
   auto [f0, o0] = add_abs_dex_osc(440, wavelib->sine_gamma_1, b);
-  const RelSource& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0, 1);
-  const RelSource& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0, 1);
-  const RelSource& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0, 1);
+  RelSource& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0, 1);
+  RelSource& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0, 1);
+  RelSource& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0, 1);
   auto& m = add_source<Merge>(o0, 0.5);
   b.unblank(&m.get_weight(0));
   m.add_source(o1, 1);

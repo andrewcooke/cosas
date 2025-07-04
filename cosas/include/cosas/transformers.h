@@ -13,8 +13,8 @@
 
 class SingleSource : public RelSource {
 protected:
-  explicit SingleSource(const RelSource& src) : src(src) {};
-  const RelSource& src;
+  explicit SingleSource(RelSource& src) : src(src) {};
+  RelSource& src;
 };
 
 
@@ -29,7 +29,7 @@ public:
   };
   friend class Value;
 protected:
-  SingleFloat(const RelSource& src, float v);
+  SingleFloat(RelSource& src, float v);
   float value;
   Value param;
 };
@@ -37,8 +37,8 @@ protected:
 
 class GainFloat final : public SingleFloat {
 public:
-  GainFloat(const RelSource& src, float amp);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
+  GainFloat(RelSource& src, float amp);
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Value& get_amp();
 };
 
@@ -54,7 +54,7 @@ public:
   };
   friend class Value;
 protected:
-  Single14(const RelSource& src, float v);
+  Single14(RelSource& src, float v);
   uint16_t value;
   Value param;
   const float v;
@@ -63,8 +63,8 @@ protected:
 
 class Gain14 : public Single14 {
 public:
-  Gain14(const RelSource& src, float amp);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
+  Gain14(RelSource& src, float amp);
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Value& get_amp();
 };
 
@@ -72,15 +72,15 @@ public:
 // forward to Gain14 on assumption this is faster
 class Gain : public Gain14 {
 public:
-  Gain(const RelSource& src, float amp);
+  Gain(RelSource& src, float amp);
 };
 
 
 class FloatFunc : public SingleFloat {
 public:
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
 protected:
-  FloatFunc(const RelSource& src, float v);
+  FloatFunc(RelSource& src, float v);
   // x is normalised 0-1 and this can (will) use value
   [[nodiscard]] virtual float func(float x) const = 0;
 };
@@ -88,7 +88,7 @@ protected:
 
 class Compander final : public FloatFunc {
 public:
-  Compander(const RelSource& src, float gamma);
+  Compander(RelSource& src, float gamma);
 private:
   [[nodiscard]] float func(float x) const override;
 };
@@ -97,7 +97,7 @@ private:
 class Folder final : public FloatFunc {
 public:
   // k is progrgessive, 0-1 expands and 1-2 folds
-  Folder(const RelSource& src, float k);
+  Folder(RelSource& src, float k);
   Value& get_fold();
 private:
   [[nodiscard]] float func(float x) const override;
@@ -126,8 +126,8 @@ public:
     mutable size_t circular_idx;
   };
   friend class Length;
-  Boxcar(const RelSource& src, size_t l);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) const override;
+  Boxcar(RelSource& src, size_t l);
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Length& get_len();
 private:
   std::unique_ptr<CircBuffer> cbuf;
@@ -157,14 +157,14 @@ public:
     size_t idx;
   };
   friend class Weight;
-  MergeFloat(const RelSource& src, float w);
-  void add_source(const RelSource& src, float w);
+  MergeFloat(RelSource& src, float w);
+  void add_source(RelSource& src, float w);
   [[nodiscard]] Weight& get_weight(size_t i) const;
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
 protected:
   virtual void normalize();
   std::unique_ptr<std::vector<Weight>> weights;
-  std::unique_ptr<std::vector<const RelSource*>> sources;
+  std::unique_ptr<std::vector<RelSource*>> sources;
   std::unique_ptr<std::vector<float>> given_weights;
   std::unique_ptr<std::vector<float>> norm_weights;
 };
@@ -173,8 +173,8 @@ protected:
 class Merge14 : public MergeFloat {
 public:
   friend class Weight;
-  Merge14(const RelSource& src, float w);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  Merge14(RelSource& src, float w);
+  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
 protected:
   void normalize() override;
   std::unique_ptr<std::vector<uint16_t>> uint16_weights;
@@ -184,7 +184,7 @@ protected:
 // forward to Gain14 on assumption this is faster
 class Merge final : public Merge14 {
 public:
-  Merge(const RelSource& src, float w);
+  Merge(RelSource& src, float w);
 };
 
 
