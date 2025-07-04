@@ -3,9 +3,9 @@
 #define COSA_CONSTANTS_H
 
 #include <limits>
-#include <cstdint>
+#include <cmath>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <cstddef>  // needed for size_t
+#include <cstdint>
 
 
 constexpr uint32_t SAMPLE_RATE = 44100;
@@ -35,7 +35,7 @@ inline int32_t hz2tick(const float hz) {
 
 inline uint32_t hz2freq(const float hz) {
     // TODO - min + max
-    return static_cast<uint32_t>(fabsf(hz) * (1 << SUBTICK_BITS));
+    return static_cast<uint32_t>(std::fabsf(hz) * (1 << SUBTICK_BITS));
 }
 
 

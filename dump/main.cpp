@@ -11,8 +11,8 @@ int main() {
   //  dump_w_gain(Manager::Engine::FM_FB, 0.1 * sample_rate);
   //  dump(Manager::Engine::CHORD, 0.1 * sample_rate);};
   //  dump_w_gain(Manager::Engine::FM_SIMPLE, 0.1 * sample_rate);
-  //  dump_w_wdex(Manager::Engine::FM_SIMPLE, 0.1 * sample_rate);
-  dump(Manager::Engine::DEX, QUARTER_TABLE_SIZE);
+  dump_w_wdex(Manager::Engine::FM_SIMPLE, 0.1 * SAMPLE_RATE);
+  // dump(Manager::Engine::DEX, QUARTER_TABLE_SIZE);
   // dump(Manager::Engine::POLY, QUARTER_TABLE_SIZE);
   //  for (size_t asym = 0; asym <= PolyTable::n_shapes; ++asym) {
   //    dump_poly(440, PolyTable::sine, asym, quarter_table_size/2);

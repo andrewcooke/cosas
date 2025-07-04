@@ -12,13 +12,13 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
   /*
    * the RelSource interface deals in delta samples - typically 1, but allowing
    * for more in case the output buffer underflows.  here we need to convert that
-   * into absolute time for the AbsSource interfaces, which are all wavtables.
+   * into absolute time for the AbsSource interfaces, which are all wavetables.
    * since they are all wavetables they all loop at SAMPLE_RATE.  snice frequency
-   * is in SUBSMAPLE_BITS units you might naively think that we can calculate
+   * is in SUBSAMPLE_BITS units you might naively think that we can calculate
    * time modulo SAMPLE_RATE * (SAMPLE_RATE << SUBSAMPLE_BITS).  actually a
-   * factor of 0.5 lower because frquency cannot exceed SAMPLE_RATE / 2.
+   * factor of 0.5 lower because frequency cannot exceed SAMPLE_RATE / 2.
    *
-   * unfotunately that exceeds 32 bits (just!).
+   * unfortunately that exceeds 32 bits (just!).
    *
    * but since we know that the wavetables all work modulo SAMPLE_BITS we don't
    * need to store more than that.  well, allowing for SUBSAMPLE_BITS which we
@@ -29,7 +29,7 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
   tick += delta * static_cast<int32_t>(frequency);
   if (tick > TIME_MODULUS) tick -= TIME_MODULUS;
   // convert phi to something like phase
-  const int32_t phi_phase = phi * frequency;
+  const int32_t phi_phase = (phi * frequency) >> PHI_FUDGE_BITS;  // arbitrary scaling
   return abs_source->next(tick + phi_phase);
 }
 
