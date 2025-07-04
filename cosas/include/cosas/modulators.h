@@ -1,6 +1,6 @@
 
-#ifndef COSA_MODULATORS_H
-#define COSA_MODULATORS_H
+#ifndef COSAS_MODULATORS_H
+#define COSAS_MODULATORS_H
 
 #include "cosas/node.h"
 

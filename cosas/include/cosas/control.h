@@ -1,6 +1,6 @@
 
-#ifndef COSA_CONTROL_H
-#define COSA_CONTROL_H
+#ifndef COSAS_CONTROL_H
+#define COSAS_CONTROL_H
 
 
 class Input {

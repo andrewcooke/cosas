@@ -1,6 +1,6 @@
 
-#ifndef COSA_CONSTANTS_H
-#define COSA_CONSTANTS_H
+#ifndef COSAS_CONSTANTS_H
+#define COSAS_CONSTANTS_H
 
 #include <limits>
 #include <cmath>

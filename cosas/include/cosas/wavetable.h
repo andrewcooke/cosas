@@ -1,6 +1,6 @@
 
-#ifndef COSA_WAVETABLE_H
-#define COSA_WAVETABLE_H
+#ifndef COSAS_WAVETABLE_H
+#define COSAS_WAVETABLE_H
 
 #include <cstdint>
 #include <array>

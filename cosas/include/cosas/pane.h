@@ -1,6 +1,6 @@
 
-#ifndef COSA_PANE_H
-#define COSA_PANE_H
+#ifndef COSAS_PANE_H
+#define COSAS_PANE_H
 
 #include <vector>
 #include <memory>

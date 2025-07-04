@@ -1,6 +1,6 @@
 
-#ifndef COSA_PARAMS_H
-#define COSA_PARAMS_H
+#ifndef COSAS_PARAMS_H
+#define COSAS_PARAMS_H
 
 #include "cosas/control.h"
 

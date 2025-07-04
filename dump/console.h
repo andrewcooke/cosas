@@ -1,6 +1,6 @@
 
-#ifndef COSA_CONSOLE_H
-#define COSA_CONSOLE_H
+#ifndef COSAS_CONSOLE_H
+#define COSAS_CONSOLE_H
 
 #include "cosas/source.h"
 #include "cosas/engine.h"

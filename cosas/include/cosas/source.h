@@ -1,6 +1,6 @@
 
-#ifndef COSA_SOURCE_H
-#define COSA_SOURCE_H
+#ifndef COSAS_SOURCE_H
+#define COSAS_SOURCE_H
 
 #include <cstdint>
 

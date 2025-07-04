@@ -1,6 +1,6 @@
 
-#ifndef COSA_MATHS_H
-#define COSA_MATHS_H
+#ifndef COSAS_MATHS_H
+#define COSAS_MATHS_H
 
 #include <ostream>
 #include <cstdint>

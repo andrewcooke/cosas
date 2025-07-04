@@ -1,6 +1,6 @@
 
-#ifndef COSA_NODE_H
-#define COSA_NODE_H
+#ifndef COSAS_NODE_H
+#define COSAS_NODE_H
 
 #include <initializer_list>
 #include <list>

@@ -1,6 +1,6 @@
 
-#ifndef COSA_WAVELIB_H
-#define COSA_WAVELIB_H
+#ifndef COSAS_WAVELIB_H
+#define COSAS_WAVELIB_H
 
 #include <memory>
 #include <vector>

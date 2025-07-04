@@ -1,6 +1,6 @@
 
-#ifndef COSA_ENGINE_H
-#define COSA_ENGINE_H
+#ifndef COSAS_ENGINE_H
+#define COSAS_ENGINE_H
 
 #include <tuple>
 #include <vector>

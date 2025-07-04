@@ -1,6 +1,6 @@
 
-#ifndef COSA_OSCILLATOR_H
-#define COSA_OSCILLATOR_H
+#ifndef COSAS_OSCILLATOR_H
+#define COSAS_OSCILLATOR_H
 
 #include <memory>
 #include <functional>
