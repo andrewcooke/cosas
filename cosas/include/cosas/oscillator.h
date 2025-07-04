@@ -22,7 +22,8 @@ protected:
   uint32_t frequency;  // subtick units
   AbsSource* abs_source;
 private:
-  uint32_t tick = 0;
+  static constexpr int32_t TIME_MODULUS = SAMPLE_RATE << SUBTICK_BITS;  // see discussion in oscillator.cpp
+  int32_t tick = 0;
 };
 
 

@@ -9,14 +9,28 @@
 BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), abs_source(t) {};
 
 int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
-  // this could be a bitwise or for efficiency?
-  tick = (tick + delta) % (SAMPLE_RATE << SUBTICK_BITS);  // after this many ticks any frequency wraps
-  // convert phi from sample_min-sample_max to -pi-pi (kinda)
-  const int64_t phi_tmp = phi * frequency;
-  // fudge allows more variation (phi limited to sample_max)
-  // but may need to worry about gain sensitivity
-  const auto phi_frac = static_cast<int32_t>(phi_tmp >> (SAMPLE_BITS - 1 - PHI_FUDGE_BITS));
-  return abs_source->next(static_cast<int32_t>(tick * frequency), phi_frac);
+  /*
+   * the RelSource interface deals in delta samples - typically 1, but allowing
+   * for more in case the output buffer underflows.  here we need to convert that
+   * into absolute time for the AbsSource interfaces, which are all wavtables.
+   * since they are all wavetables they all loop at SAMPLE_RATE.  snice frequency
+   * is in SUBSMAPLE_BITS units you might naively think that we can calculate
+   * time modulo SAMPLE_RATE * (SAMPLE_RATE << SUBSAMPLE_BITS).  actually a
+   * factor of 0.5 lower because frquency cannot exceed SAMPLE_RATE / 2.
+   *
+   * unfotunately that exceeds 32 bits (just!).
+   *
+   * but since we know that the wavetables all work modulo SAMPLE_BITS we don't
+   * need to store more than that.  well, allowing for SUBSAMPLE_BITS which we
+   * discard before calling the AbsSource interface.  so we can track time in
+   * 32 bits after all.
+   */
+  // increment time
+  tick += delta * static_cast<int32_t>(frequency);
+  if (tick > TIME_MODULUS) tick -= TIME_MODULUS;
+  // convert phi to something like phase
+  const int32_t phi_phase = phi * frequency;
+  return abs_source->next(tick + phi_phase);
 }
 
 

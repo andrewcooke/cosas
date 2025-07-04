@@ -25,4 +25,18 @@ constexpr size_t FULL_TABLE_SUB = FULL_TABLE_SIZE << SUBTICK_BITS;
 constexpr size_t PHI_FUDGE_BITS = 12;
 
 
+inline size_t tick2idx(int32_t tick) {
+    return (tick >> SUBTICK_BITS) % FULL_TABLE_SIZE;
+}
+
+inline int32_t hz2tick(const float hz) {
+    return static_cast<int32_t>(hz * (1 << SUBTICK_BITS));
+}
+
+inline uint32_t hz2freq(const float hz) {
+    // TODO - min + max
+    return static_cast<uint32_t>(fabsf(hz) * (1 << SUBTICK_BITS));
+}
+
+
 #endif

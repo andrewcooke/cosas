@@ -10,8 +10,8 @@
 
 Square::Square(float duty) : duty_idx(duty * FULL_TABLE_SIZE) {}
 
-int16_t Square::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t Square::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   if (full_idx <= duty_idx) return SAMPLE_MAX;
   else return -SAMPLE_MAX;
 }
@@ -20,8 +20,8 @@ int16_t Square::next(int32_t tick, int32_t phi) const {
 QuarterWtable::QuarterWtable() : quarter_table() {}
 
 // handle symmetry of triangular or sine wave
-int16_t QuarterWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t QuarterWtable::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   size_t quarter_idx = full_idx % QUARTER_TABLE_SIZE;
   if (full_idx < QUARTER_TABLE_SIZE) return quarter_table.at(quarter_idx);
   else if (full_idx < 2 * QUARTER_TABLE_SIZE) return quarter_table.at(QUARTER_TABLE_SIZE - 1 - quarter_idx);
@@ -48,8 +48,8 @@ WTriangle::WTriangle() {
 // constant for division with shift
 const int64_t k = (static_cast<int64_t>(SAMPLE_MAX) << 32) / (SAMPLE_RATE / 4);
 
-int16_t Triangle::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t Triangle::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   size_t quarter_idx = full_idx % QUARTER_TABLE_SIZE;
   if (full_idx < QUARTER_TABLE_SIZE) return clip_16(static_cast<int64_t>(quarter_idx * k) >> 32);
   else if (full_idx < 2 * QUARTER_TABLE_SIZE) return clip_16(
@@ -61,8 +61,8 @@ int16_t Triangle::next(int32_t tick, int32_t phi) const {
 
 HalfWtable::HalfWtable() : half_table() {}
 
-int16_t HalfWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t HalfWtable::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   size_t half_idx = full_idx % HALF_TABLE_SIZE;
   if (full_idx < HALF_TABLE_SIZE) return half_table.at(half_idx);
   else return -half_table.at(HALF_TABLE_SIZE - 1 - half_idx);
@@ -83,8 +83,8 @@ WSaw::WSaw(float offset) {
 
 FullWtable::FullWtable() : full_table() {}
 
-int16_t FullWtable::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t FullWtable::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   return full_table.at(full_idx);
 }
 
@@ -94,8 +94,8 @@ Saw::Saw(float offset) :
   k1((static_cast<int64_t>(SAMPLE_MAX) << 32) / static_cast<int64_t>((1 + offset) * SAMPLE_RATE / 4)),
   k2((static_cast<int64_t>(SAMPLE_MAX) << 32) / static_cast<int64_t>((1 - offset) * SAMPLE_RATE / 4)) {}
 
-int16_t Saw::next(int32_t tick, int32_t phi) const {
-  size_t full_idx = tick2idx(tick, phi);
+int16_t Saw::next(int32_t tick) const {
+  size_t full_idx = tick2idx(tick);
   if (full_idx < peak_idx) return clip_16((static_cast<int64_t>(full_idx) * k1) >> 32);
   else if (full_idx < HALF_TABLE_SIZE) return clip_16((static_cast<int64_t>(HALF_TABLE_SIZE - full_idx) * k2) >> 32);
   else if (full_idx < FULL_TABLE_SIZE - peak_idx) return clip_16(

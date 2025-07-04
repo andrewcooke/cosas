@@ -20,7 +20,7 @@ class Square final : public Wavetable {
 public:
   Square() : Square(0.5) {};
   explicit Square(float duty);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 private:
   size_t duty_idx;
 };
@@ -29,7 +29,7 @@ private:
 class QuarterWtable : public Wavetable {
 public:
   QuarterWtable();
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 protected:
   std::array<int16_t, QUARTER_TABLE_SIZE> quarter_table;
 };
@@ -53,14 +53,14 @@ public:
 class Triangle final : public Wavetable {
 public:
   Triangle() = default;
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 };
 
 
 class HalfWtable : public Wavetable {
 public:
   HalfWtable();
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 protected:
   std::array<int16_t, HALF_TABLE_SIZE> half_table;
 };
@@ -79,7 +79,7 @@ public:
 class Saw final : public Wavetable {
 public:
   explicit Saw(float offset);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 private:
   size_t peak_idx;
   int64_t k1;
@@ -90,7 +90,7 @@ private:
 class FullWtable : public Wavetable {
 public:
   FullWtable();
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) const override;
+  [[nodiscard]] int16_t next(int32_t tick) const override;
 protected:
   std::array<int16_t, FULL_TABLE_SIZE> full_table;
 };
