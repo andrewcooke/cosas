@@ -8,14 +8,17 @@
 
 
 // circular; empty when read_from == write_to
-class Buffer {
+class AudioBuffer {
 public:
-  Buffer(std::function<int16_t(int32_t)>& cb, std::function<void(uint32_t)>& slp);
+  AudioBuffer(std::function<int16_t(int32_t)>& cb);
   int16_t next();
   void run();
+protected:
+  // can be overridden on pico side
+  virtual void sleep_us(uint32_t us) {};
+  virtual void log_delta(int d) {};
 private:
   std::function<int16_t(int32_t)>& callback;
-  std::function<void(uint32_t)>& sleep_us;
   static constexpr int16_t EMPTY = 0;
   // signed to make arithmetic for space simpler
   volatile int read_from;
