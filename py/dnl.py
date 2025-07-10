@@ -23,17 +23,19 @@ WID_OTHER = (4096 - sum(WID_OBS.values() )) / (4096 - len(DNL_OBS))
 # i'm using indices from 0 which may be wrong?
 
 # given an analog value, calculate the measured value by the dac
+# from https://www.allaboutcircuits.com/technical-articles/understanding-analog-to-digital-converter-differential-nonlinearity-dnl-error/
+# (esp figure 1 and the text below) index 1 corresponds to an output of 1
 @cache
 def model_resp(a):
     d = 0
+    a -= WID_OTHER / 2  # if a is less than 1/2 a typical gap (or 1) then d is 0
     while a > 0:
+        d += 1
         # move to next bin
         if d in WID_OBS:
             a -= WID_OBS[d]
         else:
             a -= WID_OTHER
-        # next count if still ok
-        if a > 0: d += 1 
     return d
 
 # plot a function to a file
@@ -62,10 +64,6 @@ def cc_correcn(x):
     x += (adc512>>10) << 3
     return x
 
-def me_correcn(x):
-    x += ((x + 0x200) >> 10) << 3
-    return x
-
 def apply(resp, correcn):
     def f(x):
         return correcn(resp(x))
@@ -76,9 +74,31 @@ model_err = resp_to_err(model_resp)
 plot(model_err, "/tmp/model_err")
 
 cc_corrected = apply(model_resp, cc_correcn)
+plot(cc_corrected, "/tmp/cc_corrected")
+cc_err = resp_to_err(cc_corrected)
+plot(cc_err, "/tmp/cc_err")
 cc_err_scl = resp_to_err(cc_corrected, scale=cc_corrected(4095)/4095)
 plot(cc_err_scl, "/tmp/cc_err_scl")
 
+k = 1 << 19
+
+# errors (in model) at 512 1536 (2048) 2560 3584
+# diffs 1024 1024 1024
+# scale inside 32bit (value is about 12 bits)
+def me_correcn(a):
+    global k
+    b = a + (((a + 0x200) >> 10) << 3)
+#    if 512 < a < 2048:
+    if (a & 0x600) and not (a & 0x800):
+        b += 2
+    if (a + 0x200) % 0x400 == 0:
+        b -= 4
+    return (k * b) >> 19
+
+k = int(4095 * (1 << 19) / me_correcn(4095))
+print(k)  # 520222
+
 me_corrected = apply(model_resp, me_correcn)
-me_err_scl = resp_to_err(me_corrected, scale=me_corrected(4095)/4095)
-plot(me_err_scl, "/tmp/me_err_scl")
+plot(me_corrected, "/tmp/me_corrected")
+me_err = resp_to_err(me_corrected)
+plot(me_err, "/tmp/me_err")
