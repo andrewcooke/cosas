@@ -185,3 +185,10 @@ int16_t float2sample(float f) {
   return IEEEFloat(std::max(-0.999969f, std::min(0.999969f, f))).sample();
 }
 
+
+uint16_t fix_dnl(const uint16_t adc) {
+  uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+  if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
+  if ((adc + 0x200) % 0x400 == 0) bdc -= 4;
+  return static_cast<uint16_t>((520222 * static_cast<uint32_t>(bdc)) >> 19);
+}

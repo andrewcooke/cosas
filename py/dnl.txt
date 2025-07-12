@@ -1,0 +1,193 @@
+
+The Raspberry Pico 2024 has a problem with the ADC.  It's described in
+https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf
+(see section 4.9.4 and the worrying low ENOB just before).
+
+The DNL and INL in that datasheet are explained at
+https://www.allaboutcircuits.com/technical-articles/understanding-analog-to-digital-converter-differential-nonlinearity-dnl-error/
+
+If I've understood correctly that means that there are a few places
+where the ADC output "sticks" at a particular input value instead of
+incrementing.  As the input continues to rise, after it has "missed" 8
+or so bits, it "unsticks" and continues increasing from where it left
+off.
+
+In Python I've tried to create a simplified model of the ADC response
+from the datasheet.  If that model is correct then
+https://acooke.org/img/pico-model.png shows one of these places (input
+analog voltage is the x axis; ADC output is the y axis).
+
+Reading through the MTM ComputerCard.h code at
+https://github.com/TomWhitwell/Workshop_Computer/blob/main/Demonstrations%2BHelloWorlds/PicoSDK/ComputerCard/ComputerCard.h
+I noticed a fix for this (round line 527).
+
+(I should say here that the ComputerCard.h library is awesome and has
+taught me a huge amount about the pico - huge thanks to Chris
+Johnson).
+
+I'll copy the code here:
+
+    // Attempted compensation of ADC DNL errors. Not really tested.
+    uint16_t adc512=ADC_Buffer[cpuPhase][3]+512;
+    if (!(adc512 % 0x01FF)) ADC_Buffer[cpuPhase][3] += 4;
+    ADC_Buffer[cpuPhase][3] += (adc512>>10) << 3;
+
+The correction has two important parts.  The first is
+
+    if (!(adc512 % 0x01FF)) ADC_Buffer[cpuPhase][3] += 4;
+        
+which is targeting the spikes in the DNL plot in the datasheet (see
+above).  This is an attempt to shift the "stuck" values into the
+middle of the range, although I don't understand why the value 0x1FF
+is used here - I think that would be the distance between the DNL
+peaks, which appears to be 0x200.
+
+The second, more significant part, is
+
+    ADC_Buffer[cpuPhase][3] += (adc512>>10) << 3;
+
+which is a really cool way of adding in the "zig-zag" offset that
+appears in the data.  It's picking off the topmost bits of the ADC
+value as needed.  If that's still not clear and you're curious, play
+with my code below - plot the values when removed and it becomes
+pretty clear.
+
+Anyway, I started experimenting myself and found two more fixes.  One
+corrects an offset of a few bits over part of the range, and the other
+simply rescales back to the 0-4095 range (using the "standard" trick
+of representing a fraction as an integer multiplication plus a shift /
+division of a power of 2).
+
+So "my" correction (the best part of which is taken directly from the
+ComputerCard.h code above), in Python, is:
+
+    def me_correcn(a):
+        b = a + (((a + 0x200) >> 10) << 3)
+        if (a & 0x600) and not (a & 0x800):
+            b += 2
+        if (a + 0x200) % 0x400 == 0:
+            b -= 4
+        return (520222 * b) >> 19
+
+The expected errors of the two corrections are plotted in
+https://acooke.org/img/pico-error.png and while "my" correction looks
+nicer I am not sure if it works, yet, or is "worth it" in
+terms of computational cost.
+
+So I will push on and try to get some code working.  For now I am
+simply putting this out there.
+
+Andrew
+
+PS There was a little extra background given by Chris in the MTM
+Discord.  I haven't followed up there yet because I don't yet have
+running code and I'm not so confident this is correct... (amongst
+other things, I'm worried about an off-by-one error in my
+implementation of DNL and INL)
+
+PPS Almost forgot, here's my Python code (I use gnuplot for plots):
+
+#!/usr/bin/python3
+
+from os.path import exists
+from os import remove
+from functools import cache
+
+# guessed from plot (within 0.25?)
+# +ve values from DNL, -ve from INL
+# -ve sample number inferred from pattern (might be ignoring step near 2048)
+#DNL_OBS = {512: 9.0, 1536: 7.25, 2048: -3.0, 2560: 7.5, 3072: -1.0, 3584: 8.0}
+
+# but for monotonic conversion DNL cannot be less than -1 so presumably it's more like
+DNL_OBS = {512: 9.0, 1536: 7.25, 2047: -1.0, 2048: -1.0, 2049: -1.0, 2560: 7.5, 3072: -1.0, 3584: 8.0}
+# (which might be visible in the DNL plot in the data sheet)
+# (i'm also ignoring something at 511 in the DNL plot that may be an aliasing issue in the plot itself?)
+
+# i find it easier to think of bin widths with expected value of 1 (these are non-negative)
+WID_OBS = {k: v+1 for k, v in DNL_OBS.items()}
+
+# assume others are equal in width and the total width is given
+WID_OTHER = (4096 - sum(WID_OBS.values() )) / (4096 - len(DNL_OBS))
+
+# i'm using indices from 0 which may be wrong?
+
+# given an analog value, calculate the measured value by the dac
+# from https://www.allaboutcircuits.com/technical-articles/understanding-analog-to-digital-converter-differential-nonlinearity-dnl-error/
+# (esp figure 1 and the text below) index 1 corresponds to an output of 1
+@cache
+def model_resp(a):
+    d = 0
+    a -= WID_OTHER / 2  # if a is less than 1/2 a typical gap (or 1) then d is 0
+    while a > 0:
+        d += 1
+        # move to next bin
+        if d in WID_OBS:
+            a -= WID_OBS[d]
+        else:
+            a -= WID_OTHER
+    return d
+
+# plot a function to a file
+def plot(fn, path):
+    if exists(path): remove(path)
+    with open(path, 'w') as out:
+        for x in range(4096):
+            print(x, fn(x), file=out)
+    print(f"output in {path}")
+
+# given a response, calculate the error
+def resp_to_err(resp, scale=1):
+    if scale != 1: print('scale', scale)
+    @cache
+    def err(x):
+        return resp(x) - x * scale
+    return err
+
+# the correction in ComputerCard.h
+def cc_correcn(x):
+    # uint16_t adc512=ADC_Buffer[cpuPhase][3]+512;
+    adc512 = x + 512
+    # if (!(adc512 % 0x01FF)) ADC_Buffer[cpuPhase][3] += 4;
+    if (adc512 % 0x01ff) == 0: x += 4
+    # ADC_Buffer[cpuPhase][3] += (adc512>>10) << 3;
+    x += (adc512>>10) << 3
+    return x
+
+def apply(resp, correcn):
+    def f(x):
+        return correcn(resp(x))
+    return f
+    
+plot(model_resp, "/tmp/model_resp")
+model_err = resp_to_err(model_resp)
+plot(model_err, "/tmp/model_err")
+
+cc_corrected = apply(model_resp, cc_correcn)
+plot(cc_corrected, "/tmp/cc_corrected")
+cc_err = resp_to_err(cc_corrected)
+plot(cc_err, "/tmp/cc_err")
+cc_err_scl = resp_to_err(cc_corrected, scale=cc_corrected(4095)/4095)
+plot(cc_err_scl, "/tmp/cc_err_scl")
+
+k = 1 << 19
+
+# errors (in model) at 512 1536 (2048) 2560 3584
+# diffs 1024 1024 1024
+# scale inside 32bit (value is about 12 bits)
+def me_correcn(a):
+    global k
+    b = a + (((a + 0x200) >> 10) << 3)
+#    if 512 < a < 2048:
+    if (a & 0x600) and not (a & 0x800):
+        b += 2
+    if (a + 0x200) % 0x400 == 0:
+        b -= 4
+    return (k * b) >> 19
+
+k = int(4095 * (1 << 19) / me_correcn(4095))
+print(k)  # 520222
+
+me_corrected = apply(model_resp, me_correcn)
+plot(me_corrected, "/tmp/me_corrected")
+me_err = resp_to_err(me_corrected)
+plot(me_err, "/tmp/me_err")
