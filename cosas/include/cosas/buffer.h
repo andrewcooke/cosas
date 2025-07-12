@@ -9,14 +9,18 @@
 
 // circular; empty when read_from == write_to
 class AudioBuffer {
+
 public:
-  AudioBuffer(std::function<int16_t(int32_t)>& cb);
+  explicit AudioBuffer(std::function<int16_t(int32_t)>& cb);
+  virtual ~AudioBuffer() = default;
   int16_t next();
   void run();
+
 protected:
   // can be overridden on pico side
   virtual void sleep_us(uint32_t us) {};
   virtual void log_delta(int d) {};
+
 private:
   std::function<int16_t(int32_t)>& callback;
   static constexpr int16_t EMPTY = 0;
@@ -25,6 +29,7 @@ private:
   int write_to;
   static constexpr size_t BUFFER_LEN = 5;
   std::array<int16_t, BUFFER_LEN> buffer;
+
 };
 
 

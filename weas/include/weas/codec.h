@@ -15,6 +15,7 @@ public:
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
   static Codec& get();
+  void adc_callback();  // public for static function
   enum Knob {Main, X, Y};
   enum Switch {Down, Middle, Up};
 
@@ -29,9 +30,8 @@ private:
   static constexpr uint ADC_IN = 26;
   static constexpr uint MUX_IN = 28;
   static constexpr float SAMPLE_FREQ = 44100;
-  static constexpr uint OVERSAMPLE_BITS = 1;  // can't exceed 4 as we accumulate 12 bits into 16 bits
+  static constexpr uint OVERSAMPLE_BITS = 1;  // can't exceed 4(?) as we accumulate 12 bits into 16 bits
   Codec();
-  void adc_callback();
   [[nodiscard]] uint16_t read_adc(uint off, uint oversample_bits, bool fix) const;
   template<typename T> static void roll(T (&arr)[2], uint16_t val);
   template<typename T, unsigned int N> static void roll(T (&arr)[2][N], uint index, uint16_t val);
@@ -39,7 +39,6 @@ private:
   uint8_t adc_dma, dac_dma;
   uint16_t adc_buffer[2][4 * (1 << OVERSAMPLE_BITS)] = {};  // [phase][over]
   uint16_t spi_buffer[2][2] = {};  // [phase][l/r]
-  uint cpu_phase = 1, dma_phase = 0;  // alternating indices into buffers
   volatile int16_t cv[2] = {};
   volatile int16_t adc[2] = {0x800, 0x800};
   volatile bool pulse[2][2] = {};  // [p/c][l/r]

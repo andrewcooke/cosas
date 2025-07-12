@@ -3,7 +3,7 @@
 
 
 AudioBuffer::AudioBuffer(std::function<int16_t(int32_t)>& cb)
-  : callback(cb), buffer(), read_from(0), write_to(0) {
+  : callback(cb), read_from(0), write_to(0), buffer() {
     // start with array full of EMPTY values
     buffer.fill(EMPTY);
     write_to = BUFFER_LEN - 1;
@@ -21,7 +21,7 @@ int16_t AudioBuffer::next() {
 
 void AudioBuffer::run() {
     while (true) {
-        int saved_read_from = read_from;
+        const int saved_read_from = read_from;
         int space = saved_read_from - write_to - 1;
         if (space < 0) space += BUFFER_LEN;
         if (space == 0) {
