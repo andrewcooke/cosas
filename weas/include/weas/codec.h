@@ -4,6 +4,8 @@
 
 #include <sys/types.h>
 
+#include "cosas/maths.h"
+
 
 // codec as in DAC and ADC
 
@@ -27,12 +29,15 @@ private:
   static constexpr uint ADC_IN = 26;
   static constexpr uint MUX_IN = 28;
   static constexpr float SAMPLE_FREQ = 44100;
-  static constexpr uint OVERSAMPLE = 2;
+  static constexpr uint OVERSAMPLE_BITS = 1;  // can't exceed 4 as we accumulate 12 bits into 16 bits
   Codec();
   void adc_callback();
+  [[nodiscard]] uint16_t read_adc(uint off, uint oversample_bits, bool fix) const;
+  template<typename T> static void roll(T (&arr)[2], uint16_t val);
+  template<typename T, unsigned int N> static void roll(T (&arr)[2][N], uint index, uint16_t val);
   uint32_t count = 0;
   uint8_t adc_dma, dac_dma;
-  uint16_t adc_buffer[2][4 * OVERSAMPLE] = {};  // [phase][over]
+  uint16_t adc_buffer[2][4 * (1 << OVERSAMPLE_BITS)] = {};  // [phase][over]
   uint16_t spi_buffer[2][2] = {};  // [phase][l/r]
   uint cpu_phase = 1, dma_phase = 0;  // alternating indices into buffers
   volatile int16_t cv[2] = {};
@@ -43,5 +48,22 @@ private:
 
 };
 
+template<typename T> inline void Codec::roll(T (&arr)[2], uint16_t val) {
+  arr[1] = arr[0];
+  arr[0] = val;
+}
+
+template<typename T, unsigned int N> inline void Codec::roll(T (&arr)[2][N], uint index, uint16_t val) {
+  arr[1][index] = arr[0][index];
+  arr[0][index] = val;
+}
+
+inline uint16_t Codec::read_adc(const uint off, const uint oversample_bits, const bool fix) const {
+  uint16_t adc = 0;
+  for (int ov = 0; ov < 1 << oversample_bits; ov++) adc += adc_buffer[cpu_phase][off + 4 * ov];
+  adc = adc >> oversample_bits;
+  if (fix) adc = fix_dnl(adc);
+  return adc;
+}
 
 #endif

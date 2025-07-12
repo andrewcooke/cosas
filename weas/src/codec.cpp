@@ -77,30 +77,26 @@ void Codec::adc_callback() {
   adc_select_input(0);  // is this needed here?
   cpu_phase = dma_phase;
   dma_phase = 1 - dma_phase;
-  dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true);
-  dma_channel_set_read_addr(dac_dma, spi_buffer[dma_phase], true);
 
-  uint cv_idx = count % 2;
-  // this almost fits in 16 bits, but i guess there's no advantage in pushing it to do so?
-  cv_smooth[cv_idx] = (15 * (cv_smooth[cv_idx]) + 16 * fix_dnl(adc_buffer[cpu_phase][3])) >> 4;
-  cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);  // cc has an extra >> 4 here i don't understand
+  const uint cv_idx = count & 0x1;
+  cv_smooth[cv_idx] (15 * (cv_smooth[cv_idx]) + 16 * read_adc(3, OVERSAMPLE_BITS, true)) >> 4;
+  cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);
 
   for (uint lr = 0; lr < 2; lr++) {
-    adc[lr] = -(fix_dnl((adc_buffer[cpu_phase][0+lr] + adc_buffer[cpu_phase][4+lr]) >> 1) - 0x1000);
-    pulse[1][lr] = pulse[0][lr];
-    pulse[0][lr] = !gpio_get(PLS_IN);
+    adc[lr] = -(read_adc(lr, OVERSAMPLE_BITS, true) - 0x1000);
+    roll(pulse, lr, !gpio_get(PLS_IN));
   }
 
   const uint knob = count & 0x3;
-  knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * adc_buffer[cpu_phase][6]) >> 7;
-  knobs[1][knob] = knobs[0][knob];
-  knobs[0][knob] = knobs_smooth[knob];  // extra >> 4 here
-  if (knob == 3) {
-    switch_[1] = switch_[0];
-    switch_[0] = static_cast<Switch>((knobs[0][knob]>1000) + (knobs[0][knob]>3000));
-  }
+  knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * read_adc(2, 0, true)) >> 7;
+  roll(knobs, knob, knobs_smooth[knob]);
+  if (knob == 3) roll(switch_, (knobs[0][knob] > 1000) + (knobs[0][knob] > 3000));
 
   count++;
-  for (uint mux = 0; mux < 2; mux++) gpio_put(MUX_OUT + mux, count & (0b1 << mux));
-  dma_hw->ints0 = 1u << adc_dma;  // reset adc interrupt flag (we have handled it)
+  for (uint mux = 0; mux < 2; mux++) gpio_put(MUX_OUT + mux, count & (0x1 << mux));
+  dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true);
+  dma_channel_set_read_addr(dac_dma, spi_buffer[dma_phase], true);
+
+  dma_hw->ints0 = 0x1 << adc_dma;  // reset adc interrupt flag (we have handled it)
 }
+
