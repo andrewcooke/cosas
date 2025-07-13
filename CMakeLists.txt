@@ -23,6 +23,7 @@ if (BUILD STREQUAL "pico")
     # apps to deploy on cards
     add_subdirectory(tests/hola)
     add_subdirectory(tests/luz)
+    add_subdirectory(tests/knob)
 
 else()
 
