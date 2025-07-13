@@ -21,8 +21,8 @@ if (BUILD STREQUAL "pico")
     add_subdirectory(weas/src)  # weas_lib is pico-specific interface code
 
     # apps to deploy on cards
-    add_subdirectory(holawea)
-    add_subdirectory(luzwea)
+    add_subdirectory(tests/hola)
+    add_subdirectory(tests/luz)
 
 else()
 
@@ -32,6 +32,6 @@ else()
     FetchContent_MakeAvailable(doctest)
     add_subdirectory(cosas/test)
     
-    add_subdirectory(dump)
+    add_subdirectory(tests/dump)
 
 endif()

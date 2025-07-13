@@ -1,7 +1,7 @@
 
 # cosas
 
-various utilities and applications for the Music Thing Workshop Computer.
+various utilities and applications for the Music Thing Modular Workshop Computer.
 
 the plan is to have a unified UI via the weas library.
 
