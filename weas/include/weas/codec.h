@@ -20,6 +20,9 @@ template<uint SAMPLE_FREQ, uint OVER_BITS> class Codec {
 
 public:
 
+  enum Knob {Main, X, Y};
+  enum Switch {Down, Middle, Up};
+
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
 
@@ -43,8 +46,25 @@ public:
     isr_post();
   }
 
-  enum Knob {Main, X, Y};
-  enum Switch {Down, Middle, Up};
+  uint16_t get_adc(const uint lr) const {
+    return adc[lr & 0x1];
+  }
+
+  uint16_t get_cv(const uint lr) const {
+    return cv[lr & 0x1];
+  }
+
+  bool get_pulse(const uint lr) const {
+    return pulse[0][lr & 0x1];
+  }
+
+  bool chg_pulse(const uint lr) const {
+    return pulse[0][lr & 0x1] != pulse[1][lr & 0x1];
+  }
+
+  uint16_t get_knob(const Knob k) {
+    return knobs[k];
+  }
 
 private:
 
@@ -59,6 +79,7 @@ private:
   static constexpr uint MUX_IN = 28;
 
   Codec() {
+
     for (uint lr = 0; lr < 2; lr++) {
       gpio_init(PLS_OUT + lr);
       gpio_set_dir(PLS_OUT + lr, GPIO_OUT);
@@ -126,7 +147,7 @@ private:
     adc_select_input(0);  // is this needed here?
     for (uint mux = 0; mux < 2; mux++) gpio_put(MUX_OUT + mux, count & (0x1 << mux));
     dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true);
-    dma_channel_set_read_addr(dac_dma, spi_buffer[dma_phase], true);
+    dma_channel_set_read_addr(dac_dma, dac_buffer[dma_phase], true);
 
     dma_hw->ints0 = 0x1 << adc_dma;  // reset adc interrupt flag (we have handled it)
   }
@@ -153,7 +174,7 @@ private:
   uint32_t count = 0;
   uint8_t adc_dma, dac_dma;
   uint16_t adc_buffer[2][4 * (1 << OVER_BITS)] = {};  // [phase][over]
-  uint16_t spi_buffer[2][2] = {};  // [phase][l/r]
+  uint16_t dac_buffer[2][2] = {};  // [phase][l/r]
   volatile int16_t cv[2] = {};
   volatile int16_t adc[2] = {0x800, 0x800};
   volatile bool pulse[2][2] = {};  // [p/c][l/r]
