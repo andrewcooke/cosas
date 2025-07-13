@@ -13,12 +13,11 @@
 #include "weas/led.h"
 
 
-void callback() {
-    Codec::get().adc_callback();
+void isr_wrapper() {
+    Codec::get().isr();
 }
 
 Codec::Codec() {
-
   for (uint lr = 0; lr < 2; lr++) {
     gpio_init(PLS_OUT + lr);
     gpio_set_dir(PLS_OUT + lr, GPIO_OUT);
@@ -58,9 +57,17 @@ Codec::Codec() {
   channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
   dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 8, true);
   dma_channel_set_irq0_enabled(adc_dma, true);
+}
 
+std::function<void()> Codec::set_callback(std::function<void()> f) {
+  std::function<void()> prev = callback;
+  callback = f;
+  return prev;
+}
+
+void Codec::start_irq() {
   irq_set_enabled(DMA_IRQ_0, true);
-  irq_set_exclusive_handler(DMA_IRQ_0, callback);
+  irq_set_exclusive_handler(DMA_IRQ_0, isr_wrapper);
 }
 
 Codec& Codec::get() {
@@ -68,30 +75,29 @@ Codec& Codec::get() {
   return instance;
 }
 
-
-void Codec::adc_callback() {
-
+void Codec::isr_pre() {
   static volatile int32_t knobs_smooth[4] = {0, 0, 0, 0};
   static volatile int32_t cv_smooth[2] = {0, 0};
-
   const uint cpu_phase = count & 0x1;
-  const uint dma_phase = 1 - cpu_phase;
 
   const uint cv_idx = count & 0x1;
-  cv_smooth[cv_idx] (15 * (cv_smooth[cv_idx]) + 16 * read_adc(3, OVERSAMPLE_BITS, true)) >> 4;
+  cv_smooth[cv_idx] (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, 3, OVERSAMPLE_BITS, true)) >> 4;
   cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);
 
   for (uint lr = 0; lr < 2; lr++) {
-    adc[lr] = -(read_adc(lr, OVERSAMPLE_BITS, true) - 0x1000);
+    adc[lr] = -(read_adc(cpu_phase, lr, OVERSAMPLE_BITS, true) - 0x1000);
     roll(pulse, lr, !gpio_get(PLS_IN));
   }
 
   const uint knob = count & 0x3;
-  knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * read_adc(2, 0, true)) >> 7;
+  knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * read_adc(cpu_phase, 2, 0, true)) >> 7;
   roll(knobs, knob, knobs_smooth[knob]);
   if (knob == 3) roll(switch_, (knobs[0][knob] > 1000) + (knobs[0][knob] > 3000));
+}
 
+void Codec::isr_post() {
   count++;
+  const uint dma_phase = count & 0x1;
   adc_select_input(0);  // is this needed here?
   for (uint mux = 0; mux < 2; mux++) gpio_put(MUX_OUT + mux, count & (0x1 << mux));
   dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true);
@@ -100,3 +106,8 @@ void Codec::adc_callback() {
   dma_hw->ints0 = 0x1 << adc_dma;  // reset adc interrupt flag (we have handled it)
 }
 
+void Codec::isr() {
+  isr_pre();
+  callback();
+  isr_post();
+}

@@ -2,6 +2,7 @@
 #ifndef WEAS_CODEC_H
 #define WEAS_CODEC_H
 
+#include <functional>
 #include <sys/types.h>
 
 #include "cosas/maths.h"
@@ -15,7 +16,9 @@ public:
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
   static Codec& get();
-  void adc_callback();  // public for static function
+  std::function<void()> set_callback(std::function<void()>);
+  static void start_irq();
+  void isr();  // public for static function
   enum Knob {Main, X, Y};
   enum Switch {Down, Middle, Up};
 
@@ -32,9 +35,12 @@ private:
   static constexpr float SAMPLE_FREQ = 44100;
   static constexpr uint OVERSAMPLE_BITS = 1;  // can't exceed 4(?) as we accumulate 12 bits into 16 bits
   Codec();
-  [[nodiscard]] uint16_t read_adc(uint off, uint oversample_bits, bool fix) const;
+  void isr_pre();
+  void isr_post();
+  [[nodiscard]] uint16_t read_adc(uint cpu_phase, uint off, uint oversample_bits, bool fix) const;
   template<typename T> static void roll(T (&arr)[2], uint16_t val);
   template<typename T, unsigned int N> static void roll(T (&arr)[2][N], uint index, uint16_t val);
+  std::function<void()> callback = [](){};
   uint32_t count = 0;
   uint8_t adc_dma, dac_dma;
   uint16_t adc_buffer[2][4 * (1 << OVERSAMPLE_BITS)] = {};  // [phase][over]
@@ -57,7 +63,7 @@ template<typename T, unsigned int N> inline void Codec::roll(T (&arr)[2][N], uin
   arr[0][index] = val;
 }
 
-inline uint16_t Codec::read_adc(const uint off, const uint oversample_bits, const bool fix) const {
+inline uint16_t Codec::read_adc(const uint cpu_phase, const uint off, const uint oversample_bits, const bool fix) const {
   uint16_t adc = 0;
   for (int ov = 0; ov < 1 << oversample_bits; ov++) adc += adc_buffer[cpu_phase][off + 4 * ov];
   adc = adc >> oversample_bits;
