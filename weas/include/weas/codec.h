@@ -3,6 +3,7 @@
 #define WEAS_CODEC_H
 
 #include <functional>
+#include <utility>
 #include <sys/types.h>
 
 #include "cosas/maths.h"
@@ -14,28 +15,32 @@
 #include "hardware/structs/spi.h"
 
 
+constexpr uint SAMPLE_48K = 48000;
+constexpr uint SAMPLE_44_1K = 44100;
+
+enum Knob {Main, X, Y};
+enum Switch {Down, Middle, Up};
+
+
 // codec as in DAC and ADC
 
 template<uint SAMPLE_FREQ, uint OVER_BITS> class Codec {
 
 public:
 
-  enum Knob {Main, X, Y};
-  enum Switch {Down, Middle, Up};
-
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
 
-  Codec& get() {
+  static Codec& get() {
     static Codec instance;
     return instance;
   }
 
   void set_callback(std::function<void()> f) {
-    callback = f;
+    callback = std::move(f);
   }
 
-  void Codec::start_irq() {
+  void start_irq() {
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){Codec::get().isr();});
   }
@@ -46,23 +51,23 @@ public:
     isr_post();
   }
 
-  uint16_t get_adc(const uint lr) const {
+  [[nodiscard]] uint16_t get_adc(const uint lr) const {
     return adc[lr & 0x1];
   }
 
-  uint16_t get_cv(const uint lr) const {
+  [[nodiscard]] uint16_t get_cv(const uint lr) const {
     return cv[lr & 0x1];
   }
 
-  bool get_pulse(const uint lr) const {
+  [[nodiscard]] bool get_pulse(const uint lr) const {
     return pulse[0][lr & 0x1];
   }
 
-  bool chg_pulse(const uint lr) const {
+  [[nodiscard]] bool chg_pulse(const uint lr) const {
     return pulse[0][lr & 0x1] != pulse[1][lr & 0x1];
   }
 
-  uint16_t get_knob(const Knob k) {
+  [[nodiscard]] uint16_t get_knob(const Knob k) const {
     return knobs[k];
   }
 
@@ -141,7 +146,7 @@ private:
     if (knob == 3) roll(switch_, (knobs[0][knob] > 1000) + (knobs[0][knob] > 3000));
   }
 
-  void Codec::isr_post() {
+  void isr_post() {
     count++;
     const uint dma_phase = count & 0x1;
     adc_select_input(0);  // is this needed here?

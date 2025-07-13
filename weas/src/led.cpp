@@ -38,23 +38,23 @@ void LED::set(const uint index, bool x) { // NOLINT(*-convert-member-functions-t
     set(index, static_cast<uint8_t>(x ? 0xff : 0));
 }
 
-void LED::all(bool x) {
+void LED::all(const bool x) {
     for (uint i = 0; i < LED_N; i++) {set(i, x);}
 }
 
-void LED::all(uint8_t b) {
+void LED::all(const uint8_t b) {
     for (uint i = 0; i < LED_N; i++) {set(i, b);}
 }
 
-void LED::display12bits(uint16_t v) {
-    v &= 0x0fff;
+void LED::display12bits(const uint16_t v) {
+    uint16_t  vv = v & 0x0fff;
     for (uint i = LED_N; i > 0; i--) {
-        set(i - 1, static_cast<uint8_t>((v & 0x03) << 6));
-        v >>= 2;
+        set(i - 1, static_cast<uint8_t>((vv & 0x03) << 6));
+        vv >>= 2;
     }
 }
 
-void LED::display12bits(int16_t v) {
+void LED::display12bits(const int16_t v) {
     display12bits(static_cast<uint16_t>(v + 0x8000));
 }
 
@@ -66,7 +66,7 @@ void LED::column10levels(const uint c, uint8_t v) {
     }
 }
 
-void LED::display7levels(uint8_t n) {
+void LED::display7levels(const uint8_t n) {
     for (uint i = 0; i < LED_N; i++) set(i, i < n);
 }
 
