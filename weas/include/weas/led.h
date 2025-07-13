@@ -7,10 +7,7 @@
 
 
 class LED {
-private:
-    LED();
-    static constexpr uint LED_BASE_GPIO = 10;
-    static constexpr uint LED_N = 6;
+
 public:
     LED(const LED&) = delete;
     LED& operator=(const LED&) = delete;
@@ -23,6 +20,11 @@ public:
     void display12bits(int16_t v);
     void column10levels(uint c, uint8_t v);
     void display7levels(uint8_t n);
+
+private:
+    LED();
+    static constexpr uint LED_BASE_GPIO = 10;
+    static constexpr uint LED_N = 6;
 };
 
 

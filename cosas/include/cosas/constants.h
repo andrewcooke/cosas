@@ -29,7 +29,7 @@ inline size_t tick2idx(int32_t tick) {
 
 inline uint32_t hz2freq(const float hz) {
     auto freq = static_cast<uint32_t>(std::fabsf(hz) * (1 << SUBTICK_BITS));
-    freq = std::min((SAMPLE_RATE / 2) << SUBTICK_BITS, std::max(1u, freq));
+    freq = std::min((SAMPLE_RATE / 2) << SUBTICK_BITS, std::max(static_cast<uint32_t>(1u), freq));
     return freq;
 }
 
