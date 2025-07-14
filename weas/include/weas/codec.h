@@ -42,7 +42,7 @@ public:
 
   void start_irq() {
     irq_set_enabled(DMA_IRQ_0, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, [](){Codec::get().isr();});
+    irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
   }
 
   void isr() {
@@ -68,7 +68,11 @@ public:
   }
 
   [[nodiscard]] uint16_t get_knob(const Knob k) const {
-    return knobs[k];
+    return knobs[0][k];
+  }
+
+  [[nodiscard]] bool chg_knob(const Knob k) const {
+    return knobs[0][k] != knobs[1][k];
   }
 
 private:
@@ -132,7 +136,7 @@ private:
     const uint cpu_phase = count & 0x1;
 
     const uint cv_idx = count & 0x1;
-    cv_smooth[cv_idx] (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, 3, OVER_BITS, true)) >> 4;
+    cv_smooth[cv_idx] = (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, 3, OVER_BITS, true)) >> 4;
     cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);
 
     for (uint lr = 0; lr < 2; lr++) {
@@ -142,8 +146,8 @@ private:
 
     const uint knob = count & 0x3;
     knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * read_adc(cpu_phase, 2, 0, true)) >> 7;
-    roll(knobs, knob, knobs_smooth[knob]);
-    if (knob == 3) roll(switch_, (knobs[0][knob] > 1000) + (knobs[0][knob] > 3000));
+    roll(knobs, knob, static_cast<uint16_t>(knobs_smooth[knob]));
+    if (knob == 3) roll(switch_, static_cast<Switch>((knobs[0][knob] > 1000) + (knobs[0][knob] > 3000)));
   }
 
   void isr_post() {
@@ -165,12 +169,24 @@ private:
     return adc;
   }
 
-  template<typename T> inline static void roll(T (&arr)[2], uint16_t val) {
+  // TODO - do non-volatile imply an error?
+
+  template<typename T> inline static void roll(T (&arr)[2], T val) {
     arr[1] = arr[0];
     arr[0] = val;
   }
 
-  template<typename T, unsigned int N> inline static void roll(T (&arr)[2][N], uint index, uint16_t val) {
+  template<typename T> inline static void roll(volatile T (&arr)[2], T val) {
+    arr[1] = arr[0];
+    arr[0] = val;
+  }
+
+  template<typename T, unsigned int N> inline static void roll(T (&arr)[2][N], uint index, T val) {
+    arr[1][index] = arr[0][index];
+    arr[0][index] = val;
+  }
+
+  template<typename T, unsigned int N> inline static void roll(volatile T (&arr)[2][N], uint index, T val) {
     arr[1][index] = arr[0][index];
     arr[0][index] = val;
   }
