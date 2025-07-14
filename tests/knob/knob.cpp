@@ -9,7 +9,7 @@ int main() {
 
   auto& leds = LED::get();
   leds.display7levels(1);
-  auto& codec = Codec<SAMPLE_44_1K, 0>::get();
+  auto& codec = Codec<SAMPLE_44_1K, 1>::get();
   codec.set_callback([&codec, &leds]() mutable {
     leds.display7levels(5);
     const uint16_t k = codec.get_knob(Knob::Main);

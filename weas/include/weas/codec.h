@@ -10,6 +10,7 @@
 #include "hardware/adc.h"
 #include "hardware/dma.h"
 #include "hardware/gpio.h"
+#include "hardware/pwm.h"
 #include "hardware/spi.h"
 #include "hardware/structs/io_bank0.h"
 #include "hardware/structs/spi.h"
@@ -38,13 +39,6 @@ public:
 
   void set_callback(std::function<void()> f) {
     callback = std::move(f);
-  }
-
-  void start_irq() {
-    LED::get().display7levels(4);
-    irq_set_enabled(DMA_IRQ_0, true);
-    // irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
-    irq_set_exclusive_handler(DMA_IRQ_0, [](){LED::get().display7levels(5);});
   }
 
   void isr() {
@@ -78,6 +72,14 @@ public:
     return knobs[0][k] != knobs[1][k];
   }
 
+  void start_irq() {
+    irq_set_enabled(DMA_IRQ_0, true);
+    irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
+    // irq_set_exclusive_handler(DMA_IRQ_0, [](){LED::get().display7levels(5);});
+    adc_run(true);
+    LED::get().display7levels(4);
+  }
+
 private:
 
   static constexpr uint PLS_IN = 2;
@@ -92,10 +94,14 @@ private:
 
   Codec() {
 
-    auto& leds = LED::get();
-    leds.display7levels(2);
+    LED::get().display7levels(2);
+
+    adc_run(false);
+    adc_select_input(0);
+    adc_init();
 
     for (uint lr = 0; lr < 2; lr++) {
+      adc_gpio_init(ADC_IN + lr);
       gpio_init(PLS_OUT + lr);
       gpio_set_dir(PLS_OUT + lr, GPIO_OUT);
       gpio_put(PLS_OUT + lr, true);
@@ -104,38 +110,46 @@ private:
       gpio_pull_up(PLS_IN + lr);
     }
 
-    spi_init(spi0, 15625000);  // why this baudrate?  max is 20MHz
-    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-    gpio_set_function(DAC_SCK, GPIO_FUNC_SPI);
-    gpio_set_function(DAC_TX, GPIO_FUNC_SPI);
-    gpio_set_function(DAC_CS, GPIO_FUNC_SPI);
-    dac_dma = dma_claim_unused_channel(true);
-    dma_channel_config spi_dmacfg = dma_channel_get_default_config(dac_dma);
-    channel_config_set_transfer_data_size(&spi_dmacfg, DMA_SIZE_16);
-    channel_config_set_dreq(&spi_dmacfg, DREQ_SPI0_TX);
-    dma_channel_configure(dac_dma, &spi_dmacfg, &spi_get_hw(spi0)->dr, NULL, 2, false);
-
     for (uint mux = 0; mux < 2; mux++) {
+      adc_gpio_init(MUX_IN + mux);
       gpio_init(MUX_OUT + mux);
       gpio_set_dir(MUX_OUT, GPIO_OUT);
       adc_gpio_init(MUX_IN + mux);
     }
 
-    for (uint adc = 0; adc < 2; adc++) adc_gpio_init(ADC_IN + adc);
+    spi_init(spi0, 15625000);  // why this baudrate?  max is 20MHz
+    spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
+    gpio_set_function(DAC_SCK, GPIO_FUNC_SPI);
+    gpio_set_function(DAC_TX, GPIO_FUNC_SPI);
+    gpio_set_function(DAC_CS, GPIO_FUNC_SPI);
+
+    for (uint lr = 0; lr < 2; lr++) gpio_set_function(CV_OUT + lr, GPIO_FUNC_PWM);
+    pwm_config config = pwm_get_default_config();
+    pwm_config_set_wrap(&config, 2047); // why 11 bit?
+    for (uint lr = 0; lr < 2; lr++) {
+      pwm_init(pwm_gpio_to_slice_num(CV_OUT + lr), &config, true);
+      pwm_set_gpio_level(CV_OUT + lr, 1024);
+    }
+
     adc_select_input(0);
     adc_set_round_robin(0b1111);  // audio and MUX
     adc_fifo_setup(true, true, 1, false, false);
     adc_set_clkdiv(48000000 / (4 * (1 << OVER_BITS) * SAMPLE_FREQ) - 1);
     adc_dma = dma_claim_unused_channel(true);
+    dac_dma = dma_claim_unused_channel(true);
     dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
+    dma_channel_config spi_dmacfg = dma_channel_get_default_config(dac_dma);
     channel_config_set_transfer_data_size(&adc_dmacfg, DMA_SIZE_16);
     channel_config_set_read_increment(&adc_dmacfg, false);
     channel_config_set_write_increment(&adc_dmacfg, true);
     channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
-    dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 8, true);
+    dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 4 << OVER_BITS, true);
+    channel_config_set_transfer_data_size(&spi_dmacfg, DMA_SIZE_16);
+    channel_config_set_dreq(&spi_dmacfg, DREQ_SPI0_TX);
+
     dma_channel_set_irq0_enabled(adc_dma, true);
 
-    leds.display7levels(3);
+    LED::get().display7levels(3);
   }
 
   void isr_pre() {
