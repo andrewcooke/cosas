@@ -41,11 +41,14 @@ public:
   }
 
   void start_irq() {
+    LED::get().display7levels(4);
     irq_set_enabled(DMA_IRQ_0, true);
-    irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
+    // irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
+    irq_set_exclusive_handler(DMA_IRQ_0, [](){LED::get().display7levels(5);});
   }
 
   void isr() {
+    // LED::get().display7levels(5);
     isr_pre();
     callback();
     isr_post();
@@ -89,6 +92,9 @@ private:
 
   Codec() {
 
+    auto& leds = LED::get();
+    leds.display7levels(2);
+
     for (uint lr = 0; lr < 2; lr++) {
       gpio_init(PLS_OUT + lr);
       gpio_set_dir(PLS_OUT + lr, GPIO_OUT);
@@ -128,6 +134,8 @@ private:
     channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
     dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 8, true);
     dma_channel_set_irq0_enabled(adc_dma, true);
+
+    leds.display7levels(3);
   }
 
   void isr_pre() {
