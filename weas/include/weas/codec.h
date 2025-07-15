@@ -42,7 +42,6 @@ public:
   }
 
   void isr() {
-    // LED::get().display7levels(5);
     isr_pre();
     callback();
     isr_post();
@@ -72,12 +71,12 @@ public:
     return knobs[0][k] != knobs[1][k];
   }
 
-  void start_irq() {
+  void start_irq(bool block) {
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
-    // irq_set_exclusive_handler(DMA_IRQ_0, [](){LED::get().display7levels(5);});
     adc_run(true);
     LED::get().display7levels(4);
+    while (block) sleep_ms(1000);
   }
 
 private:
@@ -93,8 +92,6 @@ private:
   static constexpr uint MUX_IN = 28;
 
   Codec() {
-
-    LED::get().display7levels(2);
 
     adc_run(false);
     adc_select_input(0);
@@ -113,8 +110,7 @@ private:
     for (uint mux = 0; mux < 2; mux++) {
       adc_gpio_init(MUX_IN + mux);
       gpio_init(MUX_OUT + mux);
-      gpio_set_dir(MUX_OUT, GPIO_OUT);
-      adc_gpio_init(MUX_IN + mux);
+      gpio_set_dir(MUX_OUT + mux, GPIO_OUT);
     }
 
     spi_init(spi0, 15625000);  // why this baudrate?  max is 20MHz
@@ -138,18 +134,16 @@ private:
     adc_dma = dma_claim_unused_channel(true);
     dac_dma = dma_claim_unused_channel(true);
     dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
-    dma_channel_config spi_dmacfg = dma_channel_get_default_config(dac_dma);
+    dma_channel_config dac_dmacfg = dma_channel_get_default_config(dac_dma);
     channel_config_set_transfer_data_size(&adc_dmacfg, DMA_SIZE_16);
     channel_config_set_read_increment(&adc_dmacfg, false);
     channel_config_set_write_increment(&adc_dmacfg, true);
     channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
     dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 4 << OVER_BITS, true);
-    channel_config_set_transfer_data_size(&spi_dmacfg, DMA_SIZE_16);
-    channel_config_set_dreq(&spi_dmacfg, DREQ_SPI0_TX);
+    channel_config_set_transfer_data_size(&dac_dmacfg, DMA_SIZE_16);
+    channel_config_set_dreq(&dac_dmacfg, DREQ_SPI0_TX);
 
     dma_channel_set_irq0_enabled(adc_dma, true);
-
-    LED::get().display7levels(3);
   }
 
   void isr_pre() {
@@ -166,10 +160,10 @@ private:
       roll(pulse, lr, !gpio_get(PLS_IN));
     }
 
-    const uint knob = count & 0x3;
-    knobs_smooth[knob] = (127 * (knobs_smooth[knob]) + 16 * read_adc(cpu_phase, 2, 0, true)) >> 7;
-    roll(knobs, knob, static_cast<uint16_t>(knobs_smooth[knob]));
-    if (knob == 3) roll(switch_, static_cast<Switch>((knobs[0][knob] > 1000) + (knobs[0][knob] > 3000)));
+    const uint knob_idx = count & 0x3;
+    knobs_smooth[knob_idx] = (127 * (knobs_smooth[knob_idx]) + 16 * read_adc(cpu_phase, 2, 0, true)) >> 7;
+    roll(knobs, knob_idx, static_cast<uint16_t>(knobs_smooth[knob_idx]));
+    if (knob_idx == 3) roll(switch_, static_cast<Switch>((knobs[0][knob_idx] > 1000) + (knobs[0][knob_idx] > 3000)));
   }
 
   void isr_post() {

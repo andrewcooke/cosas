@@ -12,10 +12,9 @@ int main() {
   auto& codec = Codec<SAMPLE_44_1K, 1>::get();
   codec.set_callback([&codec, &leds]() mutable {
     leds.display7levels(5);
-    const uint16_t k = codec.get_knob(Knob::Main);
+    const uint16_t k = codec.get_adc(1);
     leds.display12bits(k);
   });
-  codec.start_irq();
-  // leds.display7levels(6);
-  while (1) sleep_ms(10000);
+  codec.start_irq(true);
+  leds.display7levels(6);
 }
