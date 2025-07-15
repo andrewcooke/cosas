@@ -1,5 +1,6 @@
 
-#include "pico/stdlib.h"
+// ReSharper disable once CppUnusedIncludeDirective
+#include "pico/stdlib.h"  // uint
 
 #include "weas/led.h"
 #include "weas/codec.h"
@@ -8,13 +9,10 @@
 int main() {
 
   auto& leds = LED::get();
-  leds.display7levels(1);
   auto& codec = Codec<SAMPLE_44_1K, 1>::get();
   codec.set_callback([&codec, &leds]() mutable {
-    leds.display7levels(5);
-    const uint16_t k = codec.get_adc(1);
-    leds.display12bits(k);
+    const uint16_t k = codec.get_knob(Main);
+    leds.columns12bits(k);
   });
   codec.start_irq(true);
-  leds.display7levels(6);
 }

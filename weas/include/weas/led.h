@@ -20,6 +20,7 @@ public:
     void display12bits(int16_t v);
     void column10levels(uint c, uint8_t v);
     void display7levels(uint8_t n);
+    void columns12bits(uint16_t v);
 
 private:
     LED();
