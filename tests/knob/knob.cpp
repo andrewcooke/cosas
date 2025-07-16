@@ -11,8 +11,8 @@ int main() {
   auto& leds = LED::get();
   auto& codec = Codec<SAMPLE_44_1K, 1>::get();
   codec.set_callback([&codec, &leds]() mutable {
-    const uint16_t k = codec.get_knob(Main);
-    leds.columns12bits(k);
+    // leds.columns12bits(codec.get_knob(Main));
+    leds.columns12bits(codec.get_cv(0) >> 4);
   });
   codec.start_irq(true);
 }

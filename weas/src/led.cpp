@@ -59,7 +59,7 @@ void LED::display12bits(const int16_t v) {
 }
 
 void LED::column10levels(const uint c, uint8_t v) {
-  v = v % 10;
+  v = std::min(static_cast<uint8_t>(9), v);
   for (int i = 5 + (c & 1); i > 0; i -= 2) {
     set(i - 1, static_cast<uint8_t>(std::min(static_cast<uint8_t>(3), v) << 6));
     v = v > 3 ? v - 3 : 0;
@@ -71,9 +71,10 @@ void LED::display7levels(const uint8_t n) {
 }
 
 void LED::columns12bits(uint16_t v) {
-  v = v & 0xfff;
-  uint v1 = ((v & 0x3f) * 40) >> 8;
-  uint v2 = ((v >> 6) * 40) >> 8;
+  v = v & 0x0fff;
+  uint8_t v1 = v / 409;
+  uint8_t v2 = (v % 409) / 41;
   column10levels(0, v1);
   column10levels(1, v2);
+
 }

@@ -75,8 +75,11 @@ public:
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
     adc_run(true);
-    LED::get().display7levels(4);
     while (block) sleep_ms(1000);
+  }
+
+  int32_t getCount() {
+    return count;
   }
 
 private:
@@ -161,7 +164,7 @@ private:
     }
 
     const uint knob_idx = count & 0x3;
-    knobs_smooth[knob_idx] = (127 * (knobs_smooth[knob_idx]) + 16 * read_adc(cpu_phase, 2, 0, true)) >> 7;
+    knobs_smooth[knob_idx] = (127 * (knobs_smooth[knob_idx]) + 16 * read_adc(cpu_phase, 2, 0, false)) >> 7;
     roll(knobs, knob_idx, static_cast<uint16_t>(knobs_smooth[knob_idx]));
     if (knob_idx == 3) roll(switch_, static_cast<Switch>((knobs[0][knob_idx] > 1000) + (knobs[0][knob_idx] > 3000)));
   }
