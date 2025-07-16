@@ -71,15 +71,15 @@ public:
     return knobs[0][k] != knobs[1][k];
   }
 
+  int32_t get_count() const {
+    return count;
+  }
+
   void start_irq(bool block) {
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
     adc_run(true);
     while (block) sleep_ms(1000);
-  }
-
-  int32_t getCount() {
-    return count;
   }
 
 private:
@@ -93,6 +93,10 @@ private:
   static constexpr uint MUX_OUT = 24;
   static constexpr uint ADC_IN = 26;
   static constexpr uint MUX_IN = 28;
+
+  static constexpr uint ADC_OFF = 0;
+  static constexpr uint CV_OFF = 2;
+  static constexpr uint MUX_OFF = 3;
 
   Codec() {
 
@@ -130,7 +134,6 @@ private:
       pwm_set_gpio_level(CV_OUT + lr, 1024);
     }
 
-    adc_select_input(0);
     adc_set_round_robin(0b1111);  // audio and MUX
     adc_fifo_setup(true, true, 1, false, false);
     adc_set_clkdiv(48000000 / (4 * (1 << OVER_BITS) * SAMPLE_FREQ) - 1);
@@ -155,17 +158,17 @@ private:
     const uint cpu_phase = count & 0x1;
 
     const uint cv_idx = count & 0x1;
-    cv_smooth[cv_idx] = (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, 3, OVER_BITS, true)) >> 4;
+    cv_smooth[cv_idx] = (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, CV_OFF, OVER_BITS, true)) >> 4;
     cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);
 
     for (uint lr = 0; lr < 2; lr++) {
-      adc[lr] = -(read_adc(cpu_phase, lr, OVER_BITS, true) - 0x1000);
+      adc[lr] = -(read_adc(cpu_phase, ADC_OFF + lr, OVER_BITS, true) - 0x1000);
       roll(pulse, lr, !gpio_get(PLS_IN));
     }
 
     const uint knob_idx = count & 0x3;
-    knobs_smooth[knob_idx] = (127 * (knobs_smooth[knob_idx]) + 16 * read_adc(cpu_phase, 2, 0, false)) >> 7;
-    roll(knobs, knob_idx, static_cast<uint16_t>(knobs_smooth[knob_idx]));
+    knobs_smooth[knob_idx] = (127 * (knobs_smooth[knob_idx]) + 16 * read_adc(cpu_phase, MUX_OFF, 0, false)) >> 7;
+    roll(knobs, knob_idx, static_cast<uint16_t>(knobs_smooth[knob_idx] >> 4));
     if (knob_idx == 3) roll(switch_, static_cast<Switch>((knobs[0][knob_idx] > 1000) + (knobs[0][knob_idx] > 3000)));
   }
 
@@ -213,11 +216,11 @@ private:
   std::function<void()> callback = [](){};
   uint32_t count = 0;
   uint8_t adc_dma, dac_dma;
-  uint16_t adc_buffer[2][4 * (1 << OVER_BITS)] = {};  // [phase][over]
+  uint16_t adc_buffer[2][4 * (1 << OVER_BITS)] = {};  // [phase][idx/over]
   uint16_t dac_buffer[2][2] = {};  // [phase][l/r]
   volatile int16_t cv[2] = {};
   volatile int16_t adc[2] = {0x800, 0x800};
-  volatile bool pulse[2][2] = {};  // [p/c][l/r]
+  volatile bool pulse[2][2] = {};  // [prev/cur][l/r]
   volatile Switch switch_[2] = {};
   volatile uint16_t knobs[2][4] = {};
 
