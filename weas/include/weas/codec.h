@@ -47,11 +47,11 @@ public:
     isr_post();
   }
 
-  [[nodiscard]] uint16_t get_adc(const uint lr) const {
+  [[nodiscard]] int16_t get_adc(const uint lr) const {
     return adc[lr & 0x1];
   }
 
-  [[nodiscard]] uint16_t get_cv(const uint lr) const {
+  [[nodiscard]] int16_t get_cv(const uint lr) const {
     return cv[lr & 0x1];
   }
 
@@ -71,14 +71,29 @@ public:
     return knobs[0][k] != knobs[1][k];
   }
 
+  [[nodiscard]] Switch get_switch() const {
+    return switch_[0];
+  }
+
+  [[nodiscard]] bool chg_switch() const {
+    return switch_[0] != switch_[1];
+  }
+
   int32_t get_count() const {
     return count;
   }
 
   void start_irq(bool block) {
+    dma_channel_set_irq0_enabled(adc_dma, true);
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
+
+    dma_channel_config dac_dmacfg = dma_channel_get_default_config(dac_dma);
+    channel_config_set_transfer_data_size(&dac_dmacfg, DMA_SIZE_16);
+    channel_config_set_dreq(&dac_dmacfg, DREQ_SPI0_TX);
+    dma_channel_configure(dac_dma, &dac_dmacfg, &spi_get_hw(spi0)->dr, NULL, 2, false);
     adc_run(true);
+
     while (block) sleep_ms(1000);
   }
 
@@ -94,8 +109,8 @@ private:
   static constexpr uint ADC_IN = 26;
   static constexpr uint MUX_IN = 28;
 
-  static constexpr uint ADC_OFF = 0;
-  static constexpr uint CV_OFF = 2;
+  static constexpr uint ADC_OFF = 1;
+  static constexpr uint CV_OFF = 0;
   static constexpr uint MUX_OFF = 3;
 
   Codec() {
@@ -140,16 +155,11 @@ private:
     adc_dma = dma_claim_unused_channel(true);
     dac_dma = dma_claim_unused_channel(true);
     dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
-    dma_channel_config dac_dmacfg = dma_channel_get_default_config(dac_dma);
     channel_config_set_transfer_data_size(&adc_dmacfg, DMA_SIZE_16);
     channel_config_set_read_increment(&adc_dmacfg, false);
     channel_config_set_write_increment(&adc_dmacfg, true);
     channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
     dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[count & 0x1], &adc_hw->fifo, 4 << OVER_BITS, true);
-    channel_config_set_transfer_data_size(&dac_dmacfg, DMA_SIZE_16);
-    channel_config_set_dreq(&dac_dmacfg, DREQ_SPI0_TX);
-
-    dma_channel_set_irq0_enabled(adc_dma, true);
   }
 
   void isr_pre() {
@@ -159,10 +169,10 @@ private:
 
     const uint cv_idx = count & 0x1;
     cv_smooth[cv_idx] = (15 * (cv_smooth[cv_idx]) + 16 * read_adc(cpu_phase, CV_OFF, OVER_BITS, true)) >> 4;
-    cv[cv_idx] = static_cast<int16_t>(2048 - cv_smooth[cv_idx]);
+    cv[cv_idx] = static_cast<int16_t>(0x800 - (cv_smooth[cv_idx] >> 4));
 
     for (uint lr = 0; lr < 2; lr++) {
-      adc[lr] = -(read_adc(cpu_phase, ADC_OFF + lr, OVER_BITS, true) - 0x1000);
+      adc[lr] = -((read_adc(cpu_phase, ADC_OFF + lr, OVER_BITS, true) >> 4) - 0x1000);
       roll(pulse, lr, !gpio_get(PLS_IN));
     }
 

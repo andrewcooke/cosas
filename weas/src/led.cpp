@@ -46,6 +46,7 @@ void LED::all(const uint8_t b) {
   for (uint i = 0; i < LED_N; i++) { set(i, b); }
 }
 
+// todo - left to right
 void LED::display12bits(const uint16_t v) {
   uint16_t vv = v & 0x0fff;
   for (uint i = LED_N; i > 0; i--) {
@@ -59,10 +60,12 @@ void LED::display12bits(const int16_t v) {
 }
 
 void LED::column10levels(const uint c, uint8_t v) {
-  v = std::min(static_cast<uint8_t>(9), v);
-  for (int i = 5 + (c & 1); i > 0; i -= 2) {
-    set(i - 1, static_cast<uint8_t>(std::min(static_cast<uint8_t>(3), v) << 6));
-    v = v > 3 ? v - 3 : 0;
+  column10levels(true, c, v);
+}
+
+void LED::column3levels(const uint c, const uint8_t v) {
+  for (uint i = 0; i < LED_N / 2; i++) {
+    set(4 - 2 * i + (c & 0x1), i == v);
   }
 }
 
@@ -76,5 +79,29 @@ void LED::columns12bits(uint16_t v) {
   uint8_t v2 = (v % 409) / 41;
   column10levels(0, v1);
   column10levels(1, v2);
+}
 
+void LED::columns12bits(int16_t v) {
+  if (v >= 0) {
+    columns11bits(true, v);
+  } else {
+    columns11bits(false, -v);
+  }
+}
+
+void LED::columns11bits(bool up, uint16_t v) {
+  v = v & 0x07ff;
+  uint8_t v1 = v / 204;
+  uint8_t v2 = (v % 204) / 21;
+  column10levels(up, 0, v1);
+  column10levels(up, 1, v2);
+}
+
+void LED::column10levels(const bool up, const uint c, uint8_t v) {
+  v = std::min(static_cast<uint8_t>(9), v);
+  for (int i = 0; i < LED_N / 2; i++) {
+    uint led = up ? 4 + (c & 0x1) - 2 * i : (c & 0x1) + 2 * i;
+    set(led, static_cast<uint8_t>(std::min(static_cast<uint8_t>(3), v) << 6));
+    v = v > 3 ? v - 3 : 0;
+  }
 }
