@@ -157,7 +157,7 @@ RelSource& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, fl
   Input& top = log_control(f, 1, 1.0f / static_cast<float>(root.get_frequency() << SUBTICK_BITS),
                            0.5f * SAMPLE_RATE / static_cast<float>(root.get_frequency()));
   Input& left = lin_control(o.get_dex_param(), static_cast<float>(widx), 0, static_cast<float>(wavelib->size()));
-  Input& right = log_control(f.get_det_param(), 1, 0.9, 1.1);
+  Input& right = log_control(f.get_det_param(), 1, 0.9f, 1.1f);
   add_pane(top, left, right);
   return o;
 }
@@ -265,7 +265,8 @@ RelSource& Manager::build_fm_lfo() {
 //   4 - off/shp/asym
 RelSource& Manager::build_fm_env() {
   RelSource& fm = build_fm_simple();
-  auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0, 0.1f * QUARTER_TABLE_SIZE);
+  auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0,
+                                                      static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   RelSource& am = add_source<AM>(e, fm);
   dynamic_cast<Blank&>(get_pane(0).right).unblank(&log_control(ef, 1, 1.0 / (1 << SUBTICK_BITS), 0.5f * SAMPLE_RATE));
   return am;
@@ -296,9 +297,9 @@ RelSource& Manager::build_fm_fb() {
 RelSource& Manager::build_chord() {
   auto& b = add_input<Blank>();
   auto [f0, o0] = add_abs_dex_osc(440, wavelib->sine_gamma_1, b);
-  RelSource& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0, 1);
-  RelSource& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0, 1);
-  RelSource& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0, 1);
+  RelSource& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0f, 1);
+  RelSource& o2 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 3 / 2.0f, 1);
+  RelSource& o3 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 4 / 3.0f, 1);
   auto& m = add_source<Merge>(o0, 0.5);
   b.unblank(&m.get_weight(0));
   m.add_source(o1, 1);

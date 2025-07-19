@@ -18,8 +18,8 @@ public:
 
 protected:
   // can be overridden on pico side
-  virtual void sleep_us(uint32_t us) {};
-  virtual void log_delta(int d) {};
+  virtual void sleep_us(uint32_t /* us */) {};
+  virtual void log_delta(int /* d */) {};
 
 private:
   std::function<int16_t(int32_t)>& callback;

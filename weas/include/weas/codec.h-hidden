@@ -88,12 +88,13 @@ public:
     irq_set_enabled(DMA_IRQ_0, true);
     irq_set_exclusive_handler(DMA_IRQ_0, [](){get().isr();});
 
+    // could probably be earlier
     dma_channel_config dac_dmacfg = dma_channel_get_default_config(dac_dma);
     channel_config_set_transfer_data_size(&dac_dmacfg, DMA_SIZE_16);
     channel_config_set_dreq(&dac_dmacfg, DREQ_SPI0_TX);
     dma_channel_configure(dac_dma, &dac_dmacfg, &spi_get_hw(spi0)->dr, NULL, 2, false);
-    adc_run(true);
 
+    adc_run(true);
     while (block) sleep_ms(1000);
   }
 
@@ -151,7 +152,7 @@ private:
 
     adc_set_round_robin(0b1111);  // audio and MUX
     adc_fifo_setup(true, true, 1, false, false);
-    adc_set_clkdiv(48000000 / (4 * (1 << OVER_BITS) * SAMPLE_FREQ) - 1);
+    adc_set_clkdiv(48000000 / ((4 << OVER_BITS) * SAMPLE_FREQ) - 1);
     adc_dma = dma_claim_unused_channel(true);
     dac_dma = dma_claim_unused_channel(true);
     dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
@@ -226,7 +227,7 @@ private:
   std::function<void()> callback = [](){};
   uint32_t count = 0;
   uint8_t adc_dma, dac_dma;
-  uint16_t adc_buffer[2][4 * (1 << OVER_BITS)] = {};  // [phase][idx/over]
+  uint16_t adc_buffer[2][4 << OVER_BITS] = {};  // [phase][idx/over]
   uint16_t dac_buffer[2][2] = {};  // [phase][l/r]
   volatile int16_t cv[2] = {};
   volatile int16_t adc[2] = {0x800, 0x800};

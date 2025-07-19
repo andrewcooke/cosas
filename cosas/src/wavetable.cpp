@@ -8,7 +8,7 @@
 #include "cosas/wavetable.h"
 
 
-Square::Square(float duty) : duty_idx(duty * FULL_TABLE_SIZE) {}
+Square::Square(float duty) : duty_idx(static_cast<size_t>(duty * FULL_TABLE_SIZE)) {}
 
 int16_t Square::next(int32_t tick) const {
   size_t full_idx = tick2idx(tick);
@@ -32,8 +32,8 @@ int16_t QuarterWtable::next(int32_t tick) const {
 
 Sine::Sine(float gamma) {
   for (size_t i = 0; i < quarter_table.size(); i++) {
-    float shape = sin(2 * M_PI * i / FULL_TABLE_SIZE);
-    if (gamma != 1) { shape = pow(shape, gamma); }
+    float shape = sinf(2 * static_cast<float>(M_PI) * i / FULL_TABLE_SIZE);
+    if (gamma != 1) { shape = powf(shape, gamma); }
     quarter_table.at(i) = clip_16(shape * SAMPLE_MAX);
   }
 }
@@ -70,7 +70,7 @@ int16_t HalfWtable::next(int32_t tick) const {
 
 
 WSaw::WSaw(float offset) {
-  size_t peak_index = HALF_TABLE_SIZE * (1 + offset) / 2;
+  auto peak_index = static_cast<size_t>(HALF_TABLE_SIZE * (1 + offset) / 2);
   for (size_t i = 0; i < peak_index; i++) {
     half_table.at(i) = clip_16(SAMPLE_MAX * (i / static_cast<float>(peak_index)));
   }
@@ -90,7 +90,7 @@ int16_t FullWtable::next(int32_t tick) const {
 
 
 Saw::Saw(float offset) :
-  peak_idx(QUARTER_TABLE_SIZE + offset * QUARTER_TABLE_SIZE),
+  peak_idx(static_cast<size_t>(QUARTER_TABLE_SIZE + offset * QUARTER_TABLE_SIZE)),
   k1((static_cast<int64_t>(SAMPLE_MAX) << 32) / static_cast<int64_t>((1 + offset) * SAMPLE_RATE / 4)),
   k2((static_cast<int64_t>(SAMPLE_MAX) << 32) / static_cast<int64_t>((1 - offset) * SAMPLE_RATE / 4)) {}
 
@@ -156,7 +156,8 @@ void PolyTable::make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t 
 }
 
 void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
-  for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sin(M_PI * tox(i, lo, hi) / 2.0f));
+  for (size_t i = lo; i < hi; i++)
+    table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(M_PI) * tox(i, lo, hi) / 2.0f));
 }
 
 void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
