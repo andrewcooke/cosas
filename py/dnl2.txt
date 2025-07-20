@@ -1,0 +1,208 @@
+
+I discussed corrections to improve the ADC of the Raspberry Pico here
+- https://acooke.org/cute/DNLINLandR0.html
+
+The last few days I've been working on comparing the two corrections
+directly, using the Modular System hardware.
+
+More exactly, I am comparing the two corrections with linear trends
+removed.  I didn't show these in the previous post, so look here -
+https://acooke.org/img/pico-comp.png (the y values are offset to avoid
+overwriting).  The existing correction, with linear trend remopved, is
+the green.  My take is the purple.
+
+To do this comparison I wrote some software (currently in a private
+repo, but I have included the main routines below) that generated a
+saw-tooth pattern on an output, expecting the user to add a cable so
+that the written value is read on an input.  I then subtract from the
+measured input the known, correct value (the previous value written to
+the output).
+
+To compare the two corrections I sum, sample after sample, the
+difference betwen the absolute eror between known and corrected value
+for the two corrections.
+
+That's kinda complex to get your head round.  In psuedo code:
+
+    cumulative_diff = 0
+    for each sample:
+      out = saw_tooth_pattern()
+      write_audio_output(out)
+      in = read_audio_input()
+      err1 = abs(out - correction_1(in))
+      err2 = abs(out - correction_2(in))
+      cumulative_diff += err1 - err2
+
+where I've ignored the slight error with the input being the previous
+sample (in practice I correct for this).
+
+To check for systematic errors (bugs) in the code, I also:
+
+  * switch channels (0 or 1) depending on the Y knob
+  * switch the corrections depending on the swich (up/mid)
+  * sum the errors (so err1 + err2) if the switch is down
+
+I also have a debug mode that sends raw and "corrected" saw tooths to
+the two audio outputs, so I can check the signals on my oscilloscope.
+
+Finally, I display bits 13 to 18 of cumulative_diff on the LEDs
+(discarding 12 bits makes the data vary more slowly which is important
+when I only have 6 bits available).
+
+The results consistently show that "my" correction gives smaller
+errors than the (linearly corrected) existing correction.  Working
+back from the sample rate and values displayed, the improvement seems
+to be around 1 bit per sample (which seems a bit high, but is at least
+in the correct ballpark).
+
+This is independent of which channel is used for reading and writing
+(the Y knob).  Also, adding the errors rather than subtracting them
+gives a significantly faster rise in cumulative error (as expected).
+
+For the record, the C++ code for the two corrections I am using is:
+
+  inline uint16_t scale_adc(uint16_t adc) {
+    return static_cast<uint16_t>((520222 * static_cast<uint32_t>(adc)) >> 19);
+  }
+
+  // my correction
+  uint16_t fix_dnl_ac(const uint16_t adc) {
+    uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+    if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
+    if ((adc + 0x200) % 0x400 == 0) bdc -= 4;
+    return scale_adc(bdc);
+  }
+
+  // the existing correction
+  uint16_t fix_dnl_cj(uint16_t adc) {
+    uint16_t adc512 = adc + 512;
+    if (!(adc512 % 0x01ff)) adc += 4;
+    return scale_adc(adc + ((adc512>>10) << 3));
+  }
+
+Finally, given all the above, I'd suggest changing the correction in
+the code to:
+
+  * remove the linear bias (the scale_adc fucntion above)
+  * use "my" detailed corrections
+
+I'd also suggest applying it to the audio as well as the CV channels
+(or at least making this optional).
+
+Cheers,
+Andrew
+
+
+Here are the main routines (weas/cc is my modified ComputerCard
+library; weas/leds is the interface to the LEDs which is now separate
+from cc):
+
+  #include <algorithm>
+  #include <cmath>
+  #include <numbers>
+
+  #include "cosas/maths.h"
+  #include "weas/cc.h"
+  #include "weas/leds.h"
+
+
+  class DNL final : public CC {
+
+  private:
+
+    static constexpr bool DEBUG = false;
+    static constexpr uint NOISE = 12;  // bits of score to discard
+    LEDs& leds = LEDs::get();
+    Switch sw = Down;
+    uint32_t count = 0;
+    int32_t score = 0;
+    int prev_out = 0;
+    uint wtable_idx = 0;
+    constexpr static uint wtable_bits = 12;
+    constexpr static uint wtable_size = 1 << wtable_bits;
+    int16_t wtable[wtable_size] = {};
+
+    void update_switch() {
+      Switch sw2 = SwitchVal();
+      if (sw2 != sw) {
+	score = 0;
+	sw = sw2;
+      }
+    }
+
+    int16_t correct(bool ac, int16_t in) {
+      uint16_t in_abs = (in + 0x800) & 0x1fff;
+      if (ac) {
+	in = static_cast<int16_t>(fix_dnl_ac(in_abs)) - 0x800;
+      } else {
+	in = static_cast<int16_t>(fix_dnl_cj(in_abs)) - 0x800;
+      }
+      return in;
+    }
+
+    void compare_and_score(int16_t next_out) {
+
+      // signal sent to 0 and 1
+      // should be wired to inputs on 0 and 1 (order not important)
+
+      for (uint lr = 0; lr < 2; lr++) AudioOut(lr, next_out);
+      uint chan = KnobVal(Y) < 2048 ? 0 : 1;
+
+      switch (sw) {
+      case Down:
+	// flash chan
+	leds.set(2 + chan, true);
+	// this one is all errors, so should grow faster
+	score += abs(correct(true, AudioIn(chan)) - prev_out) + abs(correct(false, AudioIn(chan)) - prev_out);
+	break;
+      case Middle:
+	score += abs(correct(true, AudioIn(chan)) - prev_out) - abs(correct(false, AudioIn(chan)) - prev_out);
+	break;
+      case Up:
+	score += abs(correct(false, AudioIn(chan)) - prev_out) - abs(correct(true, AudioIn(chan)) - prev_out);
+	break;
+      }
+
+      // this displays +ve numbers are bright, -ve as dim
+      // middle switch, +ve (bright) means more errors from ac
+      // upper switch, +ve (bright) means more errors from cj
+      leds.display7bits(
+	static_cast<int16_t>(std::max(-0x7fff,
+	static_cast<int>(std::min(
+	  static_cast<int32_t>(0x7fff), score >> NOISE)))));
+    }
+
+    void output_all(int16_t next_out) {
+      // raw output on 0 should be wired to input on 0
+      // output on 1 will be read/corrected ac/corrected cj depending on switch
+      AudioOut(0, next_out);
+      int16_t in = AudioIn(0);
+      if (sw != Down) in = correct(sw == Middle, in);
+      AudioOut(1, in);
+    }
+
+    void ProcessSample() override {
+      update_switch();
+      int16_t next_out = wtable[count % wtable_size];
+      if (DEBUG) {
+	output_all(next_out);
+      } else {
+	compare_and_score(next_out);
+      }
+      prev_out = next_out;
+      count++;
+    }
+
+  public:
+    DNL() {
+      for (uint i = 0; i < wtable_size; i++)
+	// want sawtooth (so no sudden changes) that covers all values
+	wtable[i] = static_cast<int16_t>(i < wtable_size / 2 ? i * 2 - 0x800 : 0x1801 - i * 2);
+    }
+  };
+
+
+  int main() {
+    DNL dnl;
+    dnl.Run();
+  };
