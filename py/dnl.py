@@ -98,7 +98,22 @@ def me_correcn(a):
 k = int(4095 * (1 << 19) / me_correcn(4095))
 print(k)  # 520222
 
+# useful to check if correcn for cc would be same
+k2 = int(4095 * (1 << 19) / cc_correcn(4095))
+print(k2)  # 520222
+
 me_corrected = apply(model_resp, me_correcn)
 plot(me_corrected, "/tmp/me_corrected")
 me_err = resp_to_err(me_corrected)
 plot(me_err, "/tmp/me_err")
+
+def cc2_correcn(x):
+    adc512 = x + 512
+    if (adc512 % 0x01ff) == 0: x += 4
+    x += (adc512>>10) << 3
+    return (520222 * x) >> 19
+
+cc2_corrected = apply(model_resp, cc2_correcn)
+cc2_err = resp_to_err(cc2_corrected)
+plot(cc2_err, "/tmp/cc2_err")
+

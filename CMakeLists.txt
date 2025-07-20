@@ -26,6 +26,7 @@ if (BUILD STREQUAL "pico")
     add_subdirectory(tests/luz)
     add_subdirectory(tests/knob)
     add_subdirectory(tests/diag)
+    add_subdirectory(tests/dnl)
 
 else()
 

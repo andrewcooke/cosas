@@ -186,9 +186,20 @@ int16_t float2sample(float f) {
 }
 
 
-uint16_t fix_dnl(const uint16_t adc) {
+inline uint16_t scale_adc(uint16_t adc) {
+  return static_cast<uint16_t>((520222 * static_cast<uint32_t>(adc)) >> 19);
+}
+
+uint16_t fix_dnl_ac(const uint16_t adc) {
   uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
   if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
   if ((adc + 0x200) % 0x400 == 0) bdc -= 4;
-  return static_cast<uint16_t>((520222 * static_cast<uint32_t>(bdc)) >> 19);
+  return scale_adc(bdc);
 }
+
+uint16_t fix_dnl_cj(uint16_t adc) {
+	uint16_t adc512 = adc + 512;
+  if (!(adc512 % 0x01ff)) adc += 4;
+  return scale_adc(adc + ((adc512>>10) << 3));
+}
+
