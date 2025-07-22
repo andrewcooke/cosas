@@ -1,0 +1,14 @@
+ac_no_mod > none
+ac > none
+cj < none (just)
+none = none (to check)
+ac_no_mod > ac
+ac_no_mod > ac_3fe
+ac_no_mod < ac_p4
+ac_p3 < ac_p4
+ac_p5 > ac_p4
+ac_p10 > ac_p5
+ac_p100 > ac_p10
+ac_p100 > none
+ac_p10000 < ac_p100
+

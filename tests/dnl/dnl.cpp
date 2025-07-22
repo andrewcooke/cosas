@@ -12,7 +12,8 @@ class DNL final : public CC {
 private:
 
   static constexpr bool DEBUG = false;
-  static constexpr uint NOISE = 12;  // bits of score to discard
+  // static constexpr uint NOISE = 12;  // bits of score to discard
+  static constexpr uint NOISE = 4;
   LEDs& leds = LEDs::get();
   Switch sw = Down;
   uint32_t count = 0;
@@ -31,12 +32,19 @@ private:
     }
   }
 
-  int16_t correct(bool ac, int16_t in) {
+  int16_t correct(bool up, int16_t in) {
     uint16_t in_abs = (in + 0x800) & 0x1fff;
-    if (ac) {
-      in = static_cast<int16_t>(fix_dnl_ac(in_abs)) - 0x800;
+    if (up) {
+      in = static_cast<int16_t>(fix_dnl_ac_px(in_abs, 10000)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_ac(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_ac_no_mod(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_cj(in_abs)) - 0x800;
     } else {
-      in = static_cast<int16_t>(fix_dnl_cj(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_cj(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_ac(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_ac_3fe(in_abs)) - 0x800;
+      // in = static_cast<int16_t>(fix_dnl_ac_no_mod(in_abs)) - 0x800;
+      in = static_cast<int16_t>(fix_dnl_ac_px(in_abs, 100)) - 0x800;
     }
     return in;
   }
@@ -50,23 +58,28 @@ private:
     uint chan = KnobVal(Y) < 2048 ? 0 : 1;
 
     switch (sw) {
+    case Up:
+      score += abs(correct(true, AudioIn(chan)) - prev_out) - abs(correct(false, AudioIn(chan)) - prev_out);
+      break;
+    case Middle:
+      score += abs(correct(false, AudioIn(chan)) - prev_out) - abs(correct(true, AudioIn(chan)) - prev_out);
+      break;
     case Down:
       // flash chan
       leds.set(2 + chan, true);
       // this one is all errors, so should grow faster
       score += abs(correct(true, AudioIn(chan)) - prev_out) + abs(correct(false, AudioIn(chan)) - prev_out);
       break;
-    case Middle:
-      score += abs(correct(true, AudioIn(chan)) - prev_out) - abs(correct(false, AudioIn(chan)) - prev_out);
-      break;
-    case Up:
-      score += abs(correct(false, AudioIn(chan)) - prev_out) - abs(correct(true, AudioIn(chan)) - prev_out);
-      break;
     }
 
     // this displays +ve numbers are bright, -ve as dim
-    // middle switch, +ve (bright) means more errors from ac
-    // upper switch, +ve (bright) means more errors from cj
+    // NOTE - swapped from previous commit
+    // on up switch, upper block of code in correct() is positive so a bright red light means that has more errors
+    // on middle switch bottom block of code in correct() is positive to a bright red light means that has more errors
+    // so the switch points to the "loser"
+    // if up is bright, top is worse
+    // if middle is bright, bottom is worse
+    // brightness should change switch with the switch
     leds.display7bits(
       static_cast<int16_t>(std::max(-0x7fff,
       static_cast<int>(std::min(

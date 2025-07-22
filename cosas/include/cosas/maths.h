@@ -139,6 +139,9 @@ int16_t float2sample(float f);
 
 
 uint16_t fix_dnl_ac(uint16_t adc);
+uint16_t fix_dnl_ac_3fe(uint16_t adc);
+uint16_t fix_dnl_ac_no_mod(uint16_t adc);
+uint16_t fix_dnl_ac_px(uint16_t adc, int x);
 
 uint16_t fix_dnl_cj(uint16_t adc);
 

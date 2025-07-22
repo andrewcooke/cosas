@@ -197,6 +197,26 @@ uint16_t fix_dnl_ac(const uint16_t adc) {
   return scale_adc(bdc);
 }
 
+uint16_t fix_dnl_ac_px(const uint16_t adc, const int x) {
+  uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+  if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
+  if ((adc + 0x200) % 0x400 == 0) bdc += x;
+  return scale_adc(bdc);
+}
+
+uint16_t fix_dnl_ac_3fe(const uint16_t adc) {
+  uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+  if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
+  if ((adc + 0x200) % 0x3fe == 0) bdc -= 4;
+  return scale_adc(bdc);
+}
+
+uint16_t fix_dnl_ac_no_mod(const uint16_t adc) {
+  uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+  if ((adc & 0x600) && !(adc & 0x800)) bdc += 2;
+  return scale_adc(bdc);
+}
+
 uint16_t fix_dnl_cj(uint16_t adc) {
 	uint16_t adc512 = adc + 512;
   if (!(adc512 % 0x01ff)) adc += 4;
