@@ -7,6 +7,8 @@
 #include "weas/leds.h"
 
 
+constexpr uint OVERSAMPLE_BITS = 2;
+
 class Diagnostics final {
 
 private:
@@ -39,12 +41,12 @@ private:
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
 
-  void save_current(CC& cc) {
+  void save_current(CC<OVERSAMPLE_BITS>& cc) {
     for (uint i = 0; i < n_knobs; i++) {
       knobs[1][i] = knobs[0][i];
       // for some reason knob values are signed integers, but we
       // need to display unsigned so cast here
-      knobs[0][i] = cc.KnobVal(static_cast<CC::Knob>(i)) >> noise_knobs;
+      knobs[0][i] = cc.KnobVal(static_cast<CC<OVERSAMPLE_BITS>::Knob>(i)) >> noise_knobs;
     }
     switches[1][0] = switches[0][0];
     switches[0][0] = cc.SwitchVal();
@@ -84,13 +86,13 @@ private:
     leds.all(0x40u);
     if (idx < n_knobs) {
       switch(idx) {
-      case static_cast<uint>(CC::Main):
+      case static_cast<uint>(CC<OVERSAMPLE_BITS>::Main):
         leds.sq4(0, 0xffu);
         return;
-      case static_cast<uint>(CC::X):
+      case static_cast<uint>(CC<OVERSAMPLE_BITS>::X):
         leds.v2(2, 0xffu);
         return;
-      case static_cast<uint>(CC::Y):
+      case static_cast<uint>(CC<OVERSAMPLE_BITS>::Y):
         leds.sq4(1, 0xffu);
         return;
       default:
@@ -115,9 +117,9 @@ private:
     // idx -= n_pulses;
   }
 
-  void display(CC& cc, uint idx) {
+  void display(CC<OVERSAMPLE_BITS>& cc, uint idx) {
     if (idx < n_knobs) {
-      leds.columns12bits(static_cast<uint16_t>(cc.KnobVal(static_cast<CC::Knob>(idx))));
+      leds.columns12bits(static_cast<uint16_t>(cc.KnobVal(static_cast<CC<OVERSAMPLE_BITS>::Knob>(idx))));
       return;
     }
     idx -= n_knobs;
@@ -146,7 +148,7 @@ private:
     return (count & (1 << n)) && ! ((count - 1) & (1 << n));
   }
 
-  void write_out(CC& cc) {
+  void write_out(CC<OVERSAMPLE_BITS>& cc) {
     for (uint i = 0; i < 4; i++) {
       uint idx = (count >> (i + 3)) & (wtable_size - 1);
       if (i < 2) cc.AudioOut(i, wtable[idx]);
@@ -165,7 +167,7 @@ private:
 
 public:
 
-  void ProcessSample(CC& cc) {
+  void ProcessSample(CC<OVERSAMPLE_BITS>& cc) {
     write_out(cc);
     save_current(cc);
     if (prev_change != NONE && ((recent-- > 0) || changed(prev_change))) {
@@ -192,8 +194,8 @@ public:
 int main()
 {
   Diagnostics diag;
-  CC& cc = CC::get_instance();
-  cc.set_callback([&](CC& cc){diag.ProcessSample(cc);});
+  CC<OVERSAMPLE_BITS>& cc = CC<OVERSAMPLE_BITS>::get_instance();
+  cc.set_callback([&](CC<OVERSAMPLE_BITS>& cc){diag.ProcessSample(cc);});
   cc.Run();
 };
 

@@ -18,8 +18,7 @@
 // USB host status pin
 #define USB_HOST_STATUS 20
 
-class CC
-{
+template<uint OVERSAMPLE_BITS> class CC final {
 
 public:
 
@@ -28,6 +27,8 @@ public:
 	enum Input {Audio1, Audio2, CV1, CV2, Pulse1, Pulse2};
 	enum HardwareVersion_t {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
 	enum USBPowerState_t {DFP, UFP, Unsupported};
+
+	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
 	CC();
 	virtual ~CC() = default;
@@ -285,7 +286,7 @@ private:
 
 
 // Return pseudo-random bit for normalisation probe
-uint32_t __not_in_flash_func(CC::next_norm_probe)()
+template<uint O> uint32_t __not_in_flash_func(CC<O>::next_norm_probe())
 {
 	static uint32_t lcg_seed = 1;
 	lcg_seed = 1664525 * lcg_seed + 1013904223;
@@ -293,7 +294,7 @@ uint32_t __not_in_flash_func(CC::next_norm_probe)()
 }
 
 // Main audio core function
-void __not_in_flash_func(CC::AudioWorker)()
+template<uint O> void __not_in_flash_func(CC<O>::AudioWorker)()
 {
 
 	adc_select_input(0);
@@ -373,7 +374,7 @@ void __not_in_flash_func(CC::AudioWorker)()
 	}
 }
 
-void CC::Abort()
+template<uint O> void CC<O>::Abort()
 {
 	runADCMode = RUN_ADC_MODE_REQUEST_ADC_STOP;
 }
@@ -381,7 +382,7 @@ void CC::Abort()
 	  
 
 // Per-audio-sample ISR, called when two sets of ADC samples have been collected from all four inputs
-void __not_in_flash_func(CC::BufferFull)()
+template <uint O> void __not_in_flash_func(CC<O>::BufferFull)()
 {
 	static int startupCounter = 8; // Decreases by 1 each sample, can do startup things when nonzero.
 	static int mux_state = 0;
@@ -524,7 +525,7 @@ void __not_in_flash_func(CC::BufferFull)()
 	if (startupCounter) startupCounter--;
 }
 
-CC::HardwareVersion_t CC::ProbeHardwareVersion()
+template<uint O> CC<O>::HardwareVersion_t CC<O>::ProbeHardwareVersion()
 {
 	// Enable pull-downs, and measure
 	gpio_set_pulls(BOARD_ID_0, false, true);
@@ -563,7 +564,7 @@ CC::HardwareVersion_t CC::ProbeHardwareVersion()
 	}
 }
 
-CC::CC()
+template <uint O> CC<O>::CC()
 {
 		
 	runADCMode = RUN_ADC_MODE_RUNNING;
@@ -691,7 +692,7 @@ CC::CC()
 
 
 // Read a byte from EEPROM
-uint8_t CC::ReadByteFromEEPROM(unsigned int eeAddress)
+template<uint O> uint8_t CC<O>::ReadByteFromEEPROM(unsigned int eeAddress)
 {
 	uint8_t deviceAddress = EEPROM_PAGE_ADDRESS | ((eeAddress >> 8) & 0x0F);
 	uint8_t data = 0xFF;
@@ -704,14 +705,14 @@ uint8_t CC::ReadByteFromEEPROM(unsigned int eeAddress)
 }
 
 // Read a 16-bit integer from EEPROM
-int CC::ReadIntFromEEPROM(unsigned int eeAddress)
+template<uint O> int CC<O>::ReadIntFromEEPROM(unsigned int eeAddress)
 {
 	uint8_t highByte = ReadByteFromEEPROM(eeAddress);
 	uint8_t lowByte = ReadByteFromEEPROM(eeAddress + 1);
 	return (highByte << 8) | lowByte;
 }
 
-uint16_t CC::CRCencode(const uint8_t *data, int length)
+template<uint O> uint16_t CC<O>::CRCencode(const uint8_t *data, int length)
 {
 	uint16_t crc = 0xFFFF; // Initial CRC value
 	for (int i = 0; i < length; i++)
@@ -733,7 +734,7 @@ uint16_t CC::CRCencode(const uint8_t *data, int length)
 }
 
 
-int CC::ReadEEPROM()
+template<uint O> int CC<O>::ReadEEPROM()
 {
 	// Set up default values in the calibration table,
 	// to be used if EEPROM read fails
@@ -798,7 +799,7 @@ int CC::ReadEEPROM()
 	return 0;
 }
 
-void CC::CalcCalCoeffs(int channel)
+template<uint O> void CC<O>::CalcCalCoeffs(int channel)
 {
 	float sumV = 0.0;
 	float sumDAC = 0.0;
@@ -832,7 +833,7 @@ void CC::CalcCalCoeffs(int channel)
 }
 
 
-uint32_t CC::MIDIToDac(int midiNote, int channel) {
+template<uint O> uint32_t CC<O>::MIDIToDac(int midiNote, int channel) {
 	int32_t dacValue = ((calCoeffs[channel].mi * (midiNote - 60)) >> 4) + calCoeffs[channel].bi;
 	if (dacValue > 524287) dacValue = 524287;
 	if (dacValue < 0) dacValue = 0;
