@@ -7,7 +7,7 @@
 #include "weas/leds.h"
 
 
-constexpr uint OVERSAMPLE_BITS = 2;
+constexpr uint OVERSAMPLE_BITS = 1;
 
 class Diagnostics final {
 

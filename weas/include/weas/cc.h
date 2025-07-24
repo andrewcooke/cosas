@@ -199,7 +199,7 @@ private:
 	
 	volatile uint8_t runADCMode;
 
-	uint16_t ADC_Buffer[2][8];
+	uint16_t ADC_Buffer[2][4 * OVERSAMPLES];
 	uint16_t SPI_Buffer[2][2];
 
 	uint8_t adc_dma, spi_dma;
@@ -307,7 +307,7 @@ template<uint O> void __not_in_flash_func(CC<O>::AudioWorker)()
 	// ADC clock runs at 48MHz
 	// 48MHz ÷ (124+1) = 384kHz ADC sample rate
 	//                 = 8×48kHz audio sample rate
-	adc_set_clkdiv(124);
+	adc_set_clkdiv((48000000 / (48000 * 4 * OVERSAMPLES)) - 1);
 
 	// claim and setup DMAs for reading to ADC, and writing to SPI DAC
 	adc_dma = dma_claim_unused_channel(true);
@@ -325,8 +325,8 @@ template<uint O> void __not_in_flash_func(CC<O>::AudioWorker)()
 	// Synchronise ADC DMA the ADC samples
 	channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
 
-	// Setup DMA for 8 ADC samples
-	dma_channel_configure(adc_dma, &adc_dmacfg, ADC_Buffer[dmaPhase], &adc_hw->fifo, 8, true);
+	// Setup DMA for 4 * OVERSAMPLES ADC samples
+	dma_channel_configure(adc_dma, &adc_dmacfg, ADC_Buffer[dmaPhase], &adc_hw->fifo, 4 * OVERSAMPLES, true);
 
 	// Turn on IRQ for ADC DMA
 	dma_channel_set_irq0_enabled(adc_dma, true);
@@ -382,7 +382,7 @@ template<uint O> void CC<O>::Abort()
 	  
 
 // Per-audio-sample ISR, called when two sets of ADC samples have been collected from all four inputs
-template <uint O> void __not_in_flash_func(CC<O>::BufferFull)()
+template <uint OVERSAMPLE_BITS> void __not_in_flash_func(CC<OVERSAMPLE_BITS>::BufferFull)()
 {
 	static int startupCounter = 8; // Decreases by 1 each sample, can do startup things when nonzero.
 	static int mux_state = 0;
@@ -420,9 +420,12 @@ template <uint O> void __not_in_flash_func(CC<O>::BufferFull)()
 
 	// Set audio inputs, by averaging the two samples collected.
 	// Invert to counteract inverting op-amp input configuration
-	adcInR = -(((ADC_Buffer[cpuPhase][0] + fix_dnl(ADC_Buffer[cpuPhase][4])) - 0x1000) >> 1);
-
-	adcInL = -(((ADC_Buffer[cpuPhase][1] + fix_dnl(ADC_Buffer[cpuPhase][5])) - 0x1000) >> 1);
+	adcInR = 0;
+	for (uint i = 0; i < OVERSAMPLES; ++i) adcInR += fix_dnl(ADC_Buffer[cpuPhase][0 + 4 * i]);
+	adcInR = -((adcInR >> OVERSAMPLE_BITS) - 0x800);
+ 	adcInL = 0;
+	for (uint i = 0; i < OVERSAMPLES; ++i) adcInL += fix_dnl(ADC_Buffer[cpuPhase][1 + 4 * i]);
+	adcInL = -((adcInL >> OVERSAMPLE_BITS) - 0x800);
 
 	// Set pulse inputs
 	last_pulse[0] = pulse[0];
@@ -432,8 +435,8 @@ template <uint O> void __not_in_flash_func(CC<O>::BufferFull)()
 
 	// Set knobs, with ~60Hz LPF
 	int knob = mux_state;
-	knobssm[knob] = (127 * (knobssm[knob]) + 16 * fix_dnl(ADC_Buffer[cpuPhase][6])) >> 7;
-	knobs[knob] = knobssm[knob] >> 4;
+	knobssm[knob] = (127 * (knobssm[knob]) + 16 * fix_dnl(ADC_Buffer[cpuPhase][2] >> 4)) >> 7;
+	knobs[knob] = knobssm[knob];
 
 	// Set switch value
 	switchVal = static_cast<Switch>((knobs[3]>1000) + (knobs[3]>3000));
@@ -467,8 +470,8 @@ template <uint O> void __not_in_flash_func(CC<O>::BufferFull)()
 		// Audio and pulse measured every sample at 48kHz
 		if (norm_probe_count == 15)
 		{
-			plug_state[Input::Audio1] = (plug_state[Input::Audio1]<<1)+(ADC_Buffer[cpuPhase][5]<1800);
-			plug_state[Input::Audio2] = (plug_state[Input::Audio2]<<1)+(ADC_Buffer[cpuPhase][4]<1800);
+			plug_state[Input::Audio1] = (plug_state[Input::Audio1]<<1)+(ADC_Buffer[cpuPhase][1]<1800);
+			plug_state[Input::Audio2] = (plug_state[Input::Audio2]<<1)+(ADC_Buffer[cpuPhase][0]<1800);
 			plug_state[Input::Pulse1] = (plug_state[Input::Pulse1]<<1)+(pulse[0]);
 			plug_state[Input::Pulse2] = (plug_state[Input::Pulse2]<<1)+(pulse[1]);
 
