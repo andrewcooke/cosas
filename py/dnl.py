@@ -95,10 +95,12 @@ def me_correcn(a):
         b -= 4
     return (k * b) >> 19
 
+print(me_correcn(4095))
 k = int(4095 * (1 << 19) / me_correcn(4095))
 print(k)  # 520222
 
 # useful to check if correcn for cc would be same
+print(cc_correcn(4095))
 k2 = int(4095 * (1 << 19) / cc_correcn(4095))
 print(k2)  # 520222
 

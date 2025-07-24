@@ -7,6 +7,11 @@
 #include "weas/leds.h"
 
 
+static int32_t sqr(int32_t x) {
+  return x * x;
+}
+
+
 // allow two corrections to be compared
 // switch up - show one correction (y selects display)
 // switch middle - show other connection (y selects display)
@@ -24,7 +29,7 @@ private:
 
   // static constexpr uint NOISE = 12;  // bits of score to discard
   static constexpr uint NOISE = 4;
-  static constexpr uint SLOW = 2;  // slow down output freq
+  static constexpr uint SLOW = 3;  // slow down output freq
   LEDs& leds = LEDs::get();
   Switch sw = Down;
   uint32_t count = 0;
@@ -34,8 +39,10 @@ private:
   constexpr static uint wtable_bits = 12;
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
-  ScaledDNL<> correcn1 = ScaledDNL(fix_dnl_ac, 25, -10);
-  ScaledDNL<int> correcn2 = ScaledDNL<int>(fix_dnl_ac_px, 25, -10, 0);
+  // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3); // best
+  // ScaledDNL<int> correcn2 = ScaledDNL(fix_dnl_cx_px, 26, -10, -6); // best
+  ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best
+  ScaledDNL<> correcn2 = ScaledDNL(static_cast<int16_t (*)(uint16_t)>(nullptr), 26, -11);  // best
 
   void update_switch() {
     Switch sw2 = SwitchVal();
@@ -91,7 +98,7 @@ private:
       break;
     case Down:
       // bright if upper wins so lower should be arger
-      score += abs(correct(false, raw) - prev_out) - abs(correct(true, raw) - prev_out);
+      score += sqr(correct(false, raw) - prev_out) - sqr(correct(true, raw) - prev_out);
       leds.display7bits(
         static_cast<int16_t>(std::max(-0x7fff,
         static_cast<int>(std::min(

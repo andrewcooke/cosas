@@ -1,0 +1,278 @@
+
+I've gone down something of a rabbit hole with the corrections for the
+Raspberry Pico RP2040 (see the poor DNL data at
+https://datasheets.raspberrypi.com/rp2040/rp2040-datasheet.pdf for
+context).
+
+My initial steps are described in previous posts here that I won't
+link to immediately because they were, in retrospect, very
+superficial.  Although they did serve to get me to the point where I
+had to really think and try remember details from back when I was a
+PhD student.
+
+So I am starting over here.  I will explain the hardware (again), then
+the (improved) analysis, the results, and finally make some
+suggestions for the ComputerCard library (and explain what I will be
+doing in my own code).
+
+
+Basic Setup
+-----------
+
+I'm working with the computer module in the Music Thing Modular
+Workshop System.  This exposes the RP2040 through 6 LEDs, a 3 position
+switch, and sockets connected to the DACs and ADCs.  There are a few
+more knobs and sockets, but it's still a relatively constrained
+interface.
+
+To measure / correct the ADC response I decided to (roughly):
+
+ * Generate a known signal - a triangular wave - via one of the DACs.
+
+ * Connect that to an ADC (using a patch cable).
+
+ * Subtract the value sent to the DAC from the value read from the ADC
+   to get an error (ideally the two should match).
+
+ * Send the error to the other DAC (for external monitoring).
+
+ * Accumulate errors over time and display the total via the LEDs.
+
+I monitored output from the two DACs on a very simple oscilloscope
+(one of those little Korg kits).  This gave me a basic check on the
+generated signal and associated errors.
+
+Hopefully the above makes sense.  I'll clarify and expand below, but
+one big assumption should already be clear - that I take the DAC to be
+perfect.
+
+
+Corrections
+-----------
+
+Rather than just measure the error between DAC and ADC values I
+include a correction - the value read from the ADC is passed through
+this correction before being compared to the expected value (the value
+sent to the DAC the cycle before).  The idea, then, is to adjust the
+correction until the error is zero (or, at least, as low as possible).
+
+Actually, I am still not describing the final system.  In practice I
+use two connections.  Their exact processing depends on the 3 position
+switch:
+
+ * In the "up" position the first correction is applied and the
+   associated error sent to the second DAC.
+
+ * In the "middle" position the second correction is applied and the
+   associated error sent to the second DAC.
+
+This allows me to compare the two errors on the oscilloscope by
+changing the switch position.
+
+Whatever the switch position I continually accumulate the errors (the
+exact calculation is described below).  When the switch is in the
+third position - "down" - then the sum is displayed on the LEDs.  This
+is done in a way that shows both the magnitude (roughly) and sign of
+the sum.  The sign of the sum indicates which correction is "best".
+
+
+Manual Optimisation
+-------------------
+
+Given all the above I can now describe the physical process I repeated
+time and time again:
+
+ * Compile the code with two closely related corrections
+
+ * Load the code onto the computer
+
+ * Check that the errors look reasonable in the oscilloscope
+
+ * Check the LEDs to see which correction is best
+
+ * Modify one of the corrections in light of the comparison and repeat
+
+In this way, over time, I can iterate to an optimal correction.
+
+
+Statistical Details
+-------------------
+
+How, exactly, do I (or the maths in the code) decide which correction
+is best?
+
+For each correction I sum, over many samples, the square of the
+difference between the measured and expected value.  Given some
+(rather optimistic, but "industry standard") assumptions this sum is
+proportional to the probability that the correction is working
+correctly (and that the errors are "just noise") (more exactly, this
+is the unnormalised log likelihood, assuming constant gaussian
+errors).
+
+The value displayed on the LEDs is the difference between the sum for
+one correction and the sum for the other (which is why it can be
+positive or negative).  The sign indicates which correction is better
+and the magnitude shows "how much better" (in practice it is useful as
+an indicator for when two corrections are "pretty much as good as each
+other").
+
+
+What Are We Fitting?
+--------------------
+
+You might have hoped that was the end of it, but I'm afraid there is
+more.
+
+If you naively (as described in my earlier posts) use the correction
+from the ComputerCard library, or my own version (which based on that
+and the DNL plot in the data sheet), then the errors are actually
+dominated by systematic errors.
+
+By systematic errors I mean that there's no guarantee - even without
+the DNL glitches - that you get the same number back from the ADC that
+you sent out via the DAC.
+
+We can try to correct these changes in value.  To first approximation
+we can use two numbers - a zero point and a scale - to model (and so
+correct for) linear variations.  Non-linear variations we simply
+ignore (while reciting "industry standard" prayers that they are not
+important).
+
+So in addition to any parameters in the corrections themselves, we
+also have two additional parameters that describe the hardware.
+
+
+The Corrections
+---------------
+
+I considered four corrections (the x and y parameters are adjusted to
+optimise the correction, along with the linear correction described
+above):
+
+ 1 - The null correction - includes only the linear adjustment
+
+ 2 - The correction from the ComputerCard library, parameterised as:
+
+       int16_t fix_dnl_cj_px(uint16_t adc, int x) {
+	 int16_t bdc = static_cast<int16_t>(adc);
+	 uint16_t adc512 = adc + 0x200;
+	 if (!(adc512 % 0x01ff)) bdc += x;
+	 return bdc + ((adc512>>10) << 3);
+       }
+
+ 3 - The correction from the ComputerCard library, but with an adjusted
+     level for the DNL spikes (0x200 instead of 0x1ff):
+
+       int16_t fix_dnl_cx_px(uint16_t adc, int x) {
+	 int16_t bdc = static_cast<int16_t>(adc);
+	 uint16_t adc512 = adc + 0x200;
+	 if (!(adc512 % 0x0200)) bdc += x;
+	 return bdc + ((adc512>>10) << 3);
+       }
+
+ 4 - A correction that combines the "zig-zag" correction from the
+     ComputerLibrary code with fixes from reverse-engineering the DNL
+     plot in the data sheet:
+
+       int16_t fix_dnl_ac_pxy(const uint16_t adc, const int x, const int y) {
+	 auto bdc = static_cast<int16_t>(adc + (((adc + 0x200) >> 10) << 3));
+	 if ((adc & 0x600) && !(adc & 0x800)) bdc += y;
+	 if ((adc + 0x200) % 0x400 == 0) bdc += x;
+	 return bdc;
+       }
+
+The routines above contain essentially three different corrections:
+
+ * The "adc >> 10 << 3" correction is shifting the top few bits of the value
+   to create a "zig-zag" correction for structure that is clearly
+   visible on the oscilloscope.
+
+ * A correction involving 0x1ff or 0x200 which is for the peaks in the
+   DNL (where a bunch of "buckets" all return the same value).
+
+ * A correction for a shift in the region 0x600 to 0x800 which is
+   kinda visible in the DNL if you squint.
+
+
+Initial Results
+---------------
+
+For the (best fit) parameters below the corrections are, from best to worst:
+
+  Correcn              Parameters  
+  Best     Linear      X     Y
+  4        25, -10     -10   3
+  3        26, -10     -6
+  2        26, -10     0
+  1        26, -11
+  Worst
+
+Some preliminary observations:
+
+ * Any correction is better than none.  This is because the "zig-zag"
+   correction in the ComputerCard library dominates any other
+   correction.  It removes nearly all the structure visible in the
+   oscilloscope.
+
+ * The targeted correction for the DNL spikes in the current
+   ComputerCard code is at the wrong offset (0x1ff instead of 0x200).
+   This is confirmed by the optimal value of the correction at 0x1ff
+   being zero.
+
+
+Limitations
+-----------
+
+Before any final conclusions it's important to note that:
+
+ * The optimisation was by hand, very time consuming, and very crude.
+   In particular it was done alone one dimension at a time (with some
+   cross-checking), so any strongly correlated parameters would be
+   poorly fit.
+
+ * I have made no attempt to quantify "how much better" one correction
+   is than another.  Eyeballing the oscilloscope trace of the errors,
+   it seems that errors are dominated by (1) linear variations in the
+   hardware (if not removed) and then (2) the "zig-zag" fix, which is
+   common to all corrections.
+
+ * The linear corrections for the hardware also correct any linear
+   errors introduced by the corrections themselves.  For example, the
+   output for all the non-null corrections above covers the range 0 -
+   4127 (for inputs/domain from 0 to 4095).
+
+
+Discussion and Recommendations
+------------------------------
+
+The existing correction in the ComputerCard library, because it
+includes the "zig-zag", is already pretty good.  But the correction
+for the DNL spikes appears to be at the incorrect offset (the best fit
+amplitude is zero) and (when shifted to 0x200) in the opposite sense
+to what was given.
+
+So a conservative edit would be to remove the correction for the
+spikes and leave just the zig-zag.
+
+Moving on, the next possible correction would be to correct the range
+of the function (this can be done with a 32bit multiplication and a
+shift).
+
+For the ComputerCard library, I might use only those corrections.
+
+For my own code, I hope to have something more modular and
+customizable.  And there I hope to include the additional corrections
+for the spikes and the offset over a restricted range.  I am also
+considering making the correction return a signed value, because this
+simplifies numerical analysis (avoiding sudden large or undefined
+errors if the linear correction shifts to negative values).
+
+
+Previous Posts
+--------------
+
+https://acooke.org/cute/TestingRas0.html
+https://acooke.org/cute/DNLINLandR0.html
+
+
+Andrew
