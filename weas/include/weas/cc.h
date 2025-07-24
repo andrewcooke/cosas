@@ -5,6 +5,8 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
+#include "cosas/dnl.h"
+
 #define PULSE_1_RAW_OUT 8
 #define PULSE_2_RAW_OUT 9
 
@@ -406,20 +408,15 @@ void __not_in_flash_func(CC::BufferFull)()
 	// Set CV inputs, with ~240Hz LPF on CV input
 	int cvi = mux_state % 2;
 
-	// Attempted compensation of ADC DNL errors. Not really tested.
-	uint16_t adc512=ADC_Buffer[cpuPhase][3]+512;
-	if (!(adc512 % 0x01FF)) ADC_Buffer[cpuPhase][3] += 4;
-	ADC_Buffer[cpuPhase][3] += (adc512>>10) << 3;
-	
-	cvsm[cvi] = (15 * (cvsm[cvi]) + 16 * ADC_Buffer[cpuPhase][3]) >> 4;
+	cvsm[cvi] = (15 * (cvsm[cvi]) + 16 * fix_dnl(ADC_Buffer[cpuPhase][3])) >> 4;
 	cv[cvi] = 2048 - (cvsm[cvi] >> 4);
 
 
 	// Set audio inputs, by averaging the two samples collected.
 	// Invert to counteract inverting op-amp input configuration
-	adcInR = -(((ADC_Buffer[cpuPhase][0] + ADC_Buffer[cpuPhase][4]) - 0x1000) >> 1);
+	adcInR = -(((ADC_Buffer[cpuPhase][0] + fix_dnl(ADC_Buffer[cpuPhase][4])) - 0x1000) >> 1);
 
-	adcInL = -(((ADC_Buffer[cpuPhase][1] + ADC_Buffer[cpuPhase][5]) - 0x1000) >> 1);
+	adcInL = -(((ADC_Buffer[cpuPhase][1] + fix_dnl(ADC_Buffer[cpuPhase][5])) - 0x1000) >> 1);
 
 	// Set pulse inputs
 	last_pulse[0] = pulse[0];
@@ -429,7 +426,7 @@ void __not_in_flash_func(CC::BufferFull)()
 
 	// Set knobs, with ~60Hz LPF
 	int knob = mux_state;
-	knobssm[knob] = (127 * (knobssm[knob]) + 16 * ADC_Buffer[cpuPhase][6]) >> 7;
+	knobssm[knob] = (127 * (knobssm[knob]) + 16 * fix_dnl(ADC_Buffer[cpuPhase][6])) >> 7;
 	knobs[knob] = knobssm[knob] >> 4;
 
 	// Set switch value

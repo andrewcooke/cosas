@@ -6,7 +6,11 @@
 #include <tuple>
 
 
-uint16_t fix_dnl_ac(uint16_t adc);
+int16_t fix_dnl(uint16_t adc);
+
+
+// old code used in tests/dnl to understand/optimise the fixes
+
 int16_t fix_dnl_ac_pxy(uint16_t adc, int x, int y);
 int16_t fix_dnl_ac_pxyz(uint16_t adc, int x, int y, int z);
 
