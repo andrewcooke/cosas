@@ -2,6 +2,8 @@
 #ifndef WEAS_CC_H
 #define WEAS_CC_H
 
+#include <functional>
+
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
@@ -26,22 +28,26 @@ public:
 	enum Input {Audio1, Audio2, CV1, CV2, Pulse1, Pulse2};
 	enum HardwareVersion_t {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
 	enum USBPowerState_t {DFP, UFP, Unsupported};
-	
+
 	CC();
 	virtual ~CC() = default;
+
+	static CC& get_instance() {
+		static CC cc;
+		return cc;
+	}
 
 	[[nodiscard]] int32_t get_count() const {return count;}
 
 	void Run() {
-		CC::thisptr = this;
 		AudioWorker();
 	}
 
 	void EnableNormalisationProbe() {useNormProbe = true;}
 
-protected:
-
-	virtual void ProcessSample() = 0;
+	void set_callback(std::function<void(CC&)> f) {
+		callback = f;
+	}
 
 	int32_t __not_in_flash_func(KnobVal)(Knob ind) {return knobs[ind];}
 
@@ -135,8 +141,10 @@ protected:
 
 	uint64_t UniqueCardID()	{return uniqueID;}
 	
-	static CC *ThisPtr() {return thisptr;}
-	
+protected:
+
+	std::function<void(CC&)> callback = [](CC&){};
+
 	void Abort();
 	
 private:
@@ -208,10 +216,10 @@ private:
 	void AudioWorker();
 	
 	static void AudioCallback()	{
-		thisptr->BufferFull();
+		CC& cc = CC::get_instance();
+		cc.BufferFull();
 	}
-	
-	static CC *thisptr;
+
 };
 
 #include "hardware/adc.h"
@@ -275,9 +283,6 @@ private:
 
 #define EEPROM_PAGE_ADDRESS 0x50
 
-
-
-CC* CC::thisptr;
 
 // Return pseudo-random bit for normalisation probe
 uint32_t __not_in_flash_func(CC::next_norm_probe)()
@@ -483,7 +488,8 @@ void __not_in_flash_func(CC::BufferFull)()
 	
 	////////////////////////////////////////
 	// Run the DSP
-	ProcessSample();
+	callback(*this);
+
 	count++;
 
 	////////////////////////////////////////
