@@ -5,6 +5,7 @@
 
 #include "weas/cc.h"
 #include "weas/leds.h"
+#include "weas/eeprom.h"
 
 
 typedef CC<1, 1000> CC_;
