@@ -7,8 +7,7 @@
 #include "weas/leds.h"
 
 
-constexpr uint OVERSAMPLE_BITS = 1;
-constexpr uint SAMPLE_FREQ = 1000;
+typedef CC<1, 1000> CC_;
 
 
 class Diagnostics final {
@@ -43,22 +42,22 @@ private:
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
 
-  void save_current(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc) {
+  void save_current(CC_& cc) {
     for (uint i = 0; i < n_knobs; i++) {
       knobs[1][i] = knobs[0][i];
       // for some reason knob values are signed integers, but we
       // need to display unsigned so cast here
-      knobs[0][i] = cc.KnobVal(static_cast<CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::Knob>(i)) >> noise_knobs;
+      knobs[0][i] = cc.read_knob(static_cast<CC_::Knob>(i)) >> noise_knobs;
     }
     switches[1][0] = switches[0][0];
-    switches[0][0] = cc.SwitchVal();
+    switches[0][0] = cc.read_switch();
     for (uint i = 0; i < n_adcs; i++) {
       adcs[1][i] = adcs[0][i];
-      adcs[0][i] = (i < 2 ? cc.AudioIn(i) : cc.CVIn(i - 2)) >> noise_adcs;
+      adcs[0][i] = (i < 2 ? cc.read_audio(i) : cc.read_cv(i - 2)) >> noise_adcs;
     }
     for (uint i = 0; i < n_pulses; i++) {
       pulses[1][i] = pulses[0][i];
-      pulses[0][i] = cc.PulseIn(i);
+      pulses[0][i] = cc.read_pulse(i);
     }
   }
 
@@ -88,13 +87,13 @@ private:
     leds.all(0x40u);
     if (idx < n_knobs) {
       switch(idx) {
-      case static_cast<uint>(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::Main):
+      case static_cast<uint>(CC_::Main):
         leds.sq4(0, 0xffu);
         return;
-      case static_cast<uint>(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::X):
+      case static_cast<uint>(CC_::X):
         leds.v2(2, 0xffu);
         return;
-      case static_cast<uint>(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::Y):
+      case static_cast<uint>(CC_::Y):
         leds.sq4(1, 0xffu);
         return;
       default:
@@ -119,20 +118,20 @@ private:
     // idx -= n_pulses;
   }
 
-  void display(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc, uint idx) {
+  void display(CC_& cc, uint idx) {
     if (idx < n_knobs) {
-      leds.columns12bits(static_cast<uint16_t>(cc.KnobVal(static_cast<CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::Knob>(idx))));
+      leds.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<CC_::Knob>(idx))));
       return;
     }
     idx -= n_knobs;
     if (idx < n_switches) {
       leds.all(false);
-      leds.h2(static_cast<uint>(cc.SwitchVal()), 0xffu);
+      leds.h2(static_cast<uint>(cc.read_switch()), 0xffu);
       return;
     }
     idx -= n_switches;
     if (idx < n_adcs) {
-      leds.columns12bits(idx < 2 ? cc.AudioIn(idx) : cc.CVIn(idx - 2));
+      leds.columns12bits(idx < 2 ? cc.read_audio(idx) : cc.read_cv(idx - 2));
     }
     idx -= n_adcs;
     if (idx < n_pulses) {
@@ -150,14 +149,14 @@ private:
     return (count & (1 << n)) && ! ((count - 1) & (1 << n));
   }
 
-  void write_out(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc) {
+  void write_out(CC_& cc) {
     for (uint i = 0; i < 4; i++) {
       uint idx = (count >> (i + 3)) & (wtable_size - 1);
-      if (i < 2) cc.AudioOut(i, wtable[idx]);
-      else cc.CVOut(i - 2, wtable[idx]);
+      if (i < 2) cc.write_audio(static_cast<CC_::Channel>(i), wtable[idx]);
+      else cc.write_cv(i - 2, wtable[idx]);
     }
-    cc.PulseOut(0, pulse(11));;
-    cc.PulseOut(1, !pulse(12));
+    cc.write_pulse(0, pulse(11));;
+    cc.write_pulse(1, !pulse(12));
     count++;
   }
 
@@ -169,7 +168,7 @@ private:
 
 public:
 
-  void ProcessSample(CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc) {
+  void ProcessSample(CC_& cc) {
     write_out(cc);
     save_current(cc);
     if (prev_change != NONE && ((recent-- > 0) || changed(prev_change))) {
@@ -195,8 +194,8 @@ public:
 int main()
 {
   Diagnostics diag;
-  CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc = CC<OVERSAMPLE_BITS, SAMPLE_FREQ>::get_instance();
-  cc.set_callback([&](CC<OVERSAMPLE_BITS, SAMPLE_FREQ>& cc){diag.ProcessSample(cc);});
-  cc.Run();
+  CC_& cc = CC_::get();
+  cc.set_per_sample([&](CC_& cc){diag.ProcessSample(cc);});
+  cc.run();
 };
 

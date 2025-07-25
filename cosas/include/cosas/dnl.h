@@ -6,7 +6,7 @@
 #include <tuple>
 
 
-int16_t fix_dnl(uint16_t adc);
+uint16_t fix_dnl(uint16_t adc);
 
 
 // old code used in tests/dnl to understand/optimise the fixes

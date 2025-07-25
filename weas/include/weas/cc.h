@@ -9,146 +9,96 @@
 
 #include "cosas/dnl.h"
 
-#define PULSE_1_RAW_OUT 8
-#define PULSE_2_RAW_OUT 9
 
-#define CV_OUT_1 23
-#define CV_OUT_2 22
-
-// USB host status pin
-#define USB_HOST_STATUS 20
-
+// common values for SAMPLE_FREQ
 static constexpr uint CC_SAMPLE_44_1 = 44100;
 static constexpr uint CC_SAMPLE_8 = 48000;
+
 
 template<uint OVERSAMPLE_BITS, uint SAMPLE_FREQ> class CC final {
 
 public:
 
+	enum Channel {Left, Right};
 	enum Knob {Main, X, Y};
 	enum Switch {Down, Middle, Up};
 	enum Input {Audio1, Audio2, CV1, CV2, Pulse1, Pulse2};
-	enum HardwareVersion_t {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
-	enum USBPowerState_t {DFP, UFP, Unsupported};
+	enum HardwareVersion {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
+	enum USBPowerState {DFP, UFP, Unsupported};
 
-	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
-
-	static CC& get_instance() {
+	static CC& get() {
 		static CC cc;
 		return cc;
 	}
 
+	void run() {audio_worker();}  // TODO - just rename audio_worker to run; TODO - add blocking
+
 	[[nodiscard]] int32_t get_count() const {return count;}
+	void set_normalisation_probe(bool use) {use_norm_probe = use;}
+	void set_per_sample(std::function<void(CC&)> f) {per_sample = f;}
 
-	void Run() {
-		AudioWorker();
+	[[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) {return knobs[k];}
+	[[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) {return read_knob(static_cast<Knob>(k));}
+	[[nodiscard]] Switch __not_in_flash_func(read_switch)() {return switch_;}
+	[[nodiscard]] bool __not_in_flash_func(switch_changed)() {return switch_ != prev_switch;}
+
+	// TODO - silly separate vars
+	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(const Channel lr) {return lr ? adcInR:adcInL;}
+	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(const uint lr) {return read_audio(static_cast<Channel>(lr));}
+	void __not_in_flash_func(write_audio)(const Channel lr, const int16_t v) {dac[lr] = v;}
+	void __not_in_flash_func(write_audio)(const uint lr, const int16_t v) {write_audio(static_cast<Channel>(lr), v);}
+
+	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(const Channel lr) {return cv[lr];}
+	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(const uint lr) {return read_cv(static_cast<Channel>(lr));}
+	// discard a bit because pwm 11 bits for reduced ripple
+	// cv pins in reverse order
+	void __not_in_flash_func(write_cv)(const Channel lr, const int16_t v) {pwm_set_gpio_level(CV_OUT_1 - lr, (0x7ff - v) >> 1);}
+	void __not_in_flash_func(write_cv)(const uint lr, const int16_t v) {write_cv(static_cast<Channel>(lr), v);}
+
+	// TODO - candidate for separate class?
+	void __not_in_flash_func(write_cv_midi_note)(const Channel lr, const uint8_t note_num) {
+		pwm_set_gpio_level(CV_OUT_1 - lr, midi_to_dac(note_num, lr) >> 8);
+	}
+	void __not_in_flash_func(write_cv_midi_note)(const uint lr, const uint8_t note_num) {
+		write_cv_midi_note(static_cast<Channel>(lr), note_num);
 	}
 
-	void EnableNormalisationProbe() {useNormProbe = true;}
+	[[nodiscard]] bool __not_in_flash_func(read_pulse)(const Channel lr) {return pulse[lr];}
+	[[nodiscard]] bool __not_in_flash_func(read_pulse)(const uint lr) {return read_pulse(static_cast<Channel>(lr));}
+	void __not_in_flash_func(write_pulse)(const Channel lr, const bool v) {gpio_put(PULSE_1_RAW_OUT + lr, !v);}
+	void __not_in_flash_func(write_pulse)(const uint lr, const bool v) {write_pulse(static_cast<Channel>(lr), v);}
+	// TODO - merge separate arrays
+	bool __not_in_flash_func(pulse_rose)(const Channel lr) {return pulse[lr] && !last_pulse[lr];}
+	bool __not_in_flash_func(pulse_rose)(const uint lr) {return pulse_rose(static_cast<Channel>(lr));}
+	bool __not_in_flash_func(pulse_fell)(const Channel lr) {return !pulse[lr] && last_pulse[lr];}
+	bool __not_in_flash_func(pulse_fell)(const uint lr) {return pulse_fell(static_cast<Channel>(lr));}
 
-	void set_callback(std::function<void(CC&)> f) {
-		callback = f;
-	}
+	bool __not_in_flash_func(is_connected)(const Input i) {return connected[i];}
 
-	int32_t __not_in_flash_func(KnobVal)(Knob ind) {return knobs[ind];}
-
-	Switch __not_in_flash_func(SwitchVal)() {return switchVal;}
-
-	bool __not_in_flash_func(SwitchChanged)() {return switchVal != lastSwitchVal;}
-
-	void __not_in_flash_func(AudioOut)(int i, int16_t val) {dacOut[i] = val;}
-
-	void __not_in_flash_func(AudioOut1)(int16_t val) {dacOut[0] = val;}
-	
-	void __not_in_flash_func(AudioOut2)(int16_t val) {dacOut[1] = val;}
-
-	void __not_in_flash_func(CVOut)(int i, int16_t val){
-		pwm_set_gpio_level(CV_OUT_1 - i, (2047-val)>>1);
-	}
-
-	void __not_in_flash_func(CVOut1)(int16_t val) {
-		pwm_set_gpio_level(CV_OUT_1, (2047-val)>>1);
-	}
-	
-	void __not_in_flash_func(CVOut2)(int16_t val)	{
-		pwm_set_gpio_level(CV_OUT_2, (2047-val)>>1);
-	}
-
-	void __not_in_flash_func(CVOutMIDINote)(int i, uint8_t noteNum) {
-		pwm_set_gpio_level(CV_OUT_1 - i, MIDIToDac(noteNum, 0) >> 8);
-	}
-	
-	void __not_in_flash_func(CVOut1MIDINote)(uint8_t noteNum)	{
-		pwm_set_gpio_level(CV_OUT_1, MIDIToDac(noteNum, 0) >> 8);
-	}
-	
-	void __not_in_flash_func(CVOut2MIDINote)(uint8_t noteNum)	{
-		pwm_set_gpio_level(CV_OUT_2, MIDIToDac(noteNum, 1) >> 8);
-	}
-	
-	void __not_in_flash_func(PulseOut)(int i, bool val) {
-		gpio_put(PULSE_1_RAW_OUT + i, !val);
-	}
-	
-	void __not_in_flash_func(PulseOut1)(bool val)	{
-		gpio_put(PULSE_1_RAW_OUT, !val);
-	}
-	
-	void __not_in_flash_func(PulseOut2)(bool val)	{
-		gpio_put(PULSE_2_RAW_OUT, !val);
-	}
-	
-	int16_t __not_in_flash_func(AudioIn)(int i) {return i ? adcInR:adcInL;}
-	
-	int16_t __not_in_flash_func(AudioIn1)() {return adcInL;}
-
-	int16_t __not_in_flash_func(AudioIn2)() {return adcInR;}
-
-	int16_t __not_in_flash_func(CVIn)(int i) {return cv[i];}
-	
-	int16_t __not_in_flash_func(CVIn1)() {return cv[0];}
-
-	int16_t __not_in_flash_func(CVIn2)() {return cv[1];}
-
-	bool __not_in_flash_func(PulseIn)(int i) {return pulse[i];}
-
-	bool __not_in_flash_func(PulseInRisingEdge)(int i) {return pulse[i] && !last_pulse[i];}
-
-	bool __not_in_flash_func(PulseInFallingEdge)(int i) {return !pulse[i] && last_pulse[i];}
-
-	bool __not_in_flash_func(PulseIn1)() {return pulse[0];}
-
-	bool __not_in_flash_func(PulseIn1RisingEdge)() {return pulse[0] && !last_pulse[0];}
-
-	bool __not_in_flash_func(PulseIn1FallingEdge)() {return !pulse[0] && last_pulse[0];}
-
-	bool __not_in_flash_func(PulseIn2)() {return pulse[1];}
-
-	bool __not_in_flash_func(PulseIn2FallingEdge)() {return !pulse[1] && last_pulse[1];}
-
-	bool __not_in_flash_func(PulseIn2RisingEdge)() {return pulse[1] && !last_pulse[1];}
-
-	bool __not_in_flash_func(Connected)(Input i) {return connected[i];}
-
-	bool __not_in_flash_func(Disconnected)(Input i) {return !connected[i];}
-
-	USBPowerState_t USBPowerState()	{
-		if (HardwareVersion() != Rev1_1) return Unsupported;
+	// TODO - candidate for separate class?
+	USBPowerState get_usb_power_state()	{
+		if (get_hardware_version() != Rev1_1) return Unsupported;
 		if (gpio_get(USB_HOST_STATUS)) return UFP;
 	  return DFP;
 	}
-
-	HardwareVersion_t HardwareVersion() {return hw;}
-
-	uint64_t UniqueCardID()	{return uniqueID;}
+	HardwareVersion get_hardware_version() {return hw;}
+	uint64_t get_unique_id()	{return unique_id;}
 	
 protected:
 
-	std::function<void(CC&)> callback = [](CC&){};
+	std::function<void(CC&)> per_sample = [](CC&){};
 
 	void Abort();
 	
 private:
+
+	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
+
+	static constexpr uint PULSE_1_RAW_OUT = 8;
+	static constexpr uint PULSE_2_RAW_OUT = 9;
+	static constexpr uint CV_OUT_1 = 23;
+	static constexpr uint CV_OUT_2 = 22;
+	static constexpr uint USB_HOST_STATUS = 20;
 
 	CC();
 	virtual ~CC() = default;
@@ -172,19 +122,19 @@ private:
 	CalPoint calibrationTable[calMaxChannels][calMaxPoints];
 	CalCoeffs calCoeffs[calMaxChannels];
 
-	uint64_t uniqueID;
+	uint64_t unique_id;
 	
 	uint8_t ReadByteFromEEPROM(unsigned int eeAddress);
 	int ReadIntFromEEPROM(unsigned int eeAddress);
 	uint16_t CRCencode(const uint8_t *data, int length);
 	void CalcCalCoeffs(int channel);
 	int ReadEEPROM();
-	uint32_t MIDIToDac(int midiNote, int channel);
+	uint32_t midi_to_dac(int midiNote, int channel);
 	
-	HardwareVersion_t hw;
-	HardwareVersion_t ProbeHardwareVersion();
+	HardwareVersion hw;
+	HardwareVersion ProbeHardwareVersion();
 	
-	int16_t dacOut[2];
+	int16_t dac[2];
 	
 	volatile int32_t knobs[4] = { 0, 0, 0, 0 };
 	volatile bool pulse[2] = { 0, 0 };
@@ -196,9 +146,9 @@ private:
 
 	volatile int32_t plug_state[6] = {0,0,0,0,0,0};
 	volatile bool connected[6] = {0,0,0,0,0,0};
-	bool useNormProbe;
+	bool use_norm_probe;
 
-	Switch switchVal, lastSwitchVal;
+	Switch switch_, prev_switch;
 	
 	volatile uint8_t runADCMode;
 
@@ -217,10 +167,10 @@ private:
 	
 	uint32_t next_norm_probe();
 	void BufferFull();
-	void AudioWorker();
+	void audio_worker();
 	
 	static void AudioCallback()	{
-		CC& cc = CC::get_instance();
+		CC& cc = CC::get();
 		cc.BufferFull();
 	}
 
@@ -299,7 +249,7 @@ CC<O, F>::next_norm_probe()
 
 // Main audio core function
 template<uint O, uint SAMPLE_FREQ> __attribute__((section(".time_critical." "cc-audio-worker")))
-void (CC<O, SAMPLE_FREQ>::AudioWorker)()
+void (CC<O, SAMPLE_FREQ>::audio_worker)()
 {
 
 	adc_select_input(0);
@@ -445,18 +395,18 @@ void CC<OVERSAMPLE_BITS, F>::BufferFull()
 	knobs[knob] = knobssm[knob];
 
 	// Set switch value
-	switchVal = static_cast<Switch>((knobs[3]>1000) + (knobs[3]>3000));
+	switch_ = static_cast<Switch>((knobs[3]>1000) + (knobs[3]>3000));
 	if (startupCounter)
 	{
 		// Don't detect switch changes in first few cycles
-		lastSwitchVal = switchVal;
+		prev_switch = switch_;
 		// Should initialise knob and CV smoothing filters here too
 	}
 	
 	////////////////////////////
 	// Normalisation probe
 
-	if (useNormProbe)
+	if (use_norm_probe)
 	{
 		// Set normalisation probe output value
 		// and update np to the expected history string
@@ -488,17 +438,17 @@ void CC<OVERSAMPLE_BITS, F>::BufferFull()
 		}
 		
 		// Force disconnected values to zero, rather than the normalisation probe garbage
-		if (Disconnected(Input::Audio1)) adcInL = 0;
-		if (Disconnected(Input::Audio2)) adcInR = 0;
-		if (Disconnected(Input::CV1)) cv[0] = 0;
-		if (Disconnected(Input::CV2)) cv[1] = 0;
-		if (Disconnected(Input::Pulse1)) pulse[0] = 0;
-		if (Disconnected(Input::Pulse2)) pulse[1] = 0;
+		if (! is_connected(Input::Audio1)) adcInL = 0;
+		if (! is_connected(Input::Audio2)) adcInR = 0;
+		if (! is_connected(Input::CV1)) cv[0] = 0;
+		if (! is_connected(Input::CV2)) cv[1] = 0;
+		if (! is_connected(Input::Pulse1)) pulse[0] = 0;
+		if (! is_connected(Input::Pulse2)) pulse[1] = 0;
 	}
 	
 	////////////////////////////////////////
 	// Run the DSP
-	callback(*this);
+	per_sample(*this);
 
 	count++;
 
@@ -507,8 +457,8 @@ void CC<OVERSAMPLE_BITS, F>::BufferFull()
 	// CV/Pulse outputs are done immediately in ProcessSample
 
 	// Invert dacout to counteract inverting output configuration
-	SPI_Buffer[cpuPhase][0] = dacval(-dacOut[0], DAC_CHANNEL_A);
-	SPI_Buffer[cpuPhase][1] = dacval(-dacOut[1], DAC_CHANNEL_B);
+	SPI_Buffer[cpuPhase][0] = dacval(-dac[0], DAC_CHANNEL_A);
+	SPI_Buffer[cpuPhase][1] = dacval(-dac[1], DAC_CHANNEL_B);
 
 	mux_state = next_mux_state;
 
@@ -529,12 +479,12 @@ void CC<OVERSAMPLE_BITS, F>::BufferFull()
 
 	norm_probe_count = (norm_probe_count + 1) & 0xF;
 
-	lastSwitchVal = switchVal;
+	prev_switch = switch_;
 	
 	if (startupCounter) startupCounter--;
 }
 
-template<uint O, uint F> CC<O, F>::HardwareVersion_t CC<O, F>::ProbeHardwareVersion()
+template<uint O, uint F> CC<O, F>::HardwareVersion CC<O, F>::ProbeHardwareVersion()
 {
 	// Enable pull-downs, and measure
 	gpio_set_pulls(BOARD_ID_0, false, true);
@@ -567,7 +517,7 @@ template<uint O, uint F> CC<O, F>::HardwareVersion_t CC<O, F>::ProbeHardwareVers
 	case Proto1:
 	case Proto2_Rev1:
 	case Rev1_1:
-		return static_cast<CC::HardwareVersion_t>(id);
+		return static_cast<CC::HardwareVersion>(id);
 	default:
 		return Unknown;
 	}
@@ -582,7 +532,7 @@ template <uint O, uint F> CC<O, F>::CC()
 	adc_select_input(0);
 
 
-	useNormProbe = false;
+	use_norm_probe = false;
 	for (int i=0; i<6; i++)
 	{
 		connected[i] = false;
@@ -688,13 +638,13 @@ template <uint O, uint F> CC<O, F>::CC()
 	ReadEEPROM();
 
 	// Read unique card ID
-	flash_get_unique_id((uint8_t *) &uniqueID);
+	flash_get_unique_id((uint8_t *) &unique_id);
 	// Do some mixing up of the bits using full-cycle 64-bit LCG
 	// Should help ensure most bytes change even if many bits of
 	// the original flash unique ID are the same between flash chips.
 	for (int i=0; i<20; i++)
 	{
-		uniqueID = uniqueID * 6364136223846793005ULL + 1442695040888963407ULL;
+		unique_id = unique_id * 6364136223846793005ULL + 1442695040888963407ULL;
 	}
 }
 
@@ -842,7 +792,7 @@ template<uint O, uint F> void CC<O, F>::CalcCalCoeffs(int channel)
 }
 
 
-template<uint O, uint F> uint32_t CC<O, F>::MIDIToDac(int midiNote, int channel) {
+template<uint O, uint F> uint32_t CC<O, F>::midi_to_dac(int midiNote, int channel) {
 	int32_t dacValue = ((calCoeffs[channel].mi * (midiNote - 60)) >> 4) + calCoeffs[channel].bi;
 	if (dacValue > 524287) dacValue = 524287;
 	if (dacValue < 0) dacValue = 0;
