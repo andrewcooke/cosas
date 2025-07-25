@@ -26,12 +26,17 @@ public:
 	enum HardwareVersion {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
 	enum USBPowerState {DFP, UFP, Unsupported};
 
+	static constexpr uint N_CHANNELS = Channel::Right + 1;
+	static constexpr uint N_KNOBS = Knob::Y + 2;  // switch is stored here too
+	static constexpr uint ADC_MAX_UNCORRECTED = 4127;
+
 	static CC& get() {
 		static CC cc;
 		return cc;
 	}
 
 	void run() {audio_worker();}  // TODO - just rename audio_worker to run; TODO - add blocking
+	void abort();  // TODO - example of use?
 
 	[[nodiscard]] int32_t get_count() const {return count;}
 	void set_normalisation_probe(bool use) {use_norm_probe = use;}
@@ -43,37 +48,37 @@ public:
 	[[nodiscard]] bool __not_in_flash_func(switch_changed)() {return switch_ != prev_switch;}
 
 	// TODO - silly separate vars
-	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(const Channel lr) {return lr ? adcInR:adcInL;}
-	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(const uint lr) {return read_audio(static_cast<Channel>(lr));}
-	void __not_in_flash_func(write_audio)(const Channel lr, const int16_t v) {dac[lr] = v;}
-	void __not_in_flash_func(write_audio)(const uint lr, const int16_t v) {write_audio(static_cast<Channel>(lr), v);}
+	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) {return lr ? adcInR:adcInL;}
+	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) {return read_audio(static_cast<Channel>(lr));}
+	void __not_in_flash_func(write_audio)(Channel lr, int16_t v) {dac[lr] = v;}
+	void __not_in_flash_func(write_audio)(uint lr, int16_t v) {write_audio(static_cast<Channel>(lr), v);}
 
-	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(const Channel lr) {return cv[lr];}
-	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(const uint lr) {return read_cv(static_cast<Channel>(lr));}
+	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(Channel lr) {return cv[lr];}
+	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) {return read_cv(static_cast<Channel>(lr));}
 	// discard a bit because pwm 11 bits for reduced ripple
 	// cv pins in reverse order
-	void __not_in_flash_func(write_cv)(const Channel lr, const int16_t v) {pwm_set_gpio_level(CV_OUT_1 - lr, (0x7ff - v) >> 1);}
-	void __not_in_flash_func(write_cv)(const uint lr, const int16_t v) {write_cv(static_cast<Channel>(lr), v);}
+	void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {pwm_set_gpio_level(CV_OUT_1 - lr, (0x7ff - v) >> 1);}
+	void __not_in_flash_func(write_cv)(uint lr, int16_t v) {write_cv(static_cast<Channel>(lr), v);}
 
 	// TODO - candidate for separate class?
-	void __not_in_flash_func(write_cv_midi_note)(const Channel lr, const uint8_t note_num) {
+	void __not_in_flash_func(write_cv_midi_note)(Channel lr, uint8_t note_num) {
 		pwm_set_gpio_level(CV_OUT_1 - lr, midi_to_dac(note_num, lr) >> 8);
 	}
-	void __not_in_flash_func(write_cv_midi_note)(const uint lr, const uint8_t note_num) {
+	void __not_in_flash_func(write_cv_midi_note)(uint lr, uint8_t note_num) {
 		write_cv_midi_note(static_cast<Channel>(lr), note_num);
 	}
 
-	[[nodiscard]] bool __not_in_flash_func(read_pulse)(const Channel lr) {return pulse[lr];}
-	[[nodiscard]] bool __not_in_flash_func(read_pulse)(const uint lr) {return read_pulse(static_cast<Channel>(lr));}
-	void __not_in_flash_func(write_pulse)(const Channel lr, const bool v) {gpio_put(PULSE_1_RAW_OUT + lr, !v);}
-	void __not_in_flash_func(write_pulse)(const uint lr, const bool v) {write_pulse(static_cast<Channel>(lr), v);}
+	[[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) {return pulse[lr];}
+	[[nodiscard]] bool __not_in_flash_func(read_pulse)(uint lr) {return read_pulse(static_cast<Channel>(lr));}
+	void __not_in_flash_func(write_pulse)(Channel lr, bool v) {gpio_put(PULSE_1_RAW_OUT + lr, !v);}
+	void __not_in_flash_func(write_pulse)(uint lr, bool v) {write_pulse(static_cast<Channel>(lr), v);}
 	// TODO - merge separate arrays
-	bool __not_in_flash_func(pulse_rose)(const Channel lr) {return pulse[lr] && !last_pulse[lr];}
-	bool __not_in_flash_func(pulse_rose)(const uint lr) {return pulse_rose(static_cast<Channel>(lr));}
-	bool __not_in_flash_func(pulse_fell)(const Channel lr) {return !pulse[lr] && last_pulse[lr];}
-	bool __not_in_flash_func(pulse_fell)(const uint lr) {return pulse_fell(static_cast<Channel>(lr));}
+	[[nodiscard]] bool __not_in_flash_func(pulse_rose)(Channel lr) {return pulse[lr] && !last_pulse[lr];}
+	[[nodiscard]] bool __not_in_flash_func(pulse_rose)(uint lr) {return pulse_rose(static_cast<Channel>(lr));}
+	[[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) {return !pulse[lr] && last_pulse[lr];}
+	[[nodiscard]] bool __not_in_flash_func(pulse_fell)(uint lr) {return pulse_fell(static_cast<Channel>(lr));}
 
-	bool __not_in_flash_func(is_connected)(const Input i) {return connected[i];}
+	[[nodiscard]] bool __not_in_flash_func(is_connected)(Input i) {return connected[i];}
 
 	// TODO - candidate for separate class?
 	USBPowerState get_usb_power_state()	{
@@ -83,13 +88,8 @@ public:
 	}
 	HardwareVersion get_hardware_version() {return hw;}
 	uint64_t get_unique_id()	{return unique_id;}
-	
-protected:
 
-	std::function<void(CC&)> per_sample = [](CC&){};
 
-	void Abort();
-	
 private:
 
 	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
@@ -100,11 +100,15 @@ private:
 	static constexpr uint CV_OUT_2 = 22;
 	static constexpr uint USB_HOST_STATUS = 20;
 
+	// TODO - check what a singleton expects here
 	CC();
-	virtual ~CC() = default;
-
+	~CC() = default;
+	std::function<void(CC&)> per_sample = [](CC&){};
 	int32_t count = 0;
-	
+
+
+	// TODO - candidates for separate class ------------------------------------------------
+
 	typedef struct {
 		float m, b;
 		int32_t mi, bi;
@@ -115,29 +119,29 @@ private:
 		int8_t voltage;
 	} CalPoint;
 
-	static constexpr int calMaxChannels = 2;
-	static constexpr int calMaxPoints = 10;
+	static constexpr uint CAL_MAX_CHANNELS = 2;  // TODO - Channel?
+	static constexpr int CAL_MAX_POINTS = 10;
 	
-	uint8_t numCalibrationPoints[calMaxChannels];
-	CalPoint calibrationTable[calMaxChannels][calMaxPoints];
-	CalCoeffs calCoeffs[calMaxChannels];
+	uint8_t num_calibration_points[CAL_MAX_CHANNELS];
+	CalPoint calibration_table[CAL_MAX_CHANNELS][CAL_MAX_POINTS];
+	CalCoeffs cal_coeffs[CAL_MAX_CHANNELS];
 
 	uint64_t unique_id;
 	
-	uint8_t ReadByteFromEEPROM(unsigned int eeAddress);
-	int ReadIntFromEEPROM(unsigned int eeAddress);
-	uint16_t CRCencode(const uint8_t *data, int length);
-	void CalcCalCoeffs(int channel);
-	int ReadEEPROM();
-	uint32_t midi_to_dac(int midiNote, int channel);
-	
+	uint8_t read_byte_from_eeprom(uint eeAddress);
+	int read_int_from_eeprom(uint eeAddress);
+	uint16_t crc_encode(const uint8_t *data, uint length);
+	void calc_cal_coeffs(uint channel);
+	int read_eeprom();
+
 	HardwareVersion hw;
 	HardwareVersion ProbeHardwareVersion();
+
+	uint32_t midi_to_dac(int midiNote, int channel);
 	
-	int16_t dac[2];
-	
-	volatile int32_t knobs[4] = { 0, 0, 0, 0 };
-	volatile bool pulse[2] = { 0, 0 };
+	int16_t dac[N_CHANNELS];  // cv output
+	volatile int32_t knobs[N_KNOBS] = {};
+	volatile bool pulse[2] = {};
 	volatile bool last_pulse[2] = { 0, 0 };
 	volatile int32_t cv[2] = { 0, 0 };
 	volatile int16_t adcInL = 0x800, adcInR = 0x800;
@@ -329,7 +333,7 @@ void (CC<O, SAMPLE_FREQ>::audio_worker)()
 	}
 }
 
-template<uint O, uint F> void CC<O, F>::Abort()
+template<uint O, uint F> void CC<O, F>::abort()
 {
 	runADCMode = RUN_ADC_MODE_REQUEST_ADC_STOP;
 }
@@ -635,7 +639,7 @@ template <uint O, uint F> CC<O, F>::CC()
 #endif
 
 	// Read EEPROM calibration values
-	ReadEEPROM();
+	read_eeprom();
 
 	// Read unique card ID
 	flash_get_unique_id((uint8_t *) &unique_id);
@@ -651,7 +655,7 @@ template <uint O, uint F> CC<O, F>::CC()
 
 
 // Read a byte from EEPROM
-template<uint O, uint F> uint8_t CC<O, F>::ReadByteFromEEPROM(unsigned int eeAddress)
+template<uint O, uint F> uint8_t CC<O, F>::read_byte_from_eeprom(unsigned int eeAddress)
 {
 	uint8_t deviceAddress = EEPROM_PAGE_ADDRESS | ((eeAddress >> 8) & 0x0F);
 	uint8_t data = 0xFF;
@@ -664,17 +668,17 @@ template<uint O, uint F> uint8_t CC<O, F>::ReadByteFromEEPROM(unsigned int eeAdd
 }
 
 // Read a 16-bit integer from EEPROM
-template<uint O, uint F> int CC<O, F>::ReadIntFromEEPROM(unsigned int eeAddress)
+template<uint O, uint F> int CC<O, F>::read_int_from_eeprom(unsigned int eeAddress)
 {
-	uint8_t highByte = ReadByteFromEEPROM(eeAddress);
-	uint8_t lowByte = ReadByteFromEEPROM(eeAddress + 1);
+	uint8_t highByte = read_byte_from_eeprom(eeAddress);
+	uint8_t lowByte = read_byte_from_eeprom(eeAddress + 1);
 	return (highByte << 8) | lowByte;
 }
 
-template<uint O, uint F> uint16_t CC<O, F>::CRCencode(const uint8_t *data, int length)
+template<uint O, uint F> uint16_t CC<O, F>::crc_encode(const uint8_t *data, uint length)
 {
 	uint16_t crc = 0xFFFF; // Initial CRC value
-	for (int i = 0; i < length; i++)
+	for (uint i = 0; i < length; i++)
 	{
 		crc ^= ((uint16_t)data[i]) << 8; // Bring in the next byte
 		for (uint8_t bit = 0; bit < 8; bit++)
@@ -693,36 +697,36 @@ template<uint O, uint F> uint16_t CC<O, F>::CRCencode(const uint8_t *data, int l
 }
 
 
-template<uint O, uint F> int CC<O, F>::ReadEEPROM()
+template<uint O, uint F> int CC<O, F>::read_eeprom()
 {
 	// Set up default values in the calibration table,
 	// to be used if EEPROM read fails
-	calibrationTable[0][0].voltage = -20; // -2V
-	calibrationTable[0][0].dacSetting = 347700;
-	calibrationTable[0][1].voltage = 0; // 0V
-	calibrationTable[0][1].dacSetting = 261200;
-	calibrationTable[0][2].voltage = 20; // +2V
-	calibrationTable[0][2].dacSetting = 174400;
+	calibration_table[0][0].voltage = -20; // -2V
+	calibration_table[0][0].dacSetting = 347700;
+	calibration_table[0][1].voltage = 0; // 0V
+	calibration_table[0][1].dacSetting = 261200;
+	calibration_table[0][2].voltage = 20; // +2V
+	calibration_table[0][2].dacSetting = 174400;
 
-	calibrationTable[1][0].voltage = -20; // -2V
-	calibrationTable[1][0].dacSetting = 347700;
-	calibrationTable[1][1].voltage = 0; // 0V
-	calibrationTable[1][1].dacSetting = 261200;
-	calibrationTable[1][2].voltage = 20; // +2V
-	calibrationTable[1][2].dacSetting = 174400;
+	calibration_table[1][0].voltage = -20; // -2V
+	calibration_table[1][0].dacSetting = 347700;
+	calibration_table[1][1].voltage = 0; // 0V
+	calibration_table[1][1].dacSetting = 261200;
+	calibration_table[1][2].voltage = 20; // +2V
+	calibration_table[1][2].dacSetting = 174400;
 
-	if (ReadIntFromEEPROM(EEPROM_ADDR_ID) != EEPROM_VAL_ID)
+	if (read_int_from_eeprom(EEPROM_ADDR_ID) != EEPROM_VAL_ID)
 	{
 		return 1;
 	}
 	uint8_t buf[EEPROM_NUM_BYTES];
 	for (int i = 0; i < EEPROM_NUM_BYTES; i++)
 	{
-		buf[i] = ReadByteFromEEPROM(i);
+		buf[i] = read_byte_from_eeprom(i);
 	}
 
 
-	uint16_t calculatedCRC = CRCencode(buf, 86);
+	uint16_t calculatedCRC = crc_encode(buf, 86u);
 	uint16_t foundCRC = ((uint16_t)buf[EEPROM_ADDR_CRC_H] << 8) | buf[EEPROM_ADDR_CRC_L];
 
 	if (calculatedCRC != foundCRC)
@@ -732,11 +736,11 @@ template<uint O, uint F> int CC<O, F>::ReadEEPROM()
 
 	int bufferIndex = 4;
 
-	for (uint8_t channel = 0; channel < calMaxChannels; channel++)
+	for (uint8_t channel = 0; channel < CAL_MAX_CHANNELS; channel++)
 	{
 		int channelOffset = bufferIndex + (41 * channel); // channel 0 = 4, channel 1 = 45
-		numCalibrationPoints[channel] = buf[channelOffset++];
-		for (uint8_t point = 0; point < numCalibrationPoints[channel]; point++)
+		num_calibration_points[channel] = buf[channelOffset++];
+		for (uint8_t point = 0; point < num_calibration_points[channel]; point++)
 		{
 			// Unpack Pack targetVoltage (int8_t) from buf
 			int8_t targetVoltage = (int8_t)buf[channelOffset++];
@@ -749,27 +753,27 @@ template<uint O, uint F> int CC<O, F>::ReadEEPROM()
 			dacSetting |= ((uint32_t)buf[channelOffset++]); // LSB
 
 			// Write settings into calibration table
-			calibrationTable[channel][point].voltage = targetVoltage;
-			calibrationTable[channel][point].dacSetting = dacSetting;
+			calibration_table[channel][point].voltage = targetVoltage;
+			calibration_table[channel][point].dacSetting = dacSetting;
 		}
-		CalcCalCoeffs(channel);
+		calc_cal_coeffs(channel);
 	}
 
 	return 0;
 }
 
-template<uint O, uint F> void CC<O, F>::CalcCalCoeffs(int channel)
+template<uint O, uint F> void CC<O, F>::calc_cal_coeffs(uint channel)
 {
 	float sumV = 0.0;
 	float sumDAC = 0.0;
 	float sumV2 = 0.0;
 	float sumVDAC = 0.0;
-	int N = numCalibrationPoints[channel];
+	int N = num_calibration_points[channel];
 
 	for (int i = 0; i < N; i++)
 	{
-		float v = calibrationTable[channel][i].voltage * 0.1f;
-		float dac = calibrationTable[channel][i].dacSetting;
+		float v = calibration_table[channel][i].voltage * 0.1f;
+		float dac = calibration_table[channel][i].dacSetting;
 		sumV += v;
 		sumDAC += dac;
 		sumV2 += v * v;
@@ -779,21 +783,21 @@ template<uint O, uint F> void CC<O, F>::CalcCalCoeffs(int channel)
 	float denominator = N * sumV2 - sumV * sumV;
 	if (denominator != 0)
 	{
-		calCoeffs[channel].m = (N * sumVDAC - sumV * sumDAC) / denominator;
+		cal_coeffs[channel].m = (N * sumVDAC - sumV * sumDAC) / denominator;
 	}
 	else
 	{
-		calCoeffs[channel].m = 0.0;
+		cal_coeffs[channel].m = 0.0;
 	}
-	calCoeffs[channel].b = (sumDAC - calCoeffs[channel].m * sumV) / N;
+	cal_coeffs[channel].b = (sumDAC - cal_coeffs[channel].m * sumV) / N;
 
-	calCoeffs[channel].mi = int32_t(calCoeffs[channel].m * 1.333333333333333f + 0.5f);
-	calCoeffs[channel].bi = int32_t(calCoeffs[channel].b + 0.5f);
+	cal_coeffs[channel].mi = int32_t(cal_coeffs[channel].m * 1.333333333333333f + 0.5f);
+	cal_coeffs[channel].bi = int32_t(cal_coeffs[channel].b + 0.5f);
 }
 
 
 template<uint O, uint F> uint32_t CC<O, F>::midi_to_dac(int midiNote, int channel) {
-	int32_t dacValue = ((calCoeffs[channel].mi * (midiNote - 60)) >> 4) + calCoeffs[channel].bi;
+	int32_t dacValue = ((cal_coeffs[channel].mi * (midiNote - 60)) >> 4) + cal_coeffs[channel].bi;
 	if (dacValue > 524287) dacValue = 524287;
 	if (dacValue < 0) dacValue = 0;
 	return dacValue;
