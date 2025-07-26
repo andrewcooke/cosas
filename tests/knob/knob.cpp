@@ -2,7 +2,7 @@
 // ReSharper disable once CppUnusedIncludeDirective
 #include "pico/stdlib.h"  // uint
 
-#include "weas/cc.h"
+#include "weas/codec.h"
 #include "weas/leds.h"
 
 class XX: public CC {

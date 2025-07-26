@@ -3,7 +3,7 @@
 #include <cmath>
 #include <numbers>
 
-#include "weas/cc.h"
+#include "weas/codec.h"
 #include "weas/leds.h"
 #include "weas/eeprom.h"
 
@@ -153,7 +153,7 @@ private:
   void write_out(CC_& cc) {
     for (uint i = 0; i < 4; i++) {
       uint idx = (count >> (i + 3)) & (wtable_size - 1);
-      if (i < 2) cc.write_audio(static_cast<CC_::Channel>(i), wtable[idx]);
+      if (i < 2) cc.write_audio(i, wtable[idx]);
       else cc.write_cv(i - 2, wtable[idx]);
     }
     cc.write_pulse(0, pulse(11));;

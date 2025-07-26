@@ -7,6 +7,7 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
+#include "weas/weas.h"
 #include "cosas/dnl.h"
 
 
@@ -19,12 +20,10 @@ template<uint OVERSAMPLE_BITS, uint SAMPLE_FREQ> class CC final {
 
 public:
 
-	enum Channel {Left, Right};
 	enum Knob {Main, X, Y};
 	enum Switch {Down, Middle, Up};
 	enum Input {Audio1, Audio2, CV1, CV2, Pulse1, Pulse2};
 
-	static constexpr uint N_CHANNELS = Channel::Right + 1;
 	static constexpr uint N_KNOBS = Knob::Y + 2;  // switch is stored here too
 	static constexpr uint ADC_MAX_UNCORRECTED = 4127;
 
@@ -57,14 +56,9 @@ public:
 	// cv pins in reverse order
 	void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {pwm_set_gpio_level(CV_OUT_1 - lr, (0x7ff - v) >> 1);}
 	void __not_in_flash_func(write_cv)(uint lr, int16_t v) {write_cv(static_cast<Channel>(lr), v);}
-
-	// TODO - candidate for separate class?
-	void __not_in_flash_func(write_cv_midi_note)(Channel lr, uint8_t note_num) {
-		pwm_set_gpio_level(CV_OUT_1 - lr, midi_to_dac(note_num, lr) >> 8);
-	}
-	void __not_in_flash_func(write_cv_midi_note)(uint lr, uint8_t note_num) {
-		write_cv_midi_note(static_cast<Channel>(lr), note_num);
-	}
+	// these are used, for example, to write midi
+	void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) {pwm_set_gpio_level(CV_OUT_1 - lr, v >> 1);}
+	void __not_in_flash_func(write_cv)(uint lr, uint16_t v) {write_cv(static_cast<Channel>(lr), v);}
 
 	[[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) {return pulse[lr];}
 	[[nodiscard]] bool __not_in_flash_func(read_pulse)(uint lr) {return read_pulse(static_cast<Channel>(lr));}
