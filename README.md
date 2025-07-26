@@ -31,4 +31,4 @@ significant waypoints:
 all development is done inside debian (typically latest testing) with
 the clion ide.  running install.sh should get you started.
 
-*made in chile with love*
+*hecho en chile con amooooor*
