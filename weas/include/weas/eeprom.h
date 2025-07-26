@@ -5,7 +5,7 @@
 #include "hardware/gpio.h"
 
 #include "weas/weas.h"
-#include "weas/codec.h"  // TODO - change name to codec
+#include "weas/codec.h"
 
 
 class EEPROM {
@@ -36,8 +36,8 @@ public:
 		if (gpio_get(USB_HOST_STATUS)) return UFP;
 		return DFP;
 	}
-	HardwareVersion get_hardware_version() {return hw;}
-	uint64_t get_unique_id()	{return unique_id;}
+	HardwareVersion get_hardware_version() const {return hw;}
+	uint64_t get_unique_id() const {return unique_id;}
 
 	uint32_t midi_to_dac(int midiNote, int channel);
 	template<uint O, uint S> void write_cv_midi_note(CC<O, S> cc, Channel lr, uint8_t note_num);
