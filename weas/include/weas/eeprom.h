@@ -8,6 +8,11 @@
 #include "weas/codec.h"
 
 
+// the interface to the eeprom and related functions
+// midi output is here because it needs calibration data
+// (presumably to generate the correct notes!)
+
+
 class EEPROM {
 
 public:
@@ -31,11 +36,7 @@ public:
   EEPROM(const EEPROM&) = delete;
   EEPROM& operator=(const EEPROM&) = delete;
 
-	USBPowerState get_usb_power_state()	{
-		if (get_hardware_version() != Rev1_1) return Unsupported;
-		if (gpio_get(USB_HOST_STATUS)) return UFP;
-		return DFP;
-	}
+	USBPowerState get_usb_power_state();
 	HardwareVersion get_hardware_version() const {return hw;}
 	uint64_t get_unique_id() const {return unique_id;}
 

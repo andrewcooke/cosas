@@ -15,6 +15,7 @@ EEPROM::EEPROM() {
 
   read_eeprom();
   flash_get_unique_id((uint8_t*)&unique_id);
+
   // Do some mixing up of the bits using full-cycle 64-bit LCG
   // Should help ensure most bytes change even if many bits of
   // the original flash unique ID are the same between flash chips.
@@ -26,6 +27,12 @@ EEPROM::EEPROM() {
 EEPROM& EEPROM::get() {
   static EEPROM eeprom;
   return eeprom;
+}
+
+EEPROM::USBPowerState EEPROM::get_usb_power_state()	{
+  if (get_hardware_version() != Rev1_1) return Unsupported;
+  if (gpio_get(USB_HOST_STATUS)) return UFP;
+  return DFP;
 }
 
 EEPROM::HardwareVersion EEPROM::probe_hardware_version() {

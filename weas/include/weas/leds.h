@@ -6,7 +6,9 @@
 #include <sys/types.h>
 
 
+// an interface to the LEDs (there may be another in the future!)
 // (unlike ComputerCard) the raw input for these is 8 bits
+
 
 class LEDs {
 

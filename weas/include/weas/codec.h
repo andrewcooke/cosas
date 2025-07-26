@@ -1,6 +1,6 @@
 
-#ifndef WEAS_CC_H
-#define WEAS_CC_H
+#ifndef WEAS_CODEC_H
+#define WEAS_CODEC_H
 
 #include <functional>
 
@@ -9,6 +9,9 @@
 
 #include "weas/weas.h"
 #include "cosas/dnl.h"
+
+
+// the interface to the DAC and ADC
 
 
 // common values for SAMPLE_FREQ
