@@ -128,14 +128,14 @@ void LEDs::display13levels(uint8_t v) {
   v = std::min(static_cast<uint8_t>(12), v);
   const bool inv = v > 6;
   if (inv) v -= 6;
-  for (uint i = 0; i  < N; i++) {
+  for (uint i = 0; i < N; i++) {
     set(i, (i == v) != inv);
   }
 }
 
 void LEDs::sq4(const uint n, const uint8_t v) {
   for (uint i = 0; i < 4; i++) {
-    set(i + (n &  1) * 2, v);
+    set(i + (n & 1) * 2, v);
   }
 }
 
