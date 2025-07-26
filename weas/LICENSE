@@ -1,5 +1,6 @@
 
-for cc.h:
+code that interfaces with the RP2040 (at time of writing, leds, eeprom
+and codec) is based on ComputerCard.h which itself had this licence:
 
     MIT License
     Copyright (c) 2024-5 Chris Johnson
