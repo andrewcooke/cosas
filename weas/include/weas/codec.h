@@ -1,6 +1,7 @@
 #ifndef WEAS_CODEC_H
 #define WEAS_CODEC_H
 
+
 #include <functional>
 
 #include "hardware/adc.h"
@@ -12,7 +13,6 @@
 #include "hardware/pwm.h"
 
 #include "weas/weas.h"
-#include "cosas/dnl.h"
 
 
 // the interface to the DAC and ADC
@@ -73,7 +73,7 @@ public:
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
   // cv pins in reverse order
   void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(0x7ff - v));
+    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(static_cast<uint16_t>(0x7ff - v)));
   }
 
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
@@ -144,7 +144,7 @@ private:
   volatile uint8_t mxPos = 0;
   volatile int32_t probe_in[N_SOCKET_IN] = {};
   volatile bool connected[N_SOCKET_IN] = {};
-  Switch switch_, prev_switch;
+  Switch switch_ = Middle, prev_switch = Middle;
   volatile ADCRunMode run_mode;
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][2] = {};
@@ -152,7 +152,7 @@ private:
 
   static uint32_t next_norm_probe();
   static uint16_t dac_value(int16_t value, uint16_t dacChannel);
-  static uint16_t scale_cv_out(int16_t value);
+  static uint16_t scale_cv_out(uint16_t value);
   [[nodiscard]] uint32_t calc_adc_scale() const;
   [[nodiscard]] uint16_t apply_adc_scale(uint16_t v) const;
   void buffer_full();
@@ -189,7 +189,7 @@ CC<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
 }
 
 template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "cv-out")))
-CC<O, F>::scale_cv_out(int16_t v) {
+CC<O, F>::scale_cv_out(uint16_t v) {
   return v >> 1; // pwm is 11 bits to reduce ripple
 }
 
@@ -198,7 +198,7 @@ CC<O, SAMPLE_FREQ>::start() {
   count = 0;
   starting = true;
 
-  uint dma_phase = count & 0x1;
+  const uint dma_phase = count & 0x1;
   adc_select_input(0);
   adc_set_round_robin(0b0001111U);
   adc_fifo_setup(true, true, 1, false, false);
@@ -260,7 +260,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 
   adc_select_input(0); // TODO - why is this here?
 
-  uint next_mux_state = (mux_state + 1) & 0x3;
+  const uint next_mux_state = (mux_state + 1) & 0x3;
   gpio_put(MX_A, next_mux_state & 1);
   gpio_put(MX_B, next_mux_state & 2);
 
@@ -294,7 +294,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
     pulse[pulse_lr] = !gpio_get(PULSE_1_INPUT + pulse_lr); // TODO - assumes sequential port, should we flag somehow?
   }
 
-  uint knob = mux_state;
+  const uint knob = mux_state;
   smooth_knobs[knob] = (127 * (smooth_knobs[knob]) + 16 * fix_dnl(adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
   knobs[knob] = smooth_knobs[knob];
 
