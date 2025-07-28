@@ -28,11 +28,15 @@ template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ> class CC final {
 
 public:
 
+	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
+
 	enum Knob { Main, X, Y };
 	enum Switch { Down, Middle, Up };
 	static constexpr uint N_KNOBS = Y + 1 + 1;  // switch is a knob too
 
-	enum Input { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
+	// TODO - better name
+	enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
+	static constexpr uint N_SOCKET_IN = Pulse2 + 1;
 
 	CC(const CC&) = delete;
 	CC& operator=(const CC&) = delete;
@@ -57,17 +61,16 @@ public:
 
 	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; }  // ports swapped
 	[[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
-	void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { dac[lr] = v; }
+	void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { cv_out[lr] = v; }
 	void __not_in_flash_func(write_audio)(uint lr, int16_t v) { write_audio(static_cast<Channel>(lr), v); }
 
 	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(Channel lr) { return cv[lr]; }
 	[[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
-	// discard a bit because pwm 11 bits for reduced ripple
 	// cv pins in reverse order
-	void __not_in_flash_func(write_cv)(Channel lr, int16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, (0x7ff - v) >> 1); }
+	void __not_in_flash_func(write_cv)(Channel lr, int16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(0x7ff - v)); }
 	void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
 	// these are used, for example, to write midi
-	void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, v >> 1); }
+	void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(v)); }
 	void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
 
 	[[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[lr]; }
@@ -80,11 +83,9 @@ public:
 	[[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) { return !pulse[lr] && last_pulse[lr]; }
 	[[nodiscard]] bool __not_in_flash_func(pulse_fell)(uint lr) { return pulse_fell(static_cast<Channel>(lr)); }
 
-	[[nodiscard]] bool __not_in_flash_func(is_connected)(Input i) { return connected[i]; }
+	[[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[i]; }
 
 private:
-
-	static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
 	static constexpr uint PULSE_1_RAW_OUT = 8;
 	static constexpr uint PULSE_2_RAW_OUT = 9;
@@ -112,37 +113,33 @@ private:
 	static constexpr uint SPI_DREQ = DREQ_SPI0_TX;
 
 	enum ADCRunMode { Running, ReqStop, Stopped, ReqStart };
+	static constexpr uint N_PHASES = 2;  // adc and cpu
 
 	CC();
 
 	std::function<void(CC&)> per_sample = [](CC&) {};
 	int32_t count = 0;
 
-	int16_t dac[N_CHANNELS]; // cv output
+	int16_t cv_out[N_CHANNELS];
 	volatile int32_t knobs[N_KNOBS] = {};
 	volatile bool pulse[N_CHANNELS] = {};
 	volatile bool last_pulse[N_CHANNELS] = {};
 	volatile int32_t cv[N_CHANNELS] = {};
 	volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
-	// volatile int16_t adcInL = 0x800, adcInR = 0x800;
 	volatile uint8_t mxPos = 0;
-	volatile int32_t plug_state[6] = {}; // TODO - where does 6 come from?
-	volatile bool connected[6] = {};
+	volatile int32_t probe_in[N_SOCKET_IN] = {};
+	volatile bool connected[N_SOCKET_IN] = {};
 	bool use_norm_probe = false;
 	Switch switch_, prev_switch;
 	volatile ADCRunMode run_mode;
-	uint16_t adc_buffer[N_CHANNELS][4 * OVERSAMPLES];
-	uint16_t spi_buffer[N_CHANNELS][2];
+	uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES];
+	uint16_t spi_buffer[N_PHASES][2];
 	uint8_t adc_dma, spi_dma;
-	uint8_t dmaPhase = 0;
-
-	uint16_t __not_in_flash_func(dacval)(int16_t value, uint16_t dacChannel) {
-		if (value < -2048) value = -2048;
-		if (value > 2047) value = 2047;
-		return (dacChannel | 0x3000) | (((uint16_t)((value & 0x0FFF) + 0x800)) & 0x0FFF);
-	}
+	uint8_t dma_phase = 0;
 
 	uint32_t next_norm_probe();
+	uint16_t dac_value(int16_t value, uint16_t dacChannel);
+	uint16_t scale_cv_out(int16_t value);
 	void buffer_full();
 
 	static void audio_callback() {
@@ -156,11 +153,20 @@ private:
 // TODO - could be a private static function?
 template <uint O, uint F> uint32_t __attribute__((section(".time_critical." "cc-next-norm-probe")))
 CC<O, F>::next_norm_probe() {
-	static uint32_t lcg_seed = 1;
-	// TODO - replace with LCG that we use for noise in waveforms?
-	lcg_seed = 1664525 * lcg_seed + 1013904223;
-	// TODO - this is returning a single bit, so why int32?
-	return lcg_seed >> 31;
+	static uint32_t lcg_state = 1;
+	lcg_state = 1664525 * lcg_state + 1013904223;
+	return lcg_state >> 31;
+}
+
+template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "dac-value")))
+CC<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
+	// cc had more complex logic here so i may be missing something
+	return  (dacChannel | 0x3000) | (0xfff & static_cast<uint16_t>(value + 0x800));
+}
+
+template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "cv-out")))
+CC<O, F>::scale_cv_out(int16_t v) {
+	return v >> 1;  // pwm is 11 bits to reduce ripple
 }
 
 template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
@@ -179,7 +185,7 @@ CC<O, SAMPLE_FREQ>::start() {
 	channel_config_set_read_increment(&adc_dmacfg, false);
 	channel_config_set_write_increment(&adc_dmacfg, true);
 	channel_config_set_dreq(&adc_dmacfg, DREQ_ADC);
-	dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[dmaPhase], &adc_hw->fifo, 4 * OVERSAMPLES, true);
+	dma_channel_configure(adc_dma, &adc_dmacfg, adc_buffer[dma_phase], &adc_hw->fifo, 4 * OVERSAMPLES, true);
 	dma_channel_set_irq0_enabled(adc_dma, true);
 
 	irq_set_enabled(DMA_IRQ_0, true);
@@ -197,8 +203,8 @@ CC<O, SAMPLE_FREQ>::start() {
 			run_mode = Running;
 
 			dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
-			dma_channel_set_write_addr(adc_dma, adc_buffer[dmaPhase], true); // start writing into new buffer
-			dma_channel_set_read_addr(spi_dma, spi_buffer[dmaPhase], true); // start reading from new buffer
+			dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true); // start writing into new buffer
+			dma_channel_set_read_addr(spi_dma, spi_buffer[dma_phase], true); // start reading from new buffer
 
 			adc_set_round_robin(0);
 			adc_select_input(0);
@@ -217,10 +223,10 @@ template <uint O, uint F> void CC<O, F>::stop() {
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
 void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 
-	static int startupCounter = 8; // do startup things when nonzero.
+	static int startupCounter = 8; // do startup things when nonzero
 	static int mux_state = 0;
 	static int norm_probe_count = 0;
-	static int norm_probe_signal = 0;
+	static int probe_out = 0;
 
 	static volatile int32_t smooth_knobs[N_KNOBS] = {};
 	static volatile int32_t smooth_cv[N_CHANNELS] = {};
@@ -234,22 +240,22 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 	gpio_put(MX_B, next_mux_state & 2);
 
 	// TODO - count instead
-	uint8_t cpuPhase = dmaPhase;
-	dmaPhase = 1 - dmaPhase;
+	uint8_t cpu_phase = dma_phase;
+	dma_phase = 1 - dma_phase;
 
 	dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
-	dma_channel_set_write_addr(adc_dma, adc_buffer[dmaPhase], true); // start writing into new buffer
-	dma_channel_set_read_addr(spi_dma, spi_buffer[dmaPhase], true); // start reading from new buffer
+	dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true); // start writing into new buffer
+	dma_channel_set_read_addr(spi_dma, spi_buffer[dma_phase], true); // start reading from new buffer
 
 	const uint cv_lr = mux_state % 2;  // TODO - use count; change modular div to & 1
-	smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * fix_dnl(adc_buffer[cpuPhase][3])) >> 4;  // 240hz lpf
+	smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * fix_dnl(adc_buffer[cpu_phase][3])) >> 4;  // 240hz lpf
 	cv[cv_lr] = 2048 - (smooth_cv[cv_lr] >> 4);
 
 	// TODO - this puts an upper limit on OVERSAMPLE_BITS (could use int32_t temp)
 	// TODO - this seems to swap left and right compare to original code?
 	for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
 		audio[audio_lr] = 0;
-		for (uint i = 0; i < OVERSAMPLES; ++i) audio[audio_lr] += fix_dnl(adc_buffer[cpuPhase][audio_lr + 4 * i]);
+		for (uint i = 0; i < OVERSAMPLES; ++i) audio[audio_lr] += fix_dnl(adc_buffer[cpu_phase][audio_lr + 4 * i]);
 		audio[audio_lr] = -((audio[audio_lr] >> OVERSAMPLE_BITS) - 0x800);
 	}
 
@@ -259,7 +265,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 	}
 
 	int knob = mux_state;
-	smooth_knobs[knob] = (127 * (smooth_knobs[knob]) + 16 * fix_dnl(adc_buffer[cpuPhase][2] >> 4)) >> 7;  // 60hz lpf
+	smooth_knobs[knob] = (127 * (smooth_knobs[knob]) + 16 * fix_dnl(adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
 	knobs[knob] = smooth_knobs[knob];
 
 	switch_ = static_cast<Switch>((knobs[3] > 1000) + (knobs[3] > 3000));
@@ -274,37 +280,35 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 		// if we read in the same random sequence then we know that the socket is not connected
 		// (presumably a connected socket reads the connect signal which will not match)
 		if (norm_probe_count == 0) {  // TODO - use low bits of count
-			int32_t normp_robe = next_norm_probe();
-			gpio_put(NORMALISATION_PROBE, normp_robe);
-			norm_probe_signal = (norm_probe_signal << 1) + (normp_robe & 0x1);
+			const int32_t next_probe_out_bit = next_norm_probe();
+			gpio_put(NORMALISATION_PROBE, next_probe_out_bit);
+			probe_out = (probe_out << 1) + next_probe_out_bit;
 		}
 		if (norm_probe_count == 14 || norm_probe_count == 15) {
-			plug_state[2 + cv_lr] = (plug_state[2 + cv_lr] << 1) + (adc_buffer[cpuPhase][3] < 1800);
+			probe_in[2 + cv_lr] = (probe_in[2 + cv_lr] << 1) + (adc_buffer[cpu_phase][3] < 1800);
 		}
 		if (norm_probe_count == 15) {
-			plug_state[Input::Audio1] = (plug_state[Input::Audio1] << 1) + (adc_buffer[cpuPhase][1] < 1800);
-			plug_state[Input::Audio2] = (plug_state[Input::Audio2] << 1) + (adc_buffer[cpuPhase][0] < 1800);
-			plug_state[Input::Pulse1] = (plug_state[Input::Pulse1] << 1) + (pulse[0]);
-			plug_state[Input::Pulse2] = (plug_state[Input::Pulse2] << 1) + (pulse[1]);
-			for (uint i = 0; i < 6; i++) {
-				connected[i] = (norm_probe_signal != plug_state[i]);
-			}
+			probe_in[SocketIn::Audio1] = (probe_in[SocketIn::Audio1] << 1) + (adc_buffer[cpu_phase][1] < 1800);
+			probe_in[SocketIn::Audio2] = (probe_in[SocketIn::Audio2] << 1) + (adc_buffer[cpu_phase][0] < 1800);
+			probe_in[SocketIn::Pulse1] = (probe_in[SocketIn::Pulse1] << 1) + (pulse[0]);
+			probe_in[SocketIn::Pulse2] = (probe_in[SocketIn::Pulse2] << 1) + (pulse[1]);
+			for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = (probe_out != probe_in[i]);
 		}
 
 		// Force disconnected values to zero, rather than the normalisation probe garbage
-		if (!is_connected(Input::Audio1)) audio[1] = 0;
-		if (!is_connected(Input::Audio2)) audio[0] = 0;
-		if (!is_connected(Input::CV1)) cv[0] = 0;
-		if (!is_connected(Input::CV2)) cv[1] = 0;
-		if (!is_connected(Input::Pulse1)) pulse[0] = 0;
-		if (!is_connected(Input::Pulse2)) pulse[1] = 0;
+		if (!is_connected(SocketIn::Audio1)) audio[1] = 0;
+		if (!is_connected(SocketIn::Audio2)) audio[0] = 0;
+		if (!is_connected(SocketIn::CV1)) cv[0] = 0;
+		if (!is_connected(SocketIn::CV2)) cv[1] = 0;
+		if (!is_connected(SocketIn::Pulse1)) pulse[0] = false;
+		if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
 	}
 
 	per_sample(*this);  // user callback
 
 	// invert to counteract inverting output configuration
-	spi_buffer[cpuPhase][0] = dacval(-dac[0], DAC_CHANNEL_A);
-	spi_buffer[cpuPhase][1] = dacval(-dac[1], DAC_CHANNEL_B);
+	spi_buffer[cpu_phase][0] = dac_value(-cv_out[0], DAC_CHANNEL_A);
+	spi_buffer[cpu_phase][1] = dac_value(-cv_out[1], DAC_CHANNEL_B);
 
 	if (run_mode == ReqStop) {
 		adc_run(false);
@@ -331,91 +335,58 @@ template <uint O, uint F> CC<O, F>::CC() {
 	adc_select_input(0);
 
 	use_norm_probe = false;
-	for (int i = 0; i < 6; i++) {
-		connected[i] = false;
-	}
+	for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = false;
 
-
-	// Normalisation probe pin
 	gpio_init(NORMALISATION_PROBE);
 	gpio_set_dir(NORMALISATION_PROBE, GPIO_OUT);
 	gpio_put(NORMALISATION_PROBE, false);
 
-	adc_init(); // Initialize the ADC
+	adc_init();
 
-	// Set ADC pins
 	adc_gpio_init(AUDIO_L_IN_1);
 	adc_gpio_init(AUDIO_R_IN_1);
 	adc_gpio_init(MUX_IO_1);
 	adc_gpio_init(MUX_IO_2);
 
-	// Initialize Mux Control pins
 	gpio_init(MX_A);
 	gpio_init(MX_B);
 	gpio_set_dir(MX_A, GPIO_OUT);
 	gpio_set_dir(MX_B, GPIO_OUT);
 
-	// Initialize pulse out
 	gpio_init(PULSE_1_RAW_OUT);
 	gpio_set_dir(PULSE_1_RAW_OUT, GPIO_OUT);
-	gpio_put(PULSE_1_RAW_OUT, true); // set raw value high (output low)
-
+	gpio_put(PULSE_1_RAW_OUT, true); // raw high (output low)
 	gpio_init(PULSE_2_RAW_OUT);
 	gpio_set_dir(PULSE_2_RAW_OUT, GPIO_OUT);
-	gpio_put(PULSE_2_RAW_OUT, true); // set raw value high (output low)
+	gpio_put(PULSE_2_RAW_OUT, true);
 
-	// Initialize pulse in
 	gpio_init(PULSE_1_INPUT);
 	gpio_set_dir(PULSE_1_INPUT, GPIO_IN);
 	gpio_pull_up(PULSE_1_INPUT); // NB Needs pullup to activate transistor on inputs
-
 	gpio_init(PULSE_2_INPUT);
 	gpio_set_dir(PULSE_2_INPUT, GPIO_IN);
 	gpio_pull_up(PULSE_2_INPUT); // NB: Needs pullup to activate transistor on inputs
 
-
-	// Setup SPI for DAC output
 	spi_init(spi0, 15625000);
 	spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
 	gpio_set_function(DAC_SCK, GPIO_FUNC_SPI);
 	gpio_set_function(DAC_TX, GPIO_FUNC_SPI);
 	gpio_set_function(DAC_CS, GPIO_FUNC_SPI);
 
-	// Setup I2C for EEPROM
 	i2c_init(i2c0, 100 * 1000);
 	gpio_set_function(EEPROM_SDA, GPIO_FUNC_I2C);
 	gpio_set_function(EEPROM_SCL, GPIO_FUNC_I2C);
 
-
-	// Setup CV PWM
-	// First, tell the CV pins that the PWM is in charge of the value.
 	gpio_set_function(CV_OUT_1, GPIO_FUNC_PWM);
 	gpio_set_function(CV_OUT_2, GPIO_FUNC_PWM);
-
-	// now create PWM config struct
 	pwm_config config = pwm_get_default_config();
-	pwm_config_set_wrap(&config, 2047); // 11-bit PWM
-
-
-	// now set this PWM config to apply to the two outputs
+	pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
 	// NB: CV_A and CV_B share the same PWM slice, which means that they share a PWM config
 	// They have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
-	pwm_init(pwm_gpio_to_slice_num(CV_OUT_1), &config, true); // Slice 1, channel A
-	pwm_init(pwm_gpio_to_slice_num(CV_OUT_2), &config, true); // slice 1 channel B (redundant to set up again)
-
-	// set initial level to half way (0V)
-	pwm_set_gpio_level(CV_OUT_1, 1024);
-	pwm_set_gpio_level(CV_OUT_2, 1024);
-
-	// If not using UART pins for UART, instead use as debug lines
-#ifndef ENABLE_UART_DEBUGGING
-	// Debug pins
-	gpio_init(DEBUG_1);
-	gpio_set_dir(DEBUG_1, GPIO_OUT);
-
-	gpio_init(DEBUG_2);
-	gpio_set_dir(DEBUG_2, GPIO_OUT);
-#endif
+	pwm_init(pwm_gpio_to_slice_num(CV_OUT_1), &config, true); // slice 1, channel A
+	pwm_init(pwm_gpio_to_slice_num(CV_OUT_2), &config, true); // slice 1, channel B (redundant to set up again)
+	pwm_set_gpio_level(CV_OUT_1, scale_cv_out(0x800));
+	pwm_set_gpio_level(CV_OUT_2, scale_cv_out(0x800));
 }
 
 #endif

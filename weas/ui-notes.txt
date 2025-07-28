@@ -1,0 +1,74 @@
+
+ui is impoerant because system is complex but interface limited
+
+try to make display (leds) feel like it's connected to the associated
+actions so that connections are intuitve.
+
+focus on displaying a limited amount of information well.  have to
+rely on user's memory (or some kind of printed reference?) for the rest.
+
+possible ideas that are on hold for now:
+- wire buttons to cv input and use them as controlers
+- gnerate audio output (beeps, or even voice synthesis / recordings)
+
+to start with, use switch as main control:
+- up is meta/edit mode
+- middle is play mode
+- down is either temp knob disconnect or next page
+knobs and pages explained below
+
+pages
+
+pages assign different meanings to knobs.
+try to have similar/consistent meaning for a knob across pages.
+for example, large knob always adjusts frequency, or left (x) always
+selects waveform.
+
+pages don't change outputs.
+outputs are fixed because wires are fixed.
+pages may be used during performance (not fun, but possible).
+
+when switch is depressed (down) the leds should "scroll" down too).
+depress and release scrolls leds to next page.
+think "flick down".
+
+knobs
+
+switching pages changes the "meaning" of the knobs.
+but they may not have the same position (value) that they had before.
+so we need to treat them like encoders which have no absolute meaning.
+which is cool, but they're not encoders and have end stops.
+
+so holding the switch down disengages the knob.
+you can twist it where you want without it having any effect on the
+value.
+
+if you don't touch a knob before releasing the switch then you flicked
+the page.
+
+display
+
+since the physical knob position is meaningless we need to show the
+"underlying" knob position via the leds.
+move an led pointer round in a circle.
+make it fluid.
+possible make it emphasise certain positions (octaves?)
+
+when the page changes one knob display scrolls to the next (for the
+same knob but in a different page)
+
+in addition, we should try show the page "number" too?
+try flashing an led?
+should this scroll too?
+
+if flashing works, should we also show what knob was used?
+probably too much.
+
+implememntation
+
+how do we implement all this?
+
+at a very high level, we use core 1.
+core 0 sends eventss via fifo.
+
+at a lower level, no idea yet.
