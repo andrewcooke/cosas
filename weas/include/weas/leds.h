@@ -13,11 +13,14 @@
 class LEDs {
 
 public:
+
     static constexpr uint N = 6;
+
     LEDs(const LEDs&) = delete;
     LEDs& operator=(const LEDs&) = delete;
     static LEDs& get();
-    static void set(uint index, uint8_t b);
+
+    void set(uint index, uint8_t b);
     void set(uint index, uint b);  // alias for literals - forwards to uint8_t
     void set(uint index, bool x);
     void on(uint index);
@@ -40,8 +43,10 @@ public:
     void display7bits(int16_t v);  // binary, -ve as dim
 
 private:
+
     LEDs();
     static constexpr uint LED_BASE_GPIO = 10;
+
     void columns11bits(bool up, uint16_t v);
     void column10levels(bool up, uint c, uint8_t v);
 };

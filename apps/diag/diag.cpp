@@ -197,6 +197,6 @@ int main()
   Diagnostics diag;
   CC_& cc = CC_::get();
   cc.set_per_sample([&](CC_& cc){diag.ProcessSample(cc);});
-  cc.run();
+  cc.start();
 };
 

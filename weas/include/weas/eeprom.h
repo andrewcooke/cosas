@@ -20,18 +20,6 @@ public:
 	enum USBPowerState {DFP, UFP, Unsupported};
 	enum HardwareVersion {Proto1=0x2a, Proto2_Rev1=0x30, Rev1_1=0x0C, Unknown=0xFF};
 
-	static constexpr uint USB_HOST_STATUS = 20;
-	static constexpr uint BOARD_ID_0 = 7;
-	static constexpr uint BOARD_ID_1 = 6;
-	static constexpr uint BOARD_ID_2 = 5;
-	static constexpr uint EEPROM_ADDR_ID = 0;
-	static constexpr uint EEPROM_ADDR_VERSION = 2;
-	static constexpr uint EEPROM_ADDR_CRC_L = 87;
-	static constexpr uint EEPROM_ADDR_CRC_H = 86;
-	static constexpr uint EEPROM_VAL_ID = 2001;
-	static constexpr uint EEPROM_NUM_BYTES = 88;
-	static constexpr uint EEPROM_PAGE_ADDRESS = 0x50;
-
 	static EEPROM& get();
   EEPROM(const EEPROM&) = delete;
   EEPROM& operator=(const EEPROM&) = delete;
@@ -46,7 +34,19 @@ public:
 
 private:
 
-  EEPROM();
+	static constexpr uint USB_HOST_STATUS = 20;
+	static constexpr uint BOARD_ID_0 = 7;
+	static constexpr uint BOARD_ID_1 = 6;
+	static constexpr uint BOARD_ID_2 = 5;
+	static constexpr uint EEPROM_ADDR_ID = 0;
+	static constexpr uint EEPROM_ADDR_VERSION = 2;
+	static constexpr uint EEPROM_ADDR_CRC_L = 87;
+	static constexpr uint EEPROM_ADDR_CRC_H = 86;
+	static constexpr uint EEPROM_VAL_ID = 2001;
+	static constexpr uint EEPROM_NUM_BYTES = 88;
+	static constexpr uint EEPROM_PAGE_ADDRESS = 0x50;
+
+	EEPROM();
 	
 	typedef struct {
 		float m, b;

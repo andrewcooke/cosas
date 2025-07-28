@@ -1,4 +1,7 @@
+
 #include "weas/eeprom.h"
+
+#include "hardware/flash.h"
 
 
 EEPROM::EEPROM() {

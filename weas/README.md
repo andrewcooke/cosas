@@ -13,6 +13,7 @@ so i am playing around, learning C++ and embedded programming, seeing how i can 
 all while experimenting with user interfaces and sound generation.
 i don't care abut backwards compatibility, or supporting other people, so use at your own risk!
 especially since CC is much more widely used and better tested.
+it's also likely to be faster and more compact.
 
 on the other hand, weas does have some interesting features.
 you can choose what frequency you want to generate output at, for example,
