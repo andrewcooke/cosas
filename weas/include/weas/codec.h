@@ -12,7 +12,7 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-#include "weas/weas.h"
+#include "cosas/weas.h"
 
 
 // the interface to the DAC and ADC
@@ -29,9 +29,6 @@ public:
 
   static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
-  enum Knob { Main, X, Y };
-  enum Switch { Down, Middle, Up };
-  static constexpr uint N_KNOBS = Y + 1 + 1; // switch is a knob too
   enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
   static constexpr uint N_SOCKET_IN = Pulse2 + 1;
   enum ADCBitFlag {  // we could include knobs too...?
@@ -61,8 +58,8 @@ public:
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
-  [[nodiscard]] Switch __not_in_flash_func(read_switch)() { return switch_; }
-  [[nodiscard]] bool __not_in_flash_func(switch_changed)() { return switch_ != prev_switch; }
+  [[nodiscard]] SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<SwitchPosition>(knobs[Switch]); }
+  [[nodiscard]] bool __not_in_flash_func(switch_changed)() { return read_switch() != prev_switch; }
 
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
@@ -73,7 +70,7 @@ public:
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
   // cv pins in reverse order
   void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(static_cast<uint16_t>(0x7ff - v)));
+    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(static_cast<uint16_t>(0x800 - v)));
   }
 
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
@@ -144,7 +141,7 @@ private:
   volatile uint8_t mxPos = 0;
   volatile int32_t probe_in[N_SOCKET_IN] = {};
   volatile bool connected[N_SOCKET_IN] = {};
-  Switch switch_ = Middle, prev_switch = Middle;
+  SwitchPosition prev_switch = Middle;
   volatile ADCRunMode run_mode;
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][2] = {};
@@ -295,13 +292,16 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   const uint knob = mux_state;
-  smooth_knobs[knob] = (127 * (smooth_knobs[knob]) + 16 * fix_dnl(adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
-  knobs[knob] = smooth_knobs[knob];
+  smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
+  if (knob == Switch) {
+    prev_switch = static_cast<SwitchPosition>(knobs[knob]);
+    knobs[Switch] = static_cast<SwitchPosition>((smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000));
+  } else {
+    knobs[knob] = smooth_knobs[knob];
+  }
 
-  switch_ = static_cast<Switch>((knobs[3] > 1000) + (knobs[3] > 3000));
-  if (starting) {
-    // TODO - Don't detect switch changes in first few cycles
-    prev_switch = switch_;
+  if (starting) {  // avid startup noise
+    prev_switch = static_cast<SwitchPosition>(knobs[Switch]);
     // TODO - Should initialise knob and CV smoothing filters here too
     starting = count < 8;
   }
@@ -353,7 +353,6 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   count++;
-  prev_switch = switch_;
 }
 
 template <uint O, uint F> CC<O, F>::CC() {

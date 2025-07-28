@@ -3,6 +3,7 @@
 #include <cmath>
 #include <numbers>
 
+#include "cosas/dnl.h"
 #include "weas/codec.h"
 #include "weas/leds.h"
 #include "weas/eeprom.h"
@@ -24,61 +25,53 @@ private:
   uint prev_change = NONE;
   int32_t recent = 0;
 
-  constexpr static uint noise_knobs = 4;
-  constexpr static uint n_knobs = 3;
-  uint32_t knobs[2][n_knobs] = {};
-  constexpr static uint noise_switches = 0;
-  constexpr static uint n_switches = 1;
-  uint32_t switches[2][n_switches] = {};
-  constexpr static uint noise_adcs = 7;
-  constexpr static uint n_adcs = 4;
-  uint32_t adcs[2][n_adcs] = {};
-  constexpr static uint noise_pulses = 0;
-  constexpr static uint n_pulses = 1;
-  bool pulses[2][n_pulses] = {};
-
-  constexpr static uint n_all = n_knobs + n_switches + n_adcs + n_pulses;
+  enum When { Now, Prev };
+  constexpr static uint N_WHEN = Prev + 1;
+  constexpr static uint THRESH_KNOBS = 4;
+  uint32_t knobs[N_WHEN][N_KNOBS] = {};
+  constexpr static uint THRESH_ADCS = 7;
+  constexpr static uint N_ADCS = 4;
+  uint32_t adcs[N_WHEN][N_ADCS] = {};
+  constexpr static uint THRESH_PULSES = 0;
+  constexpr static uint N_PULSES = 2;
+  bool pulses[N_WHEN][N_PULSES] = {};
+  constexpr static uint N_ALL = N_KNOBS + N_ADCS + N_PULSES;
 
   uint32_t count = 0;
-  constexpr static uint wtable_bits = 12;
-  constexpr static uint wtable_size = 1 << wtable_bits;
-  int16_t wtable[wtable_size] = {};
+  constexpr static uint WTABLE_BITS = 12;
+  constexpr static uint WTABLE_SIZE = 1 << WTABLE_BITS;
+  int16_t wtable[WTABLE_SIZE] = {};
 
   void save_current(CC_& cc) {
-    for (uint i = 0; i < n_knobs; i++) {
-      knobs[1][i] = knobs[0][i];
+    for (uint knob = 0; knob < N_KNOBS; knob++) {
+      knobs[Prev][knob] = knobs[Now][knob];
       // for some reason knob values are signed integers, but we
       // need to display unsigned so cast here
-      knobs[0][i] = cc.read_knob(static_cast<CC_::Knob>(i)) >> noise_knobs;
+      knobs[Now][knob] = cc.read_knob(static_cast<Knob>(knob)) >> (knob == Switch ? 0 : THRESH_KNOBS);
     }
-    switches[1][0] = switches[0][0];
-    switches[0][0] = cc.read_switch();
-    for (uint i = 0; i < n_adcs; i++) {
-      adcs[1][i] = adcs[0][i];
-      adcs[0][i] = (i < 2 ? cc.read_audio(i) : cc.read_cv(i - 2)) >> noise_adcs;
+    for (uint adc = 0; adc < N_ADCS; adc++) {
+      adcs[Prev][adc] = adcs[Now][adc];
+      adcs[Now][adc] = (adc < 2 ? cc.read_audio(adc) : cc.read_cv(adc - 2)) >> THRESH_ADCS;
     }
-    for (uint i = 0; i < n_pulses; i++) {
-      pulses[1][i] = pulses[0][i];
-      pulses[0][i] = cc.read_pulse(i);
+    for (uint pulse = 0; pulse < N_PULSES; pulse++) {
+      pulses[Prev][pulse] = pulses[Now][pulse];
+      pulses[Now][pulse] = cc.read_pulse(pulse);
     }
   }
 
   bool changed(uint idx) const {
-    if (idx < n_knobs) return knobs[0][idx] != knobs[1][idx];
-    idx -= n_knobs;
-    if (idx < n_switches) return switches[0][idx] != switches[1][idx];
-    idx -= n_switches;
-    if (idx < n_adcs) return adcs[0][idx] != adcs[1][idx];
-    idx -= n_adcs;
-    if (idx < n_pulses) return pulses[0][idx] != pulses[1][idx];
-    // idx -= n_pulses;
+    if (idx < N_KNOBS) return knobs[0][idx] != knobs[1][idx];
+    idx -= N_KNOBS;
+    if (idx < N_ADCS) return adcs[0][idx] != adcs[1][idx];
+    idx -= N_ADCS;
+    if (idx < N_PULSES) return pulses[0][idx] != pulses[1][idx];
     return false;
   }
 
   uint next_change(uint old_idx) const {
     uint new_idx = old_idx == NONE ? 0 : old_idx + 1;
-    for (uint i = 0; i < n_all; i++) {
-      if (new_idx == n_all) new_idx = 0;
+    for (uint i = 0; i < N_ALL; i++) {
+      if (new_idx == N_ALL) new_idx = 0;
       if (changed(new_idx)) return new_idx;
       new_idx++;
     }
@@ -87,33 +80,31 @@ private:
 
   void identify(uint idx) {
     leds.all(0x40u);
-    if (idx < n_knobs) {
+    if (idx < N_KNOBS) {
       switch(idx) {
-      case static_cast<uint>(CC_::Main):
+      case static_cast<uint>(Main):
         leds.sq4(0, 0xffu);
         return;
-      case static_cast<uint>(CC_::X):
+      case static_cast<uint>(X):
         leds.v2(2, 0xffu);
         return;
-      case static_cast<uint>(CC_::Y):
+      case static_cast<uint>(Y):
         leds.sq4(1, 0xffu);
+        return;
+      case static_cast<uint>(Switch):
+        leds.v2(1, 0xffu);
         return;
       default:
         return;
       }
     }
-    idx -= n_knobs;
-    if (idx < n_switches) {
-      leds.v2(1, 0xffu);
-      return;
-    }
-    idx -= n_switches;
-    if (idx < n_adcs) {
+    idx -= N_KNOBS;
+    if (idx < N_ADCS) {
       leds.on(idx);  // swap audio l/r
       return;
     }
-    idx -= n_adcs;
-    if (idx < n_pulses) {
+    idx -= N_ADCS;
+    if (idx < N_PULSES) {
       leds.on(idx + 4);
       return;
     }
@@ -121,30 +112,26 @@ private:
   }
 
   void display(CC_& cc, uint idx) {
-    if (idx < n_knobs) {
-      leds.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<CC_::Knob>(idx))));
+    if (idx < N_KNOBS) {
+      if (idx == Switch) {
+        leds.all(false);
+        leds.h2(static_cast<uint>(cc.read_switch()), 0xffu);
+      } else {
+        leds.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<Knob>(idx))));
+      }
       return;
     }
-    idx -= n_knobs;
-    if (idx < n_switches) {
-      leds.all(false);
-      leds.h2(static_cast<uint>(cc.read_switch()), 0xffu);
-      return;
-    }
-    idx -= n_switches;
-    if (idx < n_adcs) {
+    idx -= N_KNOBS;
+    if (idx < N_ADCS) {
       leds.columns12bits(idx < 2 ? cc.read_audio(idx) : cc.read_cv(idx - 2));
     }
-    idx -= n_adcs;
-    if (idx < n_pulses) {
+    idx -= N_ADCS;
+    if (idx < N_PULSES) {
       for (uint i = 0; i < leds.N; i++) {
         if (i == idx || i == idx + 4) leds.on(i);
         else leds.off(i);
       }
-      return;
     }
-    idx -= n_pulses;
-    return;
   }
 
   bool pulse(uint n) const {
@@ -153,7 +140,7 @@ private:
 
   void write_out(CC_& cc) {
     for (uint i = 0; i < 4; i++) {
-      uint idx = (count >> (i + 3)) & (wtable_size - 1);
+      uint idx = (count >> (i + 3)) & (WTABLE_SIZE - 1);
       if (i < 2) cc.write_audio(i, wtable[idx]);
       else cc.write_cv(i - 2, wtable[idx]);
     }
@@ -163,8 +150,8 @@ private:
   }
 
   static int delay(const uint prev_change) {
-    if (prev_change == n_knobs) return static_cast<int>(30000 / FDIV);  // switch
-    if (prev_change == n_all - 1) return static_cast<int>(100 / FDIV);  // pulse
+    if (prev_change == N_KNOBS - 1) return static_cast<int>(30000 / FDIV);  // switch
+    if (prev_change == N_ALL - 1) return static_cast<int>(100 / FDIV);  // pulse
     return 2000;  // default
   }
 
@@ -187,8 +174,8 @@ public:
   }
 
   Diagnostics() {
-    for (uint i = 0; i < wtable_size; i++)
-      wtable[i] = static_cast<int16_t>(2047 * sin(2 * std::numbers::pi * i / wtable_size));
+    for (uint i = 0; i < WTABLE_SIZE; i++)
+      wtable[i] = static_cast<int16_t>(2047 * sin(2 * std::numbers::pi * i / WTABLE_SIZE));
   }
 
 };
