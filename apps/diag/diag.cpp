@@ -197,7 +197,10 @@ int main()
 {
   Diagnostics diag;
   CC_& cc = CC_::get();
-  cc.set_per_sample([&](CC_& cc){diag.ProcessSample(cc);});
+  cc.set_per_sample([&](CC_& c){diag.ProcessSample(c);});
+  cc.set_adc_correction(fix_dnl);
+  cc.select_adc_correction(CC_::All);
+  cc.set_adc_scale(true);
   cc.start();
 };
 

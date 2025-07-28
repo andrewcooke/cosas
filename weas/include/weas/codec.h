@@ -18,25 +18,27 @@
 // the interface to the DAC and ADC
 
 
-// common values for SAMPLE_FREQ
 static constexpr uint CC_SAMPLE_44_1 = 44100;
 static constexpr uint CC_SAMPLE_8 = 48000;
 
 
 template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
 class CC final {
+
 public:
+
   static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
   enum Knob { Main, X, Y };
-
   enum Switch { Down, Middle, Up };
-
   static constexpr uint N_KNOBS = Y + 1 + 1; // switch is a knob too
-
   enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
-
   static constexpr uint N_SOCKET_IN = Pulse2 + 1;
+  enum ADCBitFlag {  // we could include knobs too...?
+    A1 = 1, A2 = 2, AllA = 3,
+    C1 = 4, C2 = 8, AllC = 12,
+    All = 15
+  };
 
   CC(const CC&) = delete;
   CC& operator=(const CC&) = delete;
@@ -49,10 +51,13 @@ public:
     return cc;
   }
 
-
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
   void set_per_sample(std::function<void(CC&)> f) { per_sample = f; }
+  void set_adc_correction(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
+  void select_adc_correction(uint bits) {adc_correct_mask = bits; };
+  void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
+  void set_adc_scale(bool scale) {scale_adc = scale; };
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
@@ -89,6 +94,7 @@ public:
   [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[i]; }
 
 private:
+
   static constexpr uint PULSE_1_RAW_OUT = 8;
   static constexpr uint PULSE_2_RAW_OUT = 9;
   static constexpr uint CV_OUT_1 = 23;
@@ -115,12 +121,17 @@ private:
   static constexpr uint SPI_DREQ = DREQ_SPI0_TX;
 
   enum ADCRunMode { Running, ReqStop, Stopped, ReqStart };
-
   static constexpr uint N_PHASES = 2; // adc and cpu
 
   CC();
 
   std::function<void(CC&)> per_sample = [](CC&) {};
+  bool use_norm_probe = false;
+  uint adc_correct_mask = 0;
+  std::function<int16_t(uint16_t)> adc_correction = [](uint16_t adc) {return adc;};
+  uint32_t adc_scale = calc_adc_scale();
+  bool scale_adc = false;
+
   uint32_t count = 0;
   bool starting = false;
 
@@ -133,16 +144,17 @@ private:
   volatile uint8_t mxPos = 0;
   volatile int32_t probe_in[N_SOCKET_IN] = {};
   volatile bool connected[N_SOCKET_IN] = {};
-  bool use_norm_probe = false;
   Switch switch_, prev_switch;
   volatile ADCRunMode run_mode;
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][2] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
-  uint32_t next_norm_probe();
-  uint16_t dac_value(int16_t value, uint16_t dacChannel);
-  uint16_t scale_cv_out(int16_t value);
+  static uint32_t next_norm_probe();
+  static uint16_t dac_value(int16_t value, uint16_t dacChannel);
+  static uint16_t scale_cv_out(int16_t value);
+  [[nodiscard]] uint32_t calc_adc_scale() const;
+  [[nodiscard]] uint16_t apply_adc_scale(uint16_t v) const;
   void buffer_full();
 
   static void audio_callback() {
@@ -152,8 +164,16 @@ private:
 };
 
 
+template <uint O, uint F> uint32_t CC<O, F>::calc_adc_scale() const {
+  const uint16_t adc_max = adc_correction(0xfff);
+  return static_cast<uint32_t>((0xfff << 19) / adc_max);
+}
+
+template <uint O, uint F> uint16_t CC<O, F>::apply_adc_scale(uint16_t v) const {
+  return (v * adc_scale) >> 19;
+}
+
 // pseudo-random bit for normalisation probe
-// TODO - could be a private static function?
 template <uint O, uint F>
 uint32_t __attribute__((section(".time_critical." "cc-next-norm-probe")))
 CC<O, F>::next_norm_probe() {
@@ -162,21 +182,18 @@ CC<O, F>::next_norm_probe() {
   return lcg_state >> 31;
 }
 
-template <uint O, uint F>
-uint16_t __attribute__((section(".time_critical." "dac-value")))
+template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "dac-value")))
 CC<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
   // cc had more complex logic here so i may be missing something
   return (dacChannel | 0x3000) | (0xfff & static_cast<uint16_t>(value + 0x800));
 }
 
-template <uint O, uint F>
-uint16_t __attribute__((section(".time_critical." "cv-out")))
+template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "cv-out")))
 CC<O, F>::scale_cv_out(int16_t v) {
   return v >> 1; // pwm is 11 bits to reduce ripple
 }
 
-template <uint O, uint SAMPLE_FREQ>
-void __attribute__((section(".time_critical." "cc-audio-worker")))
+template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
 CC<O, SAMPLE_FREQ>::start() {
   count = 0;
   starting = true;
@@ -226,13 +243,11 @@ CC<O, SAMPLE_FREQ>::start() {
   }
 }
 
-template <uint O, uint F>
-void CC<O, F>::stop() {
+template <uint O, uint F> void CC<O, F>::stop() {
   run_mode = ReqStop;
 }
 
-template <uint OVERSAMPLE_BITS, uint F>
-__attribute__((section(".time_critical." "cc-buffer-full")))
+template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
 void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   uint mux_state = count & 0x3;
   uint norm_probe_count = count & 0xf;
@@ -254,15 +269,24 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   dma_channel_set_read_addr(spi_dma, spi_buffer[dma_phase], true); // start reading from new buffer
 
   const uint cv_lr = mux_state & 1;
-  smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * fix_dnl(adc_buffer[cpu_phase][3])) >> 4; // 240hz lpf
-  cv[cv_lr] = 2048 - (smooth_cv[cv_lr] >> 4);
+  smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4; // 240hz lpf
+  uint16_t cv_tmp = smooth_cv[cv_lr] >> 4;
+  if (adc_correct_mask & (C1 << cv_lr)) {
+    cv_tmp = adc_correction(cv_tmp);
+    if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
+  }
+  cv[cv_lr] = 0x800 - cv_tmp;
 
   // TODO - this puts an upper limit on OVERSAMPLE_BITS (could use int32_t temp)
-  // TODO - this seems to swap left and right compare to original code?
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
-    audio[audio_lr] = 0;
-    for (uint i = 0; i < OVERSAMPLES; ++i) audio[audio_lr] += fix_dnl(adc_buffer[cpu_phase][audio_lr + 4 * i]);
-    audio[audio_lr] = -((audio[audio_lr] >> OVERSAMPLE_BITS) - 0x800);
+    uint16_t audio_tmp = 0;
+    for (uint i = 0; i < OVERSAMPLES; ++i) audio_tmp += adc_buffer[cpu_phase][audio_lr + 4 * i];
+    audio_tmp >>= OVERSAMPLE_BITS;
+    if (adc_correct_mask & (A1 << audio_lr)) {
+      audio_tmp = adc_correction(audio_tmp);
+      if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
+    }
+    audio[audio_lr] = static_cast<int16_t>(0x800 - audio_tmp);
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
@@ -332,8 +356,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   prev_switch = switch_;
 }
 
-template <uint O, uint F>
-CC<O, F>::CC() {
+template <uint O, uint F> CC<O, F>::CC() {
   run_mode = Running;
   adc_run(false);
   adc_select_input(0);
@@ -385,8 +408,8 @@ CC<O, F>::CC() {
   gpio_set_function(CV_OUT_2, GPIO_FUNC_PWM);
   pwm_config config = pwm_get_default_config();
   pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
-  // NB: CV_A and CV_B share the same PWM slice, which means that they share a PWM config
-  // They have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
+  // CV_A and CV_B share the same PWM slice, which means that they share a PWM config
+  // they have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
   pwm_init(pwm_gpio_to_slice_num(CV_OUT_1), &config, true); // slice 1, channel A
   pwm_init(pwm_gpio_to_slice_num(CV_OUT_2), &config, true); // slice 1, channel B (redundant to set up again)
   pwm_set_gpio_level(CV_OUT_1, scale_cv_out(0x800));

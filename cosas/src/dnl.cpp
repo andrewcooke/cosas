@@ -7,7 +7,7 @@ uint16_t fix_dnl(const uint16_t adc) {
   uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
   if ((adc & 0x600) && !(adc & 0x800)) bdc += 3;
   if (!((adc + 0x200) & 0x3ff)) bdc -= 10;
-  return static_cast<uint16_t>((520222 * static_cast<int32_t>(bdc)) >> 19);
+  return bdc;
 }
 
 
