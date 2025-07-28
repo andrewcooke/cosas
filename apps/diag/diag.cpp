@@ -7,8 +7,9 @@
 #include "weas/leds.h"
 #include "weas/eeprom.h"
 
+constexpr float FDIV = 44.1f;
 
-typedef CC<1, 1000> CC_;
+typedef CC<1, static_cast<uint>(CC_SAMPLE_44_1 / FDIV)> CC_;
 
 
 class Diagnostics final {
@@ -162,8 +163,8 @@ private:
   }
 
   static int delay(const uint prev_change) {
-    if (prev_change == n_knobs) return 30000;  // switch
-    if (prev_change == n_all - 1) return 100;  // pulse
+    if (prev_change == n_knobs) return static_cast<int>(30000 / FDIV);  // switch
+    if (prev_change == n_all - 1) return static_cast<int>(100 / FDIV);  // pulse
     return 2000;  // default
   }
 

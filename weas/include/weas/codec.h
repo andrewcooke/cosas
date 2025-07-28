@@ -34,7 +34,6 @@ public:
 	enum Switch { Down, Middle, Up };
 	static constexpr uint N_KNOBS = Y + 1 + 1;  // switch is a knob too
 
-	// TODO - better name
 	enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
 	static constexpr uint N_SOCKET_IN = Pulse2 + 1;
 
@@ -118,9 +117,10 @@ private:
 	CC();
 
 	std::function<void(CC&)> per_sample = [](CC&) {};
-	int32_t count = 0;
+	uint32_t count = 0;
+	bool starting = false;
 
-	int16_t cv_out[N_CHANNELS];
+	int16_t cv_out[N_CHANNELS] = {};
 	volatile int32_t knobs[N_KNOBS] = {};
 	volatile bool pulse[N_CHANNELS] = {};
 	volatile bool last_pulse[N_CHANNELS] = {};
@@ -132,10 +132,9 @@ private:
 	bool use_norm_probe = false;
 	Switch switch_, prev_switch;
 	volatile ADCRunMode run_mode;
-	uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES];
-	uint16_t spi_buffer[N_PHASES][2];
-	uint8_t adc_dma, spi_dma;
-	uint8_t dma_phase = 0;
+	uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
+	uint16_t spi_buffer[N_PHASES][2] = {};
+	uint8_t adc_dma = 0, spi_dma = 0;
 
 	uint32_t next_norm_probe();
 	uint16_t dac_value(int16_t value, uint16_t dacChannel);
@@ -172,15 +171,18 @@ CC<O, F>::scale_cv_out(int16_t v) {
 template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
 CC<O, SAMPLE_FREQ>::start() {
 
+	count = 0;
+	starting = true;
+
+	uint dma_phase = count & 0x1;
 	adc_select_input(0);
 	adc_set_round_robin(0b0001111U);
 	adc_fifo_setup(true, true, 1, false, false);
 	adc_set_clkdiv(48000000 / (SAMPLE_FREQ * 4.0 * OVERSAMPLES) - 1);
 	adc_dma = dma_claim_unused_channel(true);
 	spi_dma = dma_claim_unused_channel(true);
-	dma_channel_config adc_dmacfg, spi_dmacfg;
-	adc_dmacfg = dma_channel_get_default_config(adc_dma);
-	spi_dmacfg = dma_channel_get_default_config(spi_dma);
+	dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
+	dma_channel_config spi_dmacfg = dma_channel_get_default_config(spi_dma);
 	channel_config_set_transfer_data_size(&adc_dmacfg, DMA_SIZE_16);
 	channel_config_set_read_increment(&adc_dmacfg, false);
 	channel_config_set_write_increment(&adc_dmacfg, true);
@@ -194,7 +196,7 @@ CC<O, SAMPLE_FREQ>::start() {
 	spi_dmacfg = dma_channel_get_default_config(spi_dma);
 	channel_config_set_transfer_data_size(&spi_dmacfg, DMA_SIZE_16);
 	channel_config_set_dreq(&spi_dmacfg, SPI_DREQ);
-	dma_channel_configure(spi_dma, &spi_dmacfg, &spi_get_hw(spi0)->dr, NULL, 2, false);
+	dma_channel_configure(spi_dma, &spi_dmacfg, &spi_get_hw(spi0)->dr, nullptr, 2, false);
 
 	adc_run(true);
 
@@ -223,9 +225,10 @@ template <uint O, uint F> void CC<O, F>::stop() {
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
 void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 
-	static int startupCounter = 8; // do startup things when nonzero
-	static int mux_state = 0;
-	static int norm_probe_count = 0;
+	uint mux_state = count & 0x3;
+	uint norm_probe_count = count & 0xf;
+	uint cpu_phase = count & 0x1;
+	uint dma_phase = 1 - cpu_phase;
 	static int probe_out = 0;
 
 	static volatile int32_t smooth_knobs[N_KNOBS] = {};
@@ -233,21 +236,15 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 
 	adc_select_input(0);  // TODO - why is this here?
 
-	// TODO - use count instead
-	// Advance external mux to next state
-	int next_mux_state = (mux_state + 1) & 0x3;
+	uint next_mux_state = (mux_state + 1) & 0x3;
 	gpio_put(MX_A, next_mux_state & 1);
 	gpio_put(MX_B, next_mux_state & 2);
-
-	// TODO - count instead
-	uint8_t cpu_phase = dma_phase;
-	dma_phase = 1 - dma_phase;
 
 	dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
 	dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true); // start writing into new buffer
 	dma_channel_set_read_addr(spi_dma, spi_buffer[dma_phase], true); // start reading from new buffer
 
-	const uint cv_lr = mux_state % 2;  // TODO - use count; change modular div to & 1
+	const uint cv_lr = mux_state & 1;
 	smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * fix_dnl(adc_buffer[cpu_phase][3])) >> 4;  // 240hz lpf
 	cv[cv_lr] = 2048 - (smooth_cv[cv_lr] >> 4);
 
@@ -264,22 +261,23 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 		pulse[pulse_lr] = !gpio_get(PULSE_1_INPUT + pulse_lr);  // TODO - assumes sequential port, should we flag somehow?
 	}
 
-	int knob = mux_state;
+	uint knob = mux_state;
 	smooth_knobs[knob] = (127 * (smooth_knobs[knob]) + 16 * fix_dnl(adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
 	knobs[knob] = smooth_knobs[knob];
 
 	switch_ = static_cast<Switch>((knobs[3] > 1000) + (knobs[3] > 3000));
-	if (startupCounter) {
+	if (starting) {
 		// TODO - Don't detect switch changes in first few cycles
 		prev_switch = switch_;
 		// TODO - Should initialise knob and CV smoothing filters here too
+		starting = count < 8;
 	}
 
 	if (use_norm_probe) {
 		// this seems to send a random signal to all inputs, with a new bit sent every 16 cycles.
 		// if we read in the same random sequence then we know that the socket is not connected
 		// (presumably a connected socket reads the connect signal which will not match)
-		if (norm_probe_count == 0) {  // TODO - use low bits of count
+		if (norm_probe_count == 0) {
 			const int32_t next_probe_out_bit = next_norm_probe();
 			gpio_put(NORMALISATION_PROBE, next_probe_out_bit);
 			probe_out = (probe_out << 1) + next_probe_out_bit;
@@ -322,10 +320,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 	}
 
 	count++;
-	norm_probe_count = (norm_probe_count + 1) & 0xF;
-	mux_state = next_mux_state;
 	prev_switch = switch_;
-	if (startupCounter) startupCounter--;
 }
 
 template <uint O, uint F> CC<O, F>::CC() {
