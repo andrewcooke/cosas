@@ -294,13 +294,13 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   const uint knob = mux_state;
   smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
   if (knob == Switch) {
-    prev_switch = static_cast<SwitchPosition>(knobs[knob]);
+    prev_switch = static_cast<SwitchPosition>(knobs[Switch]);
     knobs[Switch] = static_cast<SwitchPosition>((smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000));
   } else {
     knobs[knob] = smooth_knobs[knob];
   }
 
-  if (starting) {  // avid startup noise
+  if (starting) {  // avoid startup noise
     prev_switch = static_cast<SwitchPosition>(knobs[Switch]);
     // TODO - Should initialise knob and CV smoothing filters here too
     starting = count < 8;
