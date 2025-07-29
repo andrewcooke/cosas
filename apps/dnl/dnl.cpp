@@ -23,7 +23,7 @@ static int32_t sqr(int32_t x) {
 // comparison is such that bright leds indicate "top" has "won"
 // "top" refers to upper switch and upper connection in code below
 
-class DNL final : public CC {
+class DNL final : public Codec {
 
 private:
 

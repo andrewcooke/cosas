@@ -5,7 +5,7 @@
 #include "weas/codec.h"
 #include "weas/leds.h"
 
-class XX: public CC {
+class XX: public Codec {
 
   void ProcessSample() override {
     // LED::get().display12bits(static_cast<uint16_t>((get_count() >> 12) + 1));

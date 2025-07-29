@@ -176,11 +176,11 @@ uint32_t __not_in_flash_func(EEPROM::midi_to_dac)(int midiNote, int channel) {
 }
 
 template <uint O, uint S>
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(CC<O, S> cc, Channel lr, uint8_t note_num) {
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec<O, S> cc, Channel lr, uint8_t note_num) {
   cc.write_cv(lr, midi_to_dac(note_num, lr) >> 8); // 11 bits
 }
 
 template <uint O, uint S>
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(CC<O, S> cc, uint lr, uint8_t note_num) {
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec<O, S> cc, uint lr, uint8_t note_num) {
   write_cv_midi_note(cc, static_cast<Channel>(lr), note_num);
 }

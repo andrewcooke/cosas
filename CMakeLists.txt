@@ -27,6 +27,7 @@ if (BUILD STREQUAL "pico")
     add_subdirectory(apps/knob)
     add_subdirectory(apps/diag)
     add_subdirectory(apps/dnl)
+    add_subdirectory(apps/fifo)
 
 else()
 

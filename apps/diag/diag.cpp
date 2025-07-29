@@ -6,11 +6,12 @@
 #include "cosas/dnl.h"
 #include "weas/codec.h"
 #include "weas/leds.h"
-#include "weas/eeprom.h"
+
 
 constexpr float FDIV = 44.1f;
+constexpr uint SAMPLE_FREQ = static_cast<uint>(CC_SAMPLE_44_1 / FDIV);
 
-typedef CC<1, static_cast<uint>(CC_SAMPLE_44_1 / FDIV)> CC_;
+typedef Codec<1, SAMPLE_FREQ> CC_;
 
 
 class Diagnostics final {
@@ -108,7 +109,6 @@ private:
       leds.on(idx + 4);
       return;
     }
-    // idx -= n_pulses;
   }
 
   void display(CC_& cc, uint idx) {

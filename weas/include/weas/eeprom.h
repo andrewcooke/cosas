@@ -29,8 +29,8 @@ public:
 	uint64_t get_unique_id() const {return unique_id;}
 
 	uint32_t midi_to_dac(int midiNote, int channel);
-	template<uint O, uint S> void write_cv_midi_note(CC<O, S> cc, Channel lr, uint8_t note_num);
-	template<uint O, uint S> void write_cv_midi_note(CC<O, S> cc, uint lr, uint8_t note_num);
+	template<uint O, uint S> void write_cv_midi_note(Codec<O, S> cc, Channel lr, uint8_t note_num);
+	template<uint O, uint S> void write_cv_midi_note(Codec<O, S> cc, uint lr, uint8_t note_num);
 
 private:
 

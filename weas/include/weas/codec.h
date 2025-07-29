@@ -24,7 +24,7 @@ static constexpr uint CC_SAMPLE_8 = 48000;
 
 
 template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
-class CC final {
+class Codec final {
 
 public:
 
@@ -43,21 +43,21 @@ public:
   enum When { Now, Prev };
   static constexpr uint N_WHEN = Prev + 1;
 
-  CC(const CC&) = delete;
-  CC& operator=(const CC&) = delete;
+  Codec(const Codec&) = delete;
+  Codec& operator=(const Codec&) = delete;
 
   void start();
   void stop(); // TODO - example of use?
 
-  static CC& get() {
-    static CC cc;
+  static Codec& get() {
+    static Codec cc;
     return cc;
   }
 
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
-  void set_per_sample_cb(std::function<void(CC&)> f) { per_sample_cb = f; }
-  void set_knob_changed_cb(std::function<void(Knob, int16_t)> f) { knob_change_cb = f; track_knob_changes = true; }
+  void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
+  void set_knob_changed_cb(std::function<void(Knob, uint16_t, uint16_t)> f) { knob_change_cb = f; track_knob_changes = true; }
   void set_adc_correction(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
@@ -128,11 +128,11 @@ private:
   enum ADCRunMode { Running, ReqStop, Stopped, ReqStart };
   static constexpr uint N_PHASES = 2; // adc and cpu
 
-  CC();
+  Codec();
 
   void buffer_full();
-  std::function<void(CC&)> per_sample_cb = [](CC&) {};
-  std::function<void(Knob, int16_t)> knob_change_cb = [](Knob, int16_t) {};
+  std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
+  std::function<void(Knob, uint16_t, uint16_t)> knob_change_cb = [](Knob, uint16_t, uint16_t) {};
   bool track_knob_changes = false;
 
   uint adc_correct_mask = 0;
@@ -164,43 +164,43 @@ private:
   [[nodiscard]] uint16_t apply_adc_scale(uint16_t v) const;
 
   static void audio_callback() {
-    CC& cc = CC::get();
+    Codec& cc = Codec::get();
     cc.buffer_full();
   }
 };
 
 
-template <uint O, uint F> uint32_t CC<O, F>::calc_adc_scale() const {
+template <uint O, uint F> uint32_t Codec<O, F>::calc_adc_scale() const {
   const uint16_t adc_max = adc_correction(0xfff);
   return static_cast<uint32_t>((0xfff << 19) / adc_max);
 }
 
-template <uint O, uint F> uint16_t CC<O, F>::apply_adc_scale(uint16_t v) const {
+template <uint O, uint F> uint16_t Codec<O, F>::apply_adc_scale(uint16_t v) const {
   return (v * adc_scale) >> 19;
 }
 
 // pseudo-random bit for normalisation probe
 template <uint O, uint F>
 uint32_t __attribute__((section(".time_critical." "cc-next-norm-probe")))
-CC<O, F>::next_norm_probe() {
+Codec<O, F>::next_norm_probe() {
   static uint32_t lcg_state = 1;
   lcg_state = 1664525 * lcg_state + 1013904223;
   return lcg_state >> 31;
 }
 
 template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "dac-value")))
-CC<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
+Codec<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
   // cc had more complex logic here so i may be missing something
   return (dacChannel | 0x3000) | (0xfff & static_cast<uint16_t>(value + 0x800));
 }
 
 template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "cv-out")))
-CC<O, F>::scale_cv_out(uint16_t v) {
+Codec<O, F>::scale_cv_out(uint16_t v) {
   return v >> 1; // pwm is 11 bits to reduce ripple
 }
 
 template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
-CC<O, SAMPLE_FREQ>::start() {
+Codec<O, SAMPLE_FREQ>::start() {
   count = 0;
   starting = true;
 
@@ -249,12 +249,12 @@ CC<O, SAMPLE_FREQ>::start() {
   }
 }
 
-template <uint O, uint F> void CC<O, F>::stop() {
+template <uint O, uint F> void Codec<O, F>::stop() {
   run_mode = ReqStop;
 }
 
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
-void CC<OVERSAMPLE_BITS, F>::buffer_full() {
+void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   uint mux_state = count & 0x3;
   uint norm_probe_count = count & 0xf;
   uint cpu_phase = count & 0x1;
@@ -345,7 +345,7 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   if (track_knob_changes && knob_changed(knob)) {
-    knob_change_cb(static_cast<Knob>(knob), knobs[Now][knob] - (knob == Switch ? 0 : knobs[Prev][knob]));
+    knob_change_cb(static_cast<Knob>(knob), knobs[Prev][knob], knobs[Now][knob]);
   }
   per_sample_cb(*this); // user callback
 
@@ -360,14 +360,14 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
     dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
     dma_channel_cleanup(adc_dma);
     dma_channel_cleanup(spi_dma);
-    irq_remove_handler(DMA_IRQ_0, CC::audio_callback);
+    irq_remove_handler(DMA_IRQ_0, Codec::audio_callback);
     run_mode = Stopped;
   }
 
   count++;
 }
 
-template <uint O, uint F> CC<O, F>::CC() {
+template <uint O, uint F> Codec<O, F>::Codec() {
   run_mode = Running;
   adc_run(false);
   adc_select_input(0);
