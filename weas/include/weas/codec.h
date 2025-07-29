@@ -52,7 +52,8 @@ public:
 
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
-  void set_per_sample(std::function<void(CC&)> f) { per_sample = f; }
+  void set_per_sample_cb(std::function<void(CC&)> f) { per_sample_cb = f; }
+  void set_knob_changed_cb(std::function<void(Knob, int16_t)> f) { knob_change_cb = f; track_knob_changes = true; }
   void set_adc_correction(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
@@ -62,6 +63,7 @@ public:
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
   [[nodiscard]] SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<SwitchPosition>(knobs[Now][Switch]); }
   [[nodiscard]] bool __not_in_flash_func(knob_changed)(Knob k) { return knobs[Prev][k] != knobs[Now][k]; }
+  [[nodiscard]] bool __not_in_flash_func(knob_changed)(uint k) { return knob_changed(static_cast<Knob>(k)); }
 
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
@@ -124,8 +126,11 @@ private:
 
   CC();
 
-  std::function<void(CC&)> per_sample = [](CC&) {};
-  bool use_norm_probe = false;
+  void buffer_full();
+  std::function<void(CC&)> per_sample_cb = [](CC&) {};
+  std::function<void(Knob, int16_t)> knob_change_cb = [](Knob, int16_t) {};
+  bool track_knob_changes = false;
+
   uint adc_correct_mask = 0;
   std::function<int16_t(uint16_t)> adc_correction = [](uint16_t adc) {return adc;};
   uint32_t adc_scale = calc_adc_scale();
@@ -133,6 +138,7 @@ private:
 
   uint32_t count = 0;
   bool starting = false;
+  volatile ADCRunMode run_mode;
 
   int16_t cv_out[N_CHANNELS] = {};
   volatile int32_t knobs[N_WHEN][N_KNOBS] = {};
@@ -140,20 +146,18 @@ private:
   volatile bool last_pulse[N_CHANNELS] = {};
   volatile int32_t cv[N_CHANNELS] = {};
   volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
-  volatile uint8_t mxPos = 0;
-  volatile int32_t probe_in[N_SOCKET_IN] = {};
-  volatile bool connected[N_SOCKET_IN] = {};
-  volatile ADCRunMode run_mode;
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
+  bool use_norm_probe = false;
+  volatile int32_t probe_in[N_SOCKET_IN] = {};
+  volatile bool connected[N_SOCKET_IN] = {};
   static uint32_t next_norm_probe();
   static uint16_t dac_value(int16_t value, uint16_t dacChannel);
   static uint16_t scale_cv_out(uint16_t value);
   [[nodiscard]] uint32_t calc_adc_scale() const;
   [[nodiscard]] uint16_t apply_adc_scale(uint16_t v) const;
-  void buffer_full();
 
   static void audio_callback() {
     CC& cc = CC::get();
@@ -336,7 +340,10 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
     if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
   }
 
-  per_sample(*this); // user callback
+  if (track_knob_changes && knob_changed(knob)) {
+    knob_change_cb(static_cast<Knob>(knob), knobs[Now][knob] - (knob == Switch ? 0 : knobs[Prev][knob]));
+  }
+  per_sample_cb(*this); // user callback
 
   // invert to counteract inverting output configuration
   spi_buffer[cpu_phase][0] = dac_value(-cv_out[0], DAC_CHANNEL_A);
