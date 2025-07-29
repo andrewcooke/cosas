@@ -4,7 +4,7 @@
 
 #include "hardware/gpio.h"
 
-#include "../../../cosas/include/cosas/weas.h"
+#include "weas.h"
 #include "weas/codec.h"
 
 

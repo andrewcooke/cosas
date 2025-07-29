@@ -1,3 +1,4 @@
+
 #ifndef WEAS_CODEC_H
 #define WEAS_CODEC_H
 
@@ -12,7 +13,7 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-#include "cosas/weas.h"
+#include "weas.h"
 
 
 // the interface to the DAC and ADC
@@ -29,6 +30,9 @@ public:
 
   static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
+  enum Knob { Main, X, Y, Switch };
+  enum SwitchPosition { Down, Middle, Up };
+  static constexpr uint N_KNOBS = Switch + 1;
   enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
   static constexpr uint N_SOCKET_IN = Pulse2 + 1;
   enum ADCBitFlag {  // we could include knobs too...?
