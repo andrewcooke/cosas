@@ -80,37 +80,34 @@ public:
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
   // cv pins in reverse order
   void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(static_cast<uint16_t>(0x800 - v)));
+    pwm_set_gpio_level(CV_OUT + (1 - lr), scale_cv_out(static_cast<uint16_t>(0x800 - v)));  // swap lr
   }
 
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
   // these are used, for example, to write midi
-  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(v)); }
+  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT + (1 - lr), scale_cv_out(v)); }
   void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
 
-  [[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[lr]; }
+  [[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[Now][lr]; }
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(uint lr) { return read_pulse(static_cast<Channel>(lr)); }
-  void __not_in_flash_func(write_pulse)(Channel lr, bool v) { gpio_put(PULSE_1_RAW_OUT + lr, !v); }
+  void __not_in_flash_func(write_pulse)(Channel lr, bool v) { gpio_put(PULSE_RAW_OUT + lr, !v); }
   void __not_in_flash_func(write_pulse)(uint lr, bool v) { write_pulse(static_cast<Channel>(lr), v); }
   // TODO - merge separate arrays
-  [[nodiscard]] bool __not_in_flash_func(pulse_rose)(Channel lr) { return pulse[lr] && !last_pulse[lr]; }
+  [[nodiscard]] bool __not_in_flash_func(pulse_rose)(Channel lr) { return pulse[Now][lr] && !pulse[Prev][lr]; }
   [[nodiscard]] bool __not_in_flash_func(pulse_rose)(uint lr) { return pulse_rose(static_cast<Channel>(lr)); }
-  [[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) { return !pulse[lr] && last_pulse[lr]; }
+  [[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) { return !pulse[Now][lr] && pulse[Prev][lr]; }
   [[nodiscard]] bool __not_in_flash_func(pulse_fell)(uint lr) { return pulse_fell(static_cast<Channel>(lr)); }
 
   [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[i]; }
 
 private:
 
-  static constexpr uint PULSE_1_RAW_OUT = 8;
-  static constexpr uint PULSE_2_RAW_OUT = 9;
-  static constexpr uint CV_OUT_1 = 23;
-  static constexpr uint CV_OUT_2 = 22;
+  static constexpr uint PULSE_RAW_OUT = 8;  // and 9
+  static constexpr uint CV_OUT = 22;  // and 23 (lr swapped)
   static constexpr uint NORMALISATION_PROBE = 4;
   static constexpr uint MX_A = 24;
   static constexpr uint MX_B = 25;
-  static constexpr uint AUDIO_L_IN_1 = 27;
-  static constexpr uint AUDIO_R_IN_1 = 26;
+  static constexpr uint AUDIO_IN = 26;  // and 27 (lr swapped)
   static constexpr uint MUX_IO_1 = 28;
   static constexpr uint MUX_IO_2 = 29;
   static constexpr uint DAC_CHANNEL_A = 0x0000;
@@ -120,10 +117,7 @@ private:
   static constexpr uint DAC_TX = 19;
   static constexpr uint EEPROM_SDA = 16;
   static constexpr uint EEPROM_SCL = 17;
-  static constexpr uint PULSE_1_INPUT = 2;
-  static constexpr uint PULSE_2_INPUT = 3;
-  static constexpr uint DEBUG_1 = 0;
-  static constexpr uint DEBUG_2 = 1;
+  static constexpr uint PULSE_INPUT = 2;  // and 3
 
   static constexpr uint SPI_DREQ = DREQ_SPI0_TX;
 
@@ -148,8 +142,7 @@ private:
 
   int16_t cv_out[N_CHANNELS] = {};
   volatile int32_t knobs[N_WHEN][N_KNOBS] = {};
-  volatile bool pulse[N_CHANNELS] = {};
-  volatile bool last_pulse[N_CHANNELS] = {};
+  volatile bool pulse[N_WHEN][N_CHANNELS] = {};
   volatile int32_t cv[N_CHANNELS] = {};
   volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
@@ -284,11 +277,10 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   }
   cv[cv_lr] = 0x800 - cv_tmp;
 
-  // TODO - this puts an upper limit on OVERSAMPLE_BITS (could use int32_t temp)
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
-    uint16_t audio_tmp = 0;
-    for (uint i = 0; i < OVERSAMPLES; ++i) audio_tmp += adc_buffer[cpu_phase][audio_lr + 4 * i];
-    audio_tmp >>= OVERSAMPLE_BITS;
+    uint32_t wide_audio_tmp = 0;
+    for (uint i = 0; i < OVERSAMPLES; ++i) wide_audio_tmp += adc_buffer[cpu_phase][audio_lr + 4 * i];
+    auto audio_tmp = static_cast<uint16_t>(wide_audio_tmp >> OVERSAMPLE_BITS);
     if (adc_correct_mask & (A1 << audio_lr)) {
       audio_tmp = adc_correction(audio_tmp);
       if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
@@ -297,10 +289,11 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
-    last_pulse[pulse_lr] = pulse[pulse_lr];
-    pulse[pulse_lr] = !gpio_get(PULSE_1_INPUT + pulse_lr); // TODO - assumes sequential port, should we flag somehow?
+    pulse[Prev][pulse_lr] = pulse[Now][pulse_lr];
+    pulse[Now][pulse_lr] = !gpio_get(PULSE_INPUT + pulse_lr);
   }
 
+  // currently ignore oversampling of knobs
   const uint knob = mux_state;
   smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
   knobs[Prev][knob] = knobs[Now][knob];
@@ -331,8 +324,8 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
     if (norm_probe_count == 15) {
       probe_in[SocketIn::Audio1] = (probe_in[SocketIn::Audio1] << 1) + (adc_buffer[cpu_phase][1] < 1800);
       probe_in[SocketIn::Audio2] = (probe_in[SocketIn::Audio2] << 1) + (adc_buffer[cpu_phase][0] < 1800);
-      probe_in[SocketIn::Pulse1] = (probe_in[SocketIn::Pulse1] << 1) + (pulse[0]);
-      probe_in[SocketIn::Pulse2] = (probe_in[SocketIn::Pulse2] << 1) + (pulse[1]);
+      probe_in[SocketIn::Pulse1] = (probe_in[SocketIn::Pulse1] << 1) + (pulse[Now][0]);
+      probe_in[SocketIn::Pulse2] = (probe_in[SocketIn::Pulse2] << 1) + (pulse[Now][1]);
       for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = (probe_out != probe_in[i]);
     }
 
@@ -341,8 +334,8 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
     if (!is_connected(SocketIn::Audio2)) audio[0] = 0;
     if (!is_connected(SocketIn::CV1)) cv[0] = 0;
     if (!is_connected(SocketIn::CV2)) cv[1] = 0;
-    if (!is_connected(SocketIn::Pulse1)) pulse[0] = false;
-    if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
+    if (!is_connected(SocketIn::Pulse1)) pulse[Now][0] = false;
+    if (!is_connected(SocketIn::Pulse2)) pulse[Now][1] = false;
   }
 
   if (track_knob_changes && knob_changed(knob) && knob_changes) {
@@ -382,8 +375,7 @@ template <uint O, uint F> Codec<O, F>::Codec() {
 
   adc_init();
 
-  adc_gpio_init(AUDIO_L_IN_1);
-  adc_gpio_init(AUDIO_R_IN_1);
+  for (uint rl = 0; rl < N_CHANNELS; rl++) adc_gpio_init(AUDIO_IN + rl);
   adc_gpio_init(MUX_IO_1);
   adc_gpio_init(MUX_IO_2);
 
@@ -392,19 +384,14 @@ template <uint O, uint F> Codec<O, F>::Codec() {
   gpio_set_dir(MX_A, GPIO_OUT);
   gpio_set_dir(MX_B, GPIO_OUT);
 
-  gpio_init(PULSE_1_RAW_OUT);
-  gpio_set_dir(PULSE_1_RAW_OUT, GPIO_OUT);
-  gpio_put(PULSE_1_RAW_OUT, true); // raw high (output low)
-  gpio_init(PULSE_2_RAW_OUT);
-  gpio_set_dir(PULSE_2_RAW_OUT, GPIO_OUT);
-  gpio_put(PULSE_2_RAW_OUT, true);
-
-  gpio_init(PULSE_1_INPUT);
-  gpio_set_dir(PULSE_1_INPUT, GPIO_IN);
-  gpio_pull_up(PULSE_1_INPUT); // NB Needs pullup to activate transistor on inputs
-  gpio_init(PULSE_2_INPUT);
-  gpio_set_dir(PULSE_2_INPUT, GPIO_IN);
-  gpio_pull_up(PULSE_2_INPUT); // NB: Needs pullup to activate transistor on inputs
+  for (uint lr = 0; lr < N_CHANNELS; lr++) {
+    gpio_init(PULSE_INPUT + lr);
+    gpio_set_dir(PULSE_INPUT + lr, GPIO_IN);
+    gpio_pull_up(PULSE_INPUT + lr);  // needs pullup to activate transistor on inputs
+    gpio_init(PULSE_RAW_OUT + lr);
+    gpio_set_dir(PULSE_RAW_OUT + lr, GPIO_OUT);
+    gpio_put(PULSE_RAW_OUT + lr, true); // raw high (output low)
+  }
 
   spi_init(spi0, 15625000);
   spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
@@ -416,16 +403,15 @@ template <uint O, uint F> Codec<O, F>::Codec() {
   gpio_set_function(EEPROM_SDA, GPIO_FUNC_I2C);
   gpio_set_function(EEPROM_SCL, GPIO_FUNC_I2C);
 
-  gpio_set_function(CV_OUT_1, GPIO_FUNC_PWM);
-  gpio_set_function(CV_OUT_2, GPIO_FUNC_PWM);
-  pwm_config config = pwm_get_default_config();
-  pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
   // CV_A and CV_B share the same PWM slice, which means that they share a PWM config
   // they have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
-  pwm_init(pwm_gpio_to_slice_num(CV_OUT_1), &config, true); // slice 1, channel A
-  pwm_init(pwm_gpio_to_slice_num(CV_OUT_2), &config, true); // slice 1, channel B (redundant to set up again)
-  pwm_set_gpio_level(CV_OUT_1, scale_cv_out(0x800));
-  pwm_set_gpio_level(CV_OUT_2, scale_cv_out(0x800));
+  pwm_config config = pwm_get_default_config();
+  pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
+  pwm_init(pwm_gpio_to_slice_num(CV_OUT), &config, true);
+  for (uint rl = 0; rl < N_CHANNELS; rl++) {
+    gpio_set_function(CV_OUT + rl, GPIO_FUNC_PWM);
+    pwm_set_gpio_level(CV_OUT + rl, scale_cv_out(0x800));
+  }
 }
 
 #endif
