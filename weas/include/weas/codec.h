@@ -80,12 +80,12 @@ public:
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
   // cv pins in reverse order
   void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(static_cast<uint16_t>(0x800 - v)));
+    pwm_set_gpio_level(CV_OUT + 1 - lr, scale_cv_out(static_cast<uint16_t>(0x800 - v)));
   }
 
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
   // these are used, for example, to write midi
-  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT_1 - lr, scale_cv_out(v)); }
+  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT + 1 - lr, scale_cv_out(v)); }
   void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
 
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[lr]; }
@@ -103,8 +103,7 @@ public:
 private:
 
   static constexpr uint PULSE_RAW_OUT = 8;  // and 9
-  static constexpr uint CV_OUT_1 = 23;
-  static constexpr uint CV_OUT_2 = 22;
+  static constexpr uint CV_OUT = 22;  // and 23 lr swapped
   static constexpr uint NORMALISATION_PROBE = 4;
   static constexpr uint MUX_LOGIC = 24;  // and 25
   static constexpr uint AUDIO_L_IN_1 = 27;
@@ -393,7 +392,7 @@ template <uint O, uint F> Codec<O, F>::Codec() {
     gpio_set_dir(PULSE_RAW_OUT + lr, GPIO_OUT);
     gpio_put(PULSE_RAW_OUT + lr, true); // raw high (output low)
   }
-  
+
   gpio_init(PULSE_1_INPUT);
   gpio_set_dir(PULSE_1_INPUT, GPIO_IN);
   gpio_pull_up(PULSE_1_INPUT); // NB Needs pullup to activate transistor on inputs
@@ -411,16 +410,13 @@ template <uint O, uint F> Codec<O, F>::Codec() {
   gpio_set_function(EEPROM_SDA, GPIO_FUNC_I2C);
   gpio_set_function(EEPROM_SCL, GPIO_FUNC_I2C);
 
-  gpio_set_function(CV_OUT_1, GPIO_FUNC_PWM);
-  gpio_set_function(CV_OUT_2, GPIO_FUNC_PWM);
+  for (uint lr = 0; lr < N_CHANNELS; lr++) gpio_set_function(CV_OUT + lr, GPIO_FUNC_PWM);
   pwm_config config = pwm_get_default_config();
   pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
   // CV_A and CV_B share the same PWM slice, which means that they share a PWM config
   // they have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
-  pwm_init(pwm_gpio_to_slice_num(CV_OUT_1), &config, true); // slice 1, channel A
-  pwm_init(pwm_gpio_to_slice_num(CV_OUT_2), &config, true); // slice 1, channel B (redundant to set up again)
-  pwm_set_gpio_level(CV_OUT_1, scale_cv_out(0x800));
-  pwm_set_gpio_level(CV_OUT_2, scale_cv_out(0x800));
+  pwm_init(pwm_gpio_to_slice_num(CV_OUT), &config, true); // no need to set again
+  for (uint lr = 0; lr < N_CHANNELS; lr++) pwm_set_gpio_level(CV_OUT + lr, scale_cv_out(0x800));
 }
 
 #endif
