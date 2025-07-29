@@ -110,8 +110,7 @@ private:
   static constexpr uint MUX_LOGIC = 24;  // and 25
   static constexpr uint AUDIO_L_IN_1 = 27;
   static constexpr uint AUDIO_R_IN_1 = 26;
-  static constexpr uint MUX_IO_1 = 28;
-  static constexpr uint MUX_IO_2 = 29;
+  static constexpr uint MUX_IN = 28;  // and 29
   static constexpr uint DAC_CHANNEL_A = 0x0000;
   static constexpr uint DAC_CHANNEL_B = 0x8000;
   static constexpr uint DAC_CS = 21;
@@ -383,8 +382,7 @@ template <uint O, uint F> Codec<O, F>::Codec() {
 
   adc_gpio_init(AUDIO_L_IN_1);
   adc_gpio_init(AUDIO_R_IN_1);
-  adc_gpio_init(MUX_IO_1);
-  adc_gpio_init(MUX_IO_2);
+  for (uint mux = 0; mux < N_MUX; mux++) adc_gpio_init(MUX_IN + mux);
 
   for (uint mux = 0; mux < 2; mux++) {
     gpio_init(MUX_LOGIC + mux);
