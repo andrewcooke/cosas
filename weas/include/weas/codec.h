@@ -36,6 +36,8 @@ public:
     C1 = 4, C2 = 8, AllC = 12,
     All = 15
   };
+  enum When { Now, Prev };
+  static constexpr uint N_WHEN = Prev + 1;
 
   CC(const CC&) = delete;
   CC& operator=(const CC&) = delete;
@@ -56,10 +58,10 @@ public:
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
   void set_adc_scale(bool scale) {scale_adc = scale; };
 
-  [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[k]; }
+  [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
-  [[nodiscard]] SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<SwitchPosition>(knobs[Switch]); }
-  [[nodiscard]] bool __not_in_flash_func(switch_changed)() { return read_switch() != prev_switch; }
+  [[nodiscard]] SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<SwitchPosition>(knobs[Now][Switch]); }
+  [[nodiscard]] bool __not_in_flash_func(knob_changed)(Knob k) { return knobs[Prev][k] != knobs[Now][k]; }
 
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
@@ -133,7 +135,7 @@ private:
   bool starting = false;
 
   int16_t cv_out[N_CHANNELS] = {};
-  volatile int32_t knobs[N_KNOBS] = {};
+  volatile int32_t knobs[N_WHEN][N_KNOBS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
   volatile int32_t cv[N_CHANNELS] = {};
@@ -141,10 +143,9 @@ private:
   volatile uint8_t mxPos = 0;
   volatile int32_t probe_in[N_SOCKET_IN] = {};
   volatile bool connected[N_SOCKET_IN] = {};
-  SwitchPosition prev_switch = Middle;
   volatile ADCRunMode run_mode;
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
-  uint16_t spi_buffer[N_PHASES][2] = {};
+  uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
   static uint32_t next_norm_probe();
@@ -293,15 +294,15 @@ void CC<OVERSAMPLE_BITS, F>::buffer_full() {
 
   const uint knob = mux_state;
   smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
+  knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    prev_switch = static_cast<SwitchPosition>(knobs[Switch]);
-    knobs[Switch] = static_cast<SwitchPosition>((smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000));
+    knobs[Now][Switch] = (smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000);
   } else {
-    knobs[knob] = smooth_knobs[knob];
+    knobs[Now][knob] = smooth_knobs[knob];
   }
 
   if (starting) {  // avoid startup noise
-    prev_switch = static_cast<SwitchPosition>(knobs[Switch]);
+    knobs[Prev][knob] = knobs[Now][knob];
     // TODO - Should initialise knob and CV smoothing filters here too
     starting = count < 8;
   }
