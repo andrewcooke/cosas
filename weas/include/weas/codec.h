@@ -107,8 +107,7 @@ private:
   static constexpr uint CV_OUT_1 = 23;
   static constexpr uint CV_OUT_2 = 22;
   static constexpr uint NORMALISATION_PROBE = 4;
-  static constexpr uint MX_A = 24;
-  static constexpr uint MX_B = 25;
+  static constexpr uint MUX_LOGIC = 24;  // and 25
   static constexpr uint AUDIO_L_IN_1 = 27;
   static constexpr uint AUDIO_R_IN_1 = 26;
   static constexpr uint MUX_IO_1 = 28;
@@ -129,6 +128,7 @@ private:
 
   enum ADCRunMode { Running, ReqStop, Stopped, ReqStart };
   static constexpr uint N_PHASES = 2; // adc and cpu
+  static constexpr uint N_MUX = 2;
 
   Codec();
 
@@ -268,8 +268,7 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   adc_select_input(0); // TODO - why is this here?
 
   const uint next_mux_state = (mux_state + 1) & 0x3;
-  gpio_put(MX_A, next_mux_state & 1);
-  gpio_put(MX_B, next_mux_state & 2);
+  for (uint mux = 0; mux < N_MUX; mux++) gpio_put(MUX_LOGIC + mux, next_mux_state & (1 << mux));
 
   dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
   dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true); // start writing into new buffer
@@ -387,10 +386,10 @@ template <uint O, uint F> Codec<O, F>::Codec() {
   adc_gpio_init(MUX_IO_1);
   adc_gpio_init(MUX_IO_2);
 
-  gpio_init(MX_A);
-  gpio_init(MX_B);
-  gpio_set_dir(MX_A, GPIO_OUT);
-  gpio_set_dir(MX_B, GPIO_OUT);
+  for (uint mux = 0; mux < 2; mux++) {
+    gpio_init(MUX_LOGIC + mux);
+    gpio_set_dir(MUX_LOGIC + mux, GPIO_OUT);
+  }
 
   gpio_init(PULSE_1_RAW_OUT);
   gpio_set_dir(PULSE_1_RAW_OUT, GPIO_OUT);
