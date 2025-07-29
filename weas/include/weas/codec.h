@@ -90,7 +90,7 @@ public:
 
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[lr]; }
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(uint lr) { return read_pulse(static_cast<Channel>(lr)); }
-  void __not_in_flash_func(write_pulse)(Channel lr, bool v) { gpio_put(PULSE_1_RAW_OUT + lr, !v); }
+  void __not_in_flash_func(write_pulse)(Channel lr, bool v) { gpio_put(PULSE_RAW_OUT + lr, !v); }
   void __not_in_flash_func(write_pulse)(uint lr, bool v) { write_pulse(static_cast<Channel>(lr), v); }
   // TODO - merge separate arrays
   [[nodiscard]] bool __not_in_flash_func(pulse_rose)(Channel lr) { return pulse[lr] && !last_pulse[lr]; }
@@ -102,8 +102,7 @@ public:
 
 private:
 
-  static constexpr uint PULSE_1_RAW_OUT = 8;
-  static constexpr uint PULSE_2_RAW_OUT = 9;
+  static constexpr uint PULSE_RAW_OUT = 8;  // and 9
   static constexpr uint CV_OUT_1 = 23;
   static constexpr uint CV_OUT_2 = 22;
   static constexpr uint NORMALISATION_PROBE = 4;
@@ -389,13 +388,12 @@ template <uint O, uint F> Codec<O, F>::Codec() {
     gpio_set_dir(MUX_LOGIC + mux, GPIO_OUT);
   }
 
-  gpio_init(PULSE_1_RAW_OUT);
-  gpio_set_dir(PULSE_1_RAW_OUT, GPIO_OUT);
-  gpio_put(PULSE_1_RAW_OUT, true); // raw high (output low)
-  gpio_init(PULSE_2_RAW_OUT);
-  gpio_set_dir(PULSE_2_RAW_OUT, GPIO_OUT);
-  gpio_put(PULSE_2_RAW_OUT, true);
-
+  for (uint lr = 0; lr < N_CHANNELS; lr++) {
+    gpio_init(PULSE_RAW_OUT + lr);
+    gpio_set_dir(PULSE_RAW_OUT + lr, GPIO_OUT);
+    gpio_put(PULSE_RAW_OUT + lr, true); // raw high (output low)
+  }
+  
   gpio_init(PULSE_1_INPUT);
   gpio_set_dir(PULSE_1_INPUT, GPIO_IN);
   gpio_pull_up(PULSE_1_INPUT); // NB Needs pullup to activate transistor on inputs
