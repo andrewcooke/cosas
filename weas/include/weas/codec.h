@@ -14,6 +14,7 @@
 #include "hardware/pwm.h"
 
 #include "weas.h"
+#include "cosas/ui.h"
 
 
 // the interface to the DAC and ADC
@@ -57,7 +58,8 @@ public:
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
   void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
-  void set_knob_changed_cb(std::function<void(Knob, uint16_t, uint16_t)> f) { knob_change_cb = f; track_knob_changes = true; }
+  void set_knob_changes(KnobChanges* k) { knob_changes = k; }
+  void select_knob_changes(bool on) {track_knob_changes = on; }
   void set_adc_correction(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
@@ -132,7 +134,7 @@ private:
 
   void buffer_full();
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
-  std::function<void(Knob, uint16_t, uint16_t)> knob_change_cb = [](Knob, uint16_t, uint16_t) {};
+  KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
 
   uint adc_correct_mask = 0;
@@ -242,8 +244,7 @@ Codec<O, SAMPLE_FREQ>::start() {
       adc_select_input(0);
       adc_set_round_robin(0b0001111U);
       adc_run(true);
-    }
-    else if (run_mode == Stopped) {
+    } else if (run_mode == Stopped) {
       break;
     }
   }
@@ -344,8 +345,8 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
     if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
   }
 
-  if (track_knob_changes && knob_changed(knob)) {
-    knob_change_cb(static_cast<Knob>(knob), knobs[Prev][knob], knobs[Now][knob]);
+  if (track_knob_changes && knob_changed(knob) && knob_changes) {
+    knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
   }
   per_sample_cb(*this); // user callback
 

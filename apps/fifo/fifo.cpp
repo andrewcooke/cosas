@@ -15,11 +15,11 @@ constexpr uint SAMPLE_FREQ = static_cast<uint>(CC_SAMPLE_44_1 / FDIV);
 typedef Codec<1, SAMPLE_FREQ> CC_;
 
 
-class FIFODemo final {
+class FIFODemo : public KnobChanges {
 
 public:
-  FIFODemo() {}
-  void event_handler(uint8_t knob, uint16_t now, uint16_t) {
+  FIFODemo() = default;
+  void handle_knob_change(uint8_t knob, uint16_t now, uint16_t) override {
     if (knob == 0) {
       leds.columns12bits(now);
     }
@@ -30,12 +30,11 @@ private:
 
 };
 
-int main()
-{
+int main() {
   FIFODemo demo;
   auto& cc = CC_::get();
   auto& fifo = FIFO<1, SAMPLE_FREQ>::get();
-  fifo.set_event_handler([&](uint8_t k, uint16_t n, uint16_t p){demo.event_handler(k, n, p); });
+  fifo.set_knob_changes(&demo);
   fifo.start();
   cc.start();
 };

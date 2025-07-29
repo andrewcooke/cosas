@@ -15,20 +15,20 @@ typedef std::function<void(uint8_t knob, uint16_t now, uint16_t prev)> event_han
 
 
 template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
-class FIFO final {
+class FIFO final : public KnobChanges {
 
 public:
   FIFO(const FIFO&) = delete;
   FIFO& operator=(const FIFO&) = delete;
   static FIFO& get();
-  void set_event_handler(event_handler f) {app_handler = f;};
+  void set_knob_changes(KnobChanges* k) {knob_changes = k;};
+  void handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) override;
   void start();
-  void stop();
+  // void stop();
 
 private:
   FIFO();
-  event_handler app_handler = [](uint8_t, uint16_t, uint16_t) {};
-  static void knob_changed_callback(typename Codec<OVERSAMPLE_BITS, SAMPLE_FREQ>::Knob knob, uint16_t now, uint16_t prev);
+  KnobChanges* knob_changes;
   static void core1_marshaller();
 };
 
@@ -38,36 +38,34 @@ template <uint O, uint F> FIFO<O, F>& FIFO<O, F>::get() {
   return instance;
 }
 
-template <uint O, uint F> FIFO<O, F>::FIFO() {
-  // TODO - pico specific things to set up FIFO
+template <uint O, uint F> FIFO<O, F>::FIFO() : knob_changes(nullptr) {
+  // TODO - pico specific things to set up FIFO?
 }
 
-// TODO - in memory
+// TODO - in memory?
 template <uint O, uint F>
-void FIFO<O, F>::knob_changed_callback(typename Codec<O, F>::Knob knob, uint16_t now, uint16_t prev) {
-  uint32_t packed = static_cast<uint8_t>(knob) << 28 | prev << 16 | now;
+void FIFO<O, F>::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
+  uint32_t packed = knob << 28 | prev << 16 | now;
   multicore_fifo_push_timeout_us(packed, 0);
 }
 
-// TODO - in memory
+// TODO - in memory?
 template <uint O, uint F> void FIFO<O, F>::core1_marshaller() {
   while (true) {
-    static auto& fifo = FIFO<O, F>::get();
+    static auto& fifo = FIFO::get();
     uint32_t packed = multicore_fifo_pop_blocking();
     uint8_t knob = packed >> 28;
     uint16_t prev = (packed >> 16 & 0xfff);
     uint16_t now = packed & 0xfff;
-    fifo.app_handler(knob, prev, now);
+    fifo.knob_changes->handle_knob_change(knob, prev, now);
   }
 }
 
 template <uint O, uint F> void FIFO<O, F>::start() {
   auto& cc = Codec<O, F>::get();
   multicore_launch_core1(core1_marshaller);
-  cc.set_knob_changed_cb(knob_changed_callback);
-}
-
-template <uint O, uint F> void FIFO<O, F>::stop() {
+  cc.set_knob_changes(this);
+  cc.select_knob_changes(true);
 }
 
 
