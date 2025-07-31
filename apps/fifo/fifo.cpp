@@ -10,7 +10,7 @@
 constexpr float FDIV = 1.0f;
 constexpr uint SAMPLE_FREQ = static_cast<uint>(CC_SAMPLE_44_1 / FDIV);
 
-typedef Codec<1, SAMPLE_FREQ> CC_;
+typedef CodecFactory<1, SAMPLE_FREQ> CC_;
 
 
 class FIFODemo : public KnobChanges {
@@ -36,9 +36,9 @@ private:
 
 int main() {
   FIFODemo demo;
-  auto& fifo = FIFO<1, SAMPLE_FREQ>::get();
+  auto& fifo = FIFO::get();
   fifo.set_knob_changes(&demo);
-  fifo.start();
+  fifo.start(CC_::get());
   CC_::get().start();
 };
 

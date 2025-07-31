@@ -168,19 +168,17 @@ void EEPROM::calc_cal_coeffs(uint channel) {
   cal_coeffs[channel].bi = int32_t(cal_coeffs[channel].b + 0.5f);
 }
 
-uint32_t __not_in_flash_func(EEPROM::midi_to_dac)(int midiNote, int channel) {
+uint16_t __not_in_flash_func(EEPROM::midi_to_dac)(int midiNote, int channel) {
   int32_t dacValue = ((cal_coeffs[channel].mi * (midiNote - 60)) >> 4) + cal_coeffs[channel].bi;
   if (dacValue > 524287) dacValue = 524287; // 19 bits
   if (dacValue < 0) dacValue = 0;
-  return dacValue;
+  return dacValue >> 8;
 }
 
-template <uint O, uint S>
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec<O, S> cc, Channel lr, uint8_t note_num) {
-  cc.write_cv(lr, midi_to_dac(note_num, lr) >> 8); // 11 bits
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, Channel lr, uint8_t note_num) {
+  cc.write_cv(lr, midi_to_dac(note_num, lr)); // 11 bits
 }
 
-template <uint O, uint S>
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec<O, S> cc, uint lr, uint8_t note_num) {
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, uint lr, uint8_t note_num) {
   write_cv_midi_note(cc, static_cast<Channel>(lr), note_num);
 }

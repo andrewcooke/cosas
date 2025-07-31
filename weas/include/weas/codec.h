@@ -24,12 +24,9 @@ static constexpr uint CC_SAMPLE_44_1 = 44100;
 static constexpr uint CC_SAMPLE_8 = 48000;
 
 
-template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
-class Codec final {
+class Codec {
 
 public:
-
-  static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
   enum Knob { Main, X, Y, Switch };
   enum SwitchPosition { Down, Middle, Up };
@@ -46,14 +43,10 @@ public:
 
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
+  virtual ~Codec() = default;
 
-  void start();
+  virtual void start() = 0;
   void stop(); // TODO - example of use?
-
-  static Codec& get() {
-    static Codec cc;
-    return cc;
-  }
 
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
@@ -100,7 +93,7 @@ public:
 
   [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[i]; }
 
-private:
+protected:
 
   static constexpr uint PULSE_RAW_OUT = 8;  // and 9
   static constexpr uint CV_OUT = 22;  // and 23 lr swapped
@@ -127,7 +120,7 @@ private:
 
   Codec();
 
-  void buffer_full();
+  virtual void buffer_full() = 0;
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
   KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
@@ -147,7 +140,6 @@ private:
   volatile bool last_pulse[N_CHANNELS] = {};
   volatile int16_t cv[N_CHANNELS] = {};
   volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
-  uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
@@ -157,47 +149,45 @@ private:
   static uint32_t next_norm_probe();
   static uint16_t dac_value(int16_t value, uint16_t dacChannel);
   static uint16_t scale_cv_out(uint16_t value);
-  [[nodiscard]] uint32_t calc_adc_scale() const;
-  [[nodiscard]] uint16_t apply_adc_scale(uint16_t v) const;
+  [[nodiscard]] uint32_t calc_adc_scale();
+  [[nodiscard]] uint16_t apply_adc_scale(uint16_t v);
 
-  static void audio_callback() {
-    Codec& cc = Codec::get();
-    cc.buffer_full();
-  }
 };
 
 
-template <uint O, uint F> uint32_t Codec<O, F>::calc_adc_scale() const {
-  const uint16_t adc_max = adc_correction(0xfff);
-  return static_cast<uint32_t>((0xfff << 19) / adc_max);
-}
+template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
+class CodecFactory : public Codec {
 
-template <uint O, uint F> uint16_t Codec<O, F>::apply_adc_scale(uint16_t v) const {
-  return (v * adc_scale) >> 19;
-}
+public:
 
-// pseudo-random bit for normalisation probe
-template <uint O, uint F>
-uint32_t __attribute__((section(".time_critical." "cc-next-norm-probe")))
-Codec<O, F>::next_norm_probe() {
-  static uint32_t lcg_state = 1;
-  lcg_state = 1664525 * lcg_state + 1013904223;
-  return lcg_state >> 31;
-}
+  static constexpr uint OVERSAMPLES = 1 << OVERSAMPLE_BITS;
 
-template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "dac-value")))
-Codec<O, F>::dac_value(int16_t value, uint16_t dacChannel) {
-  // cc had more complex logic here so i may be missing something
-  return (dacChannel | 0x3000) | (0xfff & static_cast<uint16_t>(value + 0x800));
-}
+  CodecFactory(const CodecFactory&) = delete;
+  CodecFactory& operator=(const CodecFactory&) = delete;
 
-template <uint O, uint F> uint16_t __attribute__((section(".time_critical." "cv-out")))
-Codec<O, F>::scale_cv_out(uint16_t v) {
-  return v >> 1; // pwm is 11 bits to reduce ripple
-}
+  void start() override;
+
+  static CodecFactory& get() {
+    static CodecFactory cf;
+    return cf;
+  }
+
+private:
+
+  CodecFactory() {};
+
+  void buffer_full() override;
+  uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
+
+  static void audio_callback() {
+    CodecFactory& cf = CodecFactory::get();
+    cf.buffer_full();
+  }
+};
 
 template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
-Codec<O, SAMPLE_FREQ>::start() {
+CodecFactory<O, SAMPLE_FREQ>::start() {
+
   count = 0;
   starting = true;
 
@@ -245,12 +235,9 @@ Codec<O, SAMPLE_FREQ>::start() {
   }
 }
 
-template <uint O, uint F> void Codec<O, F>::stop() {
-  run_mode = ReqStop;
-}
-
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
-void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
+void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
+
   uint mux_state = count & 0x3;
   uint norm_probe_count = count & 0xf;
   uint cpu_phase = count & 0x1;
@@ -374,64 +361,12 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
     dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
     dma_channel_cleanup(adc_dma);
     dma_channel_cleanup(spi_dma);
-    irq_remove_handler(DMA_IRQ_0, Codec::audio_callback);
+    irq_remove_handler(DMA_IRQ_0, audio_callback);
     run_mode = Stopped;
   }
 
   count++;
 }
 
-template <uint O, uint F> Codec<O, F>::Codec() {
-  run_mode = Running;
-  adc_run(false);
-  adc_select_input(0);
-
-  use_norm_probe = false;
-  for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = false;
-
-  gpio_init(NORMALISATION_PROBE);
-  gpio_set_dir(NORMALISATION_PROBE, GPIO_OUT);
-  gpio_put(NORMALISATION_PROBE, false);
-
-  adc_init();
-
-  for (uint lr = 0; lr < N_CHANNELS; lr++) adc_gpio_init(AUDIO_IN + lr);
-  for (uint mux = 0; mux < N_MUX; mux++) adc_gpio_init(MUX_IN + mux);
-
-  for (uint mux = 0; mux < 2; mux++) {
-    gpio_init(MUX_LOGIC + mux);
-    gpio_set_dir(MUX_LOGIC + mux, GPIO_OUT);
-  }
-
-  for (uint lr = 0; lr < N_CHANNELS; lr++) {
-    gpio_init(PULSE_RAW_OUT + lr);
-    gpio_set_dir(PULSE_RAW_OUT + lr, GPIO_OUT);
-    gpio_put(PULSE_RAW_OUT + lr, true); // raw high (output low)
-  }
-
-  for (uint lr = 0; lr < N_CHANNELS; lr++) {
-    gpio_init(PULSE_INPUT + lr);
-    gpio_set_dir(PULSE_INPUT + lr, GPIO_IN);
-    gpio_pull_up(PULSE_INPUT); // needs pullup to activate transistor on inputs
-  }
-
-  spi_init(spi0, 15625000);
-  spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
-  gpio_set_function(DAC_SCK, GPIO_FUNC_SPI);
-  gpio_set_function(DAC_TX, GPIO_FUNC_SPI);
-  gpio_set_function(DAC_CS, GPIO_FUNC_SPI);
-
-  i2c_init(i2c0, 100 * 1000);
-  gpio_set_function(EEPROM_SDA, GPIO_FUNC_I2C);
-  gpio_set_function(EEPROM_SCL, GPIO_FUNC_I2C);
-
-  for (uint lr = 0; lr < N_CHANNELS; lr++) gpio_set_function(CV_OUT + lr, GPIO_FUNC_PWM);
-  pwm_config config = pwm_get_default_config();
-  pwm_config_set_wrap(&config, 0x7ff); // 11-bit PWM
-  // CV_A and CV_B share the same PWM slice, which means that they share a PWM config
-  // they have separate 'gpio_level's (output compare unit) though, so they can have different PWM on-times
-  pwm_init(pwm_gpio_to_slice_num(CV_OUT), &config, true); // no need to set again
-  for (uint lr = 0; lr < N_CHANNELS; lr++) pwm_set_gpio_level(CV_OUT + lr, scale_cv_out(0x800));
-}
 
 #endif
