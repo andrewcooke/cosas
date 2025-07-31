@@ -32,7 +32,7 @@
 
 
 static constexpr uint CC_SAMPLE_44_1 = 44100;
-static constexpr uint CC_SAMPLE_8 = 48000;
+static constexpr uint CC_SAMPLE_48 = 48000;
 
 
 class Codec {

@@ -14,8 +14,8 @@ void LEDsMask::show(uint32_t mask) {
 }
 
 uint32_t LEDsMask::modulate(uint32_t mask, uint32_t extra, uint32_t count) {
+  if (!extra) return mask;
   float k = (4 - (count & 0x7)) / 4.0f;
-  k = std::max(-1.0f, std::min(1.0f, k));
   uint32_t sum = 0;
   for (uint i = 0; i < LEDs::N; i++) {
     sum <<= BITS;

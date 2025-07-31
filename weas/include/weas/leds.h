@@ -26,7 +26,7 @@ public:
     void on(uint index);
     void off(uint index);
     void all(uint8_t x);
-    void all(uint x);     // for numeric literals - forwards to uint8_t
+    void all(uint x);  // for numeric literals - forwards to uint8_t
     void all(bool x);
 
 private:
