@@ -310,10 +310,9 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   const uint knob = mux_state;
-  // smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
   // see discussion above.  this one does come out at 60hz.  but that gets very low when SAMPLE_FREQ drops.
   // so let's aim for 1/100 nyquist which is roughly a = 1 / 30.
-  // here we don't need to shift right 4 bits (compare cv)?!
+  // smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
   smooth_knobs[knob] = (31 * smooth_knobs[knob] + adc_buffer[cpu_phase][2]) >> 5;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
