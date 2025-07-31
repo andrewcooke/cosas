@@ -7,13 +7,19 @@
 #include "weas/leds.h"
 
 
+// a compact description of leds that we can build on for animation
+
+
 class LEDsMask {
 
 public:
 
   LEDsMask() = default;
-  void show(uint32_t s);
+  void show(uint32_t mask);
+  uint32_t modulate(uint32_t mask, uint32_t extra, uint32_t count);
+  uint32_t reverse(uint32_t mask);
   uint32_t ring(float normalized, bool highlight);
+  uint32_t top_square(uint amplitude);
 
 private:
 
@@ -22,7 +28,7 @@ private:
   static constexpr uint32_t FULL_MASK = (1 << (LEDs::N * BITS)) - 1;
   LEDs& leds = LEDs::get();
   uint ring_order[LEDs::N] = {4, 2, 0, 1, 3, 5};
-  uint32_t overwrite(uint32_t m, float n, float w, uint a);
+  uint32_t overwrite(uint32_t mask, float centre, float width, uint amplitude);
 
 };
 

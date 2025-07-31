@@ -7,8 +7,7 @@
 #include "weas/leds.h"
 
 
-// an interface to the LEDs (there may be another in the future!)
-// (unlike ComputerCard) the raw input for these is 8 bits
+// add fancy crap to leds
 
 
 class LEDsDirect {
