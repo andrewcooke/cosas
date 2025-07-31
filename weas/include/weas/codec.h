@@ -115,8 +115,7 @@ private:
   static constexpr uint DAC_TX = 19;
   static constexpr uint EEPROM_SDA = 16;
   static constexpr uint EEPROM_SCL = 17;
-  static constexpr uint PULSE_1_INPUT = 2;
-  static constexpr uint PULSE_2_INPUT = 3;
+  static constexpr uint PULSE_INPUT = 2;  // and 3
   static constexpr uint DEBUG_1 = 0;
   static constexpr uint DEBUG_2 = 1;
 
@@ -206,7 +205,7 @@ Codec<O, SAMPLE_FREQ>::start() {
   adc_select_input(0);
   adc_set_round_robin(0b0001111U);
   adc_fifo_setup(true, true, 1, false, false);
-  adc_set_clkdiv(48000000 / (SAMPLE_FREQ * 4.0 * OVERSAMPLES) - 1);
+  adc_set_clkdiv(48000000 / (SAMPLE_FREQ * 4.0f * OVERSAMPLES) - 1);
   adc_dma = dma_claim_unused_channel(true);
   spi_dma = dma_claim_unused_channel(true);
   dma_channel_config adc_dmacfg = dma_channel_get_default_config(adc_dma);
@@ -293,7 +292,7 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
     last_pulse[pulse_lr] = pulse[pulse_lr];
-    pulse[pulse_lr] = !gpio_get(PULSE_1_INPUT + pulse_lr); // TODO - assumes sequential port, should we flag somehow?
+    pulse[pulse_lr] = !gpio_get(PULSE_INPUT + pulse_lr);
   }
 
   const uint knob = mux_state;
@@ -391,12 +390,11 @@ template <uint O, uint F> Codec<O, F>::Codec() {
     gpio_put(PULSE_RAW_OUT + lr, true); // raw high (output low)
   }
 
-  gpio_init(PULSE_1_INPUT);
-  gpio_set_dir(PULSE_1_INPUT, GPIO_IN);
-  gpio_pull_up(PULSE_1_INPUT); // NB Needs pullup to activate transistor on inputs
-  gpio_init(PULSE_2_INPUT);
-  gpio_set_dir(PULSE_2_INPUT, GPIO_IN);
-  gpio_pull_up(PULSE_2_INPUT); // NB: Needs pullup to activate transistor on inputs
+  for (uint lr = 0; lr < N_CHANNELS; lr++) {
+    gpio_init(PULSE_INPUT + lr);
+    gpio_set_dir(PULSE_INPUT + lr, GPIO_IN);
+    gpio_pull_up(PULSE_INPUT); // needs pullup to activate transistor on inputs
+  }
 
   spi_init(spi0, 15625000);
   spi_set_format(spi0, 16, SPI_CPOL_0, SPI_CPHA_0, SPI_MSB_FIRST);
