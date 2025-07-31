@@ -17,7 +17,18 @@
 #include "cosas/ui.h"
 
 
-// the interface to the DAC and ADC
+// the interface to the DAC and ADC - hardware logic largely from ComputerCard.h
+// main extensions are:
+// * selectable oversampling and sample frequency
+// * selectable ADC correction (DNL issues) and scaling
+// * modified filtering of CV and knobs
+// * callback for knob events (see fifo.h)
+
+// separated into two classes:
+// * Codec is the interface used elsewhere, but cannot be instantiated directly
+// * CodecFactory is a template class that creates instances of Codec and talks to teh hardware
+// the separation is purely to avoid having templates all over the place.  just downcast the
+// CodecFactory singleton to a Codec and pass that by reference.
 
 
 static constexpr uint CC_SAMPLE_44_1 = 44100;
@@ -154,6 +165,8 @@ protected:
 
 };
 
+
+//
 
 template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
 class CodecFactory : public Codec {

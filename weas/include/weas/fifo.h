@@ -10,6 +10,8 @@
 // responsible for launching code on core1 and connecting fifos
 // that send knob change events.
 
+// this is the basis for a UI using the knobs.
+
 
 typedef std::function<void(uint8_t knob, uint16_t now, uint16_t prev)> event_handler;
 
