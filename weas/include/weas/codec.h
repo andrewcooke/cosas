@@ -270,24 +270,38 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   dma_channel_set_read_addr(spi_dma, spi_buffer[dma_phase], true); // start reading from new buffer
 
   const uint cv_lr = mux_state & 1;
-  smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4; // 240hz lpf
-  uint16_t cv_tmp = smooth_cv[cv_lr] >> 4;
+
+  // afaict this is an exponentially weighted moving average filter (and zeroing lowest 4 bits).
+  // from the general expression F(t) = a x + (1 - a) F(t - 1) we can see that a is 1/16
+  // see google or https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+  // (but note that the arccos(x) is replaced by x (series expansion for cos)) to get the cutoff freq,
+  // f = a / (2 pi dt) where dt is time between samples.  for 48khz that gives 480hz.  the comment says 240hz:
+
+  // smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4;  // 240hz lpf
+
+  // in our case, dt varies (SAMPLE_FREQ):  a = 2 pi f / SAMPLE_FREQ
+  // do we really need to smooth so much?   why not aim for, say, 1/10 nyquist?  then we don't need to adjust
+  // for SAMPLE_FREQ (since the two scale together).  in that case  f = SAMPLE_FREQ / 20 and a = 1 / 3
+
+  // i get lost trying to track the 4 bit shifts in the original code.  afaict both cc + weas work...
+
+  smooth_cv[cv_lr] = (11 * smooth_cv[cv_lr] + 5 * adc_buffer[cpu_phase][3]) >> 4;
+  uint16_t cv_tmp = smooth_cv[cv_lr];
   if (adc_correct_mask & (C1 << cv_lr)) {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
   }
   cv[cv_lr] = 0x800 - cv_tmp;
 
-  // TODO - this puts an upper limit on OVERSAMPLE_BITS (could use int32_t temp)
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
-    uint16_t audio_tmp = 0;
-    for (uint i = 0; i < OVERSAMPLES; ++i) audio_tmp += adc_buffer[cpu_phase][audio_lr + 4 * i];
-    audio_tmp >>= OVERSAMPLE_BITS;
+    uint32_t audio_tmp_wide = 0;
+    for (uint i = 0; i < OVERSAMPLES; ++i) audio_tmp_wide += adc_buffer[cpu_phase][audio_lr + 4 * i];
+    auto audio_tmp = static_cast<uint16_t>(audio_tmp_wide >> OVERSAMPLE_BITS);
     if (adc_correct_mask & (A1 << audio_lr)) {
       audio_tmp = adc_correction(audio_tmp);
       if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
     }
-    audio[audio_lr] = static_cast<int16_t>(0x800 - audio_tmp);
+    audio[audio_lr] = static_cast<int16_t>(0x800u - audio_tmp);
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
@@ -296,7 +310,11 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
   }
 
   const uint knob = mux_state;
-  smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7; // 60hz lpf
+  // smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
+  // see discussion above.  this one does come out at 60hz.  but that gets very low when SAMPLE_FREQ drops.
+  // so let's aim for 1/100 nyquist which is roughly a = 1 / 30.
+  // here we don't need to shift right 4 bits (compare cv)?!
+  smooth_knobs[knob] = (31 * smooth_knobs[knob] + adc_buffer[cpu_phase][2]) >> 5;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
     knobs[Now][Switch] = (smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000);

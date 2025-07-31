@@ -17,6 +17,9 @@ public:
 
 private:
 
+  static constexpr uint BITS = 5;  // can't be more than 5 for uint32_t
+  static constexpr uint BITS_MASK = (1 << BITS) - 1;
+  static constexpr uint32_t FULL_MASK = (1 << (LEDs::N * BITS)) - 1;
   LEDs& leds = LEDs::get();
   uint ring_order[LEDs::N] = {4, 2, 0, 1, 3, 5};
   uint32_t overwrite(uint32_t m, float n, float w, uint a);

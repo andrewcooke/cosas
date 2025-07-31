@@ -6,6 +6,7 @@
 #include "cosas/dnl.h"
 #include "weas/codec.h"
 #include "weas/leds.h"
+#include "weas/leds_direct.h"
 
 
 constexpr float FDIV = 44.1f;
@@ -21,6 +22,7 @@ private:
   // detect and display changes, or identify source of previous change
 
   LEDs& leds = LEDs::get();
+  LEDsDirect leds_direct;
 
   constexpr static uint NONE = 999;
   uint prev_change = NONE;
@@ -84,16 +86,16 @@ private:
     if (idx < CC_::N_KNOBS) {
       switch(idx) {
       case static_cast<uint>(CC_::Main):
-        leds.sq4(0, 0xffu);
+        leds_direct.sq4(0, 0xffu);
         return;
       case static_cast<uint>(CC_::X):
-        leds.v2(2, 0xffu);
+        leds_direct.v2(2, 0xffu);
         return;
       case static_cast<uint>(CC_::Y):
-        leds.sq4(1, 0xffu);
+        leds_direct.sq4(1, 0xffu);
         return;
       case static_cast<uint>(CC_::Switch):
-        leds.v2(1, 0xffu);
+        leds_direct.v2(1, 0xffu);
         return;
       default:
         return;
@@ -115,15 +117,15 @@ private:
     if (idx < CC_::N_KNOBS) {
       if (idx == CC_::Switch) {
         leds.all(false);
-        leds.h2(static_cast<uint>(cc.read_switch()), 0xffu);
+        leds_direct.h2(static_cast<uint>(cc.read_switch()), 0xffu);
       } else {
-        leds.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<CC_::Knob>(idx))));
+        leds_direct.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<CC_::Knob>(idx))));
       }
       return;
     }
     idx -= CC_::N_KNOBS;
     if (idx < N_ADCS) {
-      leds.columns12bits(idx < 2 ? cc.read_audio(idx) : cc.read_cv(idx - 2));
+      leds_direct.columns12bits(idx < 2 ? cc.read_audio(idx) : cc.read_cv(idx - 2));
     }
     idx -= N_ADCS;
     if (idx < N_PULSES) {
@@ -173,7 +175,7 @@ public:
     }
   }
 
-  Diagnostics() {
+  Diagnostics() : leds_direct() {
     for (uint i = 0; i < WTABLE_SIZE; i++)
       wtable[i] = static_cast<int16_t>(2047 * sin(2 * std::numbers::pi * i / WTABLE_SIZE));
   }
