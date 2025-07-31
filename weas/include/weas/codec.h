@@ -145,7 +145,7 @@ private:
   volatile int32_t knobs[N_WHEN][N_KNOBS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
-  volatile int32_t cv[N_CHANNELS] = {};
+  volatile int16_t cv[N_CHANNELS] = {};
   volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
@@ -291,17 +291,17 @@ void Codec<OVERSAMPLE_BITS, F>::buffer_full() {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
   }
-  cv[cv_lr] = 0x800 - cv_tmp;
+  cv[cv_lr] = static_cast<int16_t>(0x800 - cv_tmp);
 
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
     uint32_t audio_tmp_wide = 0;
     for (uint i = 0; i < OVERSAMPLES; ++i) audio_tmp_wide += adc_buffer[cpu_phase][audio_lr + 4 * i];
-    auto audio_tmp = static_cast<uint16_t>(audio_tmp_wide >> OVERSAMPLE_BITS);
+    uint16_t audio_tmp = static_cast<uint16_t>(audio_tmp_wide >> OVERSAMPLE_BITS);
     if (adc_correct_mask & (A1 << audio_lr)) {
       audio_tmp = adc_correction(audio_tmp);
       if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
     }
-    audio[audio_lr] = static_cast<int16_t>(0x800u - audio_tmp);
+    audio[audio_lr] = static_cast<int16_t>(0x800 - audio_tmp);
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
