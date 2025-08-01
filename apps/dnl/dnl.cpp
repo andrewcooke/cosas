@@ -1,10 +1,11 @@
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 
 #include "cosas/dnl.h"
 #include "weas/codec.h"
 #include "weas/leds.h"
+
+#include <weas/leds_direct.h>
 
 
 static int32_t sqr(int32_t x) {
@@ -23,6 +24,16 @@ static int32_t sqr(int32_t x) {
 // comparison is such that bright leds indicate "top" has "won"
 // "top" refers to upper switch and upper connection in code below
 
+// hardware:
+// * connect audio out 1 to audio in 2 (central audio sockets)
+// * monitor audio out 2 (selected by Y - see code below)
+// * can also monitor audio out1 to see input waveform for comparison (identical to Y to left/low)
+// typically you want Y at 3/4 (show error in corrected) and then change switch
+// up/middle to compare the two on the oscilloscope.
+// switch down to "score".  bright leds indicate switch up (correcn1) is better
+// (has lower error / higher likelihood)
+
+
 class DNL {
 
 private:
@@ -30,8 +41,8 @@ private:
   // static constexpr uint NOISE = 12;  // bits of score to discard
   static constexpr uint NOISE = 4;
   static constexpr uint SLOW = 3;  // slow down output freq
-  LEDs& leds = LEDs::get();
-  Switch sw = Down;
+  LEDsDirect leds = LEDsDirect();
+  Codec::SwitchPosition sw = Codec::Down;
   uint32_t count = 0;
   int32_t score = 0;
   int prev_out = 0;
@@ -39,13 +50,14 @@ private:
   constexpr static uint wtable_bits = 12;
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
+  ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3);
   // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3); // best
   // ScaledDNL<int> correcn2 = ScaledDNL(fix_dnl_cx_px, 26, -10, -6); // best
-  ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best
+  // ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best
   ScaledDNL<> correcn2 = ScaledDNL(static_cast<int16_t (*)(uint16_t)>(nullptr), 26, -11);  // best
 
-  void update_switch() {
-    Switch sw2 = SwitchVal();
+  void update_switch(Codec& cc) {
+    Codec::SwitchPosition sw2 = cc.read_switch();
     if (sw2 != sw) {
       score = 0;
       sw = sw2;
@@ -62,43 +74,41 @@ private:
     return in;
   }
 
-  void display(int16_t prev_out, int16_t raw, int16_t corrected) {
-    uint display = KnobVal(Y) / 1024;
+  void display(Codec& cc, int16_t prev_out, int16_t raw_in, int16_t fixed_in) {
+    uint display = cc.read_knob(Codec::Y) / 1024;
     switch (display) {
     case 0:
-      AudioOut(1, raw);
+      cc.write_audio(1, raw_in);
       return;
     case 1:
-      AudioOut(1, raw - prev_out);
+      cc.write_audio(1, raw_in - prev_out);
       return;
     case 2:
-      AudioOut(1, corrected - prev_out);
+      cc.write_audio(1, fixed_in - prev_out);
       return;
     case 3:
-      AudioOut(1, corrected);
+      cc.write_audio(1, fixed_in);
       return;
     }
   }
 
-  void display_or_score(int16_t prev_out, int16_t next_out) {
+  void display_or_score(Codec& cc, int16_t prev_out, int16_t raw_in) {
 
     // in all cases triangle to output 0 and read on input 1
-    AudioOut(0, next_out);
-    int16_t raw = AudioIn(1);
-    int16_t corrected;
+    int16_t fixed_in;
 
     switch (sw) {
-    case Up:
-      corrected = correct(true, raw);
-      display(prev_out, raw, corrected);
+    case Codec::Up:
+      fixed_in = correct(true, raw_in);
+      display(cc, prev_out, raw_in, fixed_in);
       break;
-    case Middle:
-      corrected = correct(false, raw);
-      display(prev_out, raw, corrected);
+    case Codec::Middle:
+      fixed_in = correct(false, raw_in);
+      display(cc, prev_out, raw_in, fixed_in);
       break;
-    case Down:
-      // bright if upper wins so lower should be arger
-      score += sqr(correct(false, raw) - prev_out) - sqr(correct(true, raw) - prev_out);
+    case Codec::Down:
+      // bright if upper wins so lower should be larger
+      score += sqr(correct(false, raw_in) - prev_out) - sqr(correct(true, raw_in) - prev_out);
       leds.display7bits(
         static_cast<int16_t>(std::max(-0x7fff,
         static_cast<int>(std::min(
@@ -106,15 +116,18 @@ private:
     }
   }
 
-  void ProcessSample() override {
-    update_switch();
+public:
+
+  void ProcessSample(Codec& cc) {
+    update_switch(cc);
     int16_t next_out = wtable[(count >> SLOW) % wtable_size];
-    display_or_score(prev_out, next_out);
+    cc.write_audio(0, next_out);
+    int16_t raw_in = cc.read_audio(1);
+    display_or_score(cc, prev_out, raw_in);
     prev_out = next_out;
     count++;
   }
 
-public:
   DNL() {
     for (uint i = 0; i < wtable_size; i++)
       // want sawtooth (so no sudden changes) that covers all values
@@ -123,7 +136,13 @@ public:
 };
 
 
-int main() {
+int main()
+{
   DNL dnl;
-  dnl.Run();
+  Codec& cc = CodecFactory<4, CC_SAMPLE_48>::get();
+  cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
+  cc.set_adc_correction(fix_dnl);
+  cc.select_adc_correction(Codec::All);
+  cc.set_adc_scale(true);
+  cc.start();
 };
