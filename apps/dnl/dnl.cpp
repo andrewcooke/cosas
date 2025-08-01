@@ -5,6 +5,7 @@
 #include "weas/codec.h"
 #include "weas/leds.h"
 
+#include <stdexcept>
 #include <weas/leds_direct.h>
 
 
@@ -142,7 +143,7 @@ public:
 
 int main() {
   DNL dnl;
-  Codec& cc = CodecFactory<0, CC_SAMPLE_48>::get();  // 16x oversampling
+  Codec& cc = CodecFactory<3, CC_SAMPLE_48>::get();  // actual freq lower for >1 bits oversample
   cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
   cc.start();
 };

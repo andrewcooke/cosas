@@ -218,6 +218,12 @@ CodecFactory<O, SAMPLE_FREQ>::start() {
   adc_select_input(0);
   adc_set_round_robin(0b0001111U);
   adc_fifo_setup(true, true, 1, false, false);
+  // this is clamped at 96 clock ticks.
+  // that implies the maximum value of f x n is 125,000
+  // so a sample freq (f) of 48khz implies n of 2
+  // for oversample (n) of 4, f must be 31.25khz (nyquist 16khz)
+  // in practice, if you ask for too much you get the oversampling you asked
+  // for at the highest rate possible.
   adc_set_clkdiv(48000000 / (SAMPLE_FREQ * 4.0f * OVERSAMPLES) - 1);
   adc_dma = dma_claim_unused_channel(true);
   spi_dma = dma_claim_unused_channel(true);
