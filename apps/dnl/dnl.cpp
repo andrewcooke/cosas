@@ -25,8 +25,8 @@ static int32_t sqr(int32_t x) {
 // "top" refers to upper switch and upper connection in code below
 
 // hardware:
-// * connect audio out 1 to audio in 2 (central audio sockets)
-// * monitor audio out 2 (selected by Y - see code below)
+// * connect audio out 0 to audio in 1 (central audio sockets)
+// * monitor audio out 1 (selected by Y - see code below)
 // * can also monitor audio out1 to see input waveform for comparison (identical to Y to left/low)
 // typically you want Y at 3/4 (show error in corrected) and then change switch
 // up/middle to compare the two on the oscilloscope.
