@@ -36,8 +36,10 @@ private:
 int main() {
   FIFODemo demo;
   auto& fifo = FIFO::get();
+  auto& cc = CC_::get();
+  // cc.set_adc_mask(CC_::Knobs, 0xfff0);  // discard bottom 4 bits
   fifo.set_knob_changes(&demo);
-  fifo.start(CC_::get());
-  CC_::get().start();
+  fifo.start(cc);
+  cc.start();
 };
 

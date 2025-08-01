@@ -7,7 +7,7 @@
 
 
 LEDsMask::LEDsMask() : scale() {
-   for (uint i = 0; i < N_CYCLE; ++i) scale[i] = 1 + std::sinf(static_cast<float>(2 * M_PI * i / N_CYCLE));
+   for (uint i = 0; i < N_CYCLE; ++i) scale[i] = 1 + std::sinf(static_cast<float>(2 * std::numbers::pi * i / N_CYCLE));
  }
 
 

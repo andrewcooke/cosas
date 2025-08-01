@@ -32,7 +32,7 @@ int16_t QuarterWtable::next(int32_t tick) const {
 
 Sine::Sine(float gamma) {
   for (size_t i = 0; i < quarter_table.size(); i++) {
-    float shape = sinf(2 * static_cast<float>(M_PI) * i / FULL_TABLE_SIZE);
+    float shape = sinf(2 * static_cast<float>(std::numbers::pi) * i / FULL_TABLE_SIZE);
     if (gamma != 1) { shape = powf(shape, gamma); }
     quarter_table.at(i) = clip_16(shape * SAMPLE_MAX);
   }
@@ -157,7 +157,7 @@ void PolyTable::make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t 
 
 void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++)
-    table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(M_PI) * tox(i, lo, hi) / 2.0f));
+    table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(std::numbers::pi) * tox(i, lo, hi) / 2.0f));
 }
 
 void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {

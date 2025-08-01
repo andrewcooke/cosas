@@ -11,6 +11,7 @@ if (BUILD STREQUAL "pico")
 endif()
 
 project(cosas VERSION 0.0 DESCRIPTION "ac's code for mtm" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wdouble-promotion -Wfloat-conversion -Wall -Wextra -Werror)

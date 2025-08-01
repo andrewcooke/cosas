@@ -25,8 +25,8 @@ private:
   std::function<int16_t(int32_t)>& callback;
   static constexpr int16_t EMPTY = 0;
   // signed to make arithmetic for space simpler
-  volatile int read_from;
-  int write_to;
+  volatile size_t read_from;
+  size_t write_to;
   static constexpr size_t BUFFER_LEN = 5;
   std::array<int16_t, BUFFER_LEN> buffer;
 

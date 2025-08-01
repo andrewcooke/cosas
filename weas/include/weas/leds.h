@@ -2,8 +2,7 @@
 #ifndef WEAS_LEDS_H
 #define WEAS_LEDS_H
 
-#include <cstdint>
-#include <sys/types.h>
+#include <pico/types.h>
 
 
 // an interface to the LEDs

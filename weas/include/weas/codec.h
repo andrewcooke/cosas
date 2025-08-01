@@ -51,6 +51,8 @@ public:
   };
   enum When { Now, Prev };
   static constexpr uint N_WHEN = Prev + 1;
+  enum ADCSource { Audios, CVs, Knobs };
+  static constexpr uint N_ADC_SOURCES = Knobs + 1;
 
   Codec(const Codec&) = delete;
   Codec& operator=(const Codec&) = delete;
@@ -68,6 +70,8 @@ public:
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
   void set_adc_scale(bool scale) {scale_adc = scale; };
+  void set_adc_mask(ADCSource s, uint16_t mask) {adc_mask[s] = mask; };
+  void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
@@ -140,13 +144,14 @@ protected:
   std::function<int16_t(uint16_t)> adc_correction = [](uint16_t adc) {return adc;};
   uint32_t adc_scale = calc_adc_scale();
   bool scale_adc = false;
+  uint16_t adc_mask[N_ADC_SOURCES] = { 0xffffu, 0xffffu, 0xffffu };  // TODO - hardcodes N_AUDIO_SOURCES
 
   uint32_t count = 0;
   bool starting = false;
   volatile ADCRunMode run_mode;
 
   int16_t cv_out[N_CHANNELS] = {};
-  volatile int32_t knobs[N_WHEN][N_KNOBS] = {};
+  volatile int16_t knobs[N_WHEN][N_KNOBS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
   volatile int16_t cv[N_CHANNELS] = {};
@@ -257,8 +262,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
   uint dma_phase = 1 - cpu_phase;
   static int probe_out = 0;
 
-  static volatile int32_t smooth_knobs[N_KNOBS] = {};
-  static volatile int32_t smooth_cv[N_CHANNELS] = {};
+  static volatile uint16_t smooth_knobs[N_KNOBS] = {};
+  static volatile uint16_t smooth_cv[N_CHANNELS] = {};
 
   adc_select_input(0); // TODO - why is this here?
 
@@ -293,7 +298,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
   }
-  cv[cv_lr] = static_cast<int16_t>(0x800 - cv_tmp);
+  cv[cv_lr] = static_cast<int16_t>(0x800 - (cv_tmp & adc_mask[CVs]));
 
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
     uint32_t audio_tmp_wide = 0;
@@ -303,7 +308,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
       audio_tmp = adc_correction(audio_tmp);
       if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
     }
-    audio[audio_lr] = static_cast<int16_t>(0x800 - audio_tmp);
+    audio[audio_lr] = static_cast<int16_t>(0x800 - (audio_tmp & adc_mask[Audios]));
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
@@ -320,7 +325,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
   if (knob == Switch) {
     knobs[Now][Switch] = (smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000);
   } else {
-    knobs[Now][knob] = smooth_knobs[knob];
+    knobs[Now][knob] = smooth_knobs[knob] & adc_mask[Knobs];
   }
 
   if (starting) {  // avoid startup noise
