@@ -180,8 +180,7 @@ public:
 
 };
 
-int main()
-{
+int main() {
   Diagnostics diag;
   Codec& cc = CodecFactory<1, SAMPLE_FREQ>::get();
   cc.set_per_sample_cb([&](Codec& c){diag.ProcessSample(c);});

@@ -169,10 +169,14 @@ protected:
   [[nodiscard]] uint32_t calc_adc_scale();
   [[nodiscard]] uint16_t apply_adc_scale(uint16_t v);
 
+  // longer method definitions in codec.cpp
+
 };
 
 
-//
+// this is a templated singleton that subclasses Codec.  usage:
+//   Codec& codec = CodecFactory<OBITS, FREQ>::get();
+// then use codec as required (typically via set_per_sample_cb()).
 
 template <uint OVERSAMPLE_BITS, uint SAMPLE_FREQ>
 class CodecFactory : public Codec {
