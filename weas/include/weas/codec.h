@@ -20,8 +20,8 @@
 // the interface to the DAC and ADC - hardware logic largely from ComputerCard.h
 // main extensions are:
 // * selectable oversampling and sample frequency
-// * selectable ADC correction (DNL issues) and scaling
-// * modified filtering of CV and knobs
+// * selectable ADC correction (DNL issues), scaling, and masks
+// * modified filtering of CV (1/10 nyquist) and knobs (1/100 nyquist)
 // * callback for knob events (see fifo.h)
 
 // separated into two classes:
