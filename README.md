@@ -23,6 +23,7 @@ the project **cosas** contains:
 the plan is to have a unified UI via the weas library.
 
 significant waypoints:
+* 2025-07-31 - refactored codec to avoid template mess; LED based UI started
 * 2025-07-26 - ComputerCard.h split into led, eeprom and codec
 * 2025-07-18 - use ComputerCard.h more directly (refactor rather than recreate)
 * 2025-07-03 - can flash LEDs on the pico
