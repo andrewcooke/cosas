@@ -30,6 +30,15 @@ public:
   void h2(uint n, uint8_t v);
   void display7bits(int16_t v);  // binary, -ve as dim
 
+  void set(uint index, uint8_t b) {leds.set(index, b);};
+  void set(uint index, uint b) {leds.set(index, b);};
+  void set(uint index, bool x) {leds.set(index, x);};
+  void on(uint index) {leds.on(index);};
+  void off(uint index) {leds.off(index);};
+  void all(uint8_t x) {leds.all(x);};
+  void all(uint x) {leds.all(x);};
+  void all(bool x) {leds.all(x);};
+
 private:
 
   LEDs& leds = LEDs::get();

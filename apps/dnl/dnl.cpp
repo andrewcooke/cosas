@@ -23,6 +23,8 @@ static int32_t sqr(int32_t x) {
 // * displaying raw, raw - expected, corrected - expected, corrected on output 1 (depending on y)
 // comparison is such that bright leds indicate "top" has "won"
 // "top" refers to upper switch and upper connection in code below
+// in addition, the main knob controls frequency.  to the left there's a change in output
+// every sample; turning to the right every 2, 4 and 8 samples.
 
 // hardware:
 // * connect audio out 0 to audio in 1 (central audio sockets)
@@ -40,10 +42,10 @@ private:
 
   // static constexpr uint NOISE = 12;  // bits of score to discard
   static constexpr uint NOISE = 4;
-  static constexpr uint SLOW = 3;  // slow down output freq
   LEDsDirect leds = LEDsDirect();
   Codec::SwitchPosition sw = Codec::Down;
   uint32_t count = 0;
+  uint slow_bits = 0;
   int32_t score = 0;
   int prev_out = 0;
   uint wtable_idx = 0;
@@ -56,12 +58,10 @@ private:
   // ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best
   ScaledDNL<> correcn2 = ScaledDNL(static_cast<int16_t (*)(uint16_t)>(nullptr), 26, -11);  // best
 
-  void update_switch(Codec& cc) {
-    Codec::SwitchPosition sw2 = cc.read_switch();
-    if (sw2 != sw) {
-      score = 0;
-      sw = sw2;
-    }
+  void update_controls(Codec& cc) {
+    sw = cc.read_switch();
+    if (cc.knob_changed(Codec::Switch)) score = 0;
+    slow_bits = cc.read_knob(Codec::Main) >> 10;  // leave 2 bits
   }
 
   int16_t correct(bool top, int16_t in) {
@@ -101,10 +101,14 @@ private:
     case Codec::Up:
       fixed_in = correct(true, raw_in);
       display(cc, prev_out, raw_in, fixed_in);
+      leds.all(false);
+      leds.h2(0, 0x80);
       break;
     case Codec::Middle:
       fixed_in = correct(false, raw_in);
       display(cc, prev_out, raw_in, fixed_in);
+      leds.all(false);
+      leds.h2(1, 0x80);
       break;
     case Codec::Down:
       // bright if upper wins so lower should be larger
@@ -119,8 +123,8 @@ private:
 public:
 
   void ProcessSample(Codec& cc) {
-    update_switch(cc);
-    int16_t next_out = wtable[(count >> SLOW) % wtable_size];
+    update_controls(cc);
+    int16_t next_out = wtable[(count >> slow_bits) % wtable_size];
     cc.write_audio(0, next_out);
     int16_t raw_in = cc.read_audio(1);
     display_or_score(cc, prev_out, raw_in);
@@ -138,7 +142,7 @@ public:
 
 int main() {
   DNL dnl;
-  Codec& cc = CodecFactory<4, CC_SAMPLE_48>::get();  // 16x oversampling
+  Codec& cc = CodecFactory<0, CC_SAMPLE_48>::get();  // 16x oversampling
   cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
   cc.start();
 };
