@@ -14,8 +14,7 @@ bool LEDsTimer::trampoline(repeating_timer_t *rt) {
 }
 
 void LEDsTimer::render() {
-  uint32_t merged = leds_mask->modulate(mask, extra, codec.get_count() >> 14);
-  leds_mask->show(merged);
+  leds_mask->show(mask, extra, codec.get_count() >> 12);
 }
 
 void LEDsTimer::show(uint32_t mask) {

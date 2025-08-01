@@ -29,8 +29,7 @@ private:
 
   LEDsMask mask;
   std::unique_ptr<LEDsTimer> leds_timer;
-  uint32_t top_square = mask.top_square(0x01);
-  uint32_t square = mask.top_square(0x3);
+  uint32_t square = mask.top_square(0x7);
   CC_& cc;
 };
 
