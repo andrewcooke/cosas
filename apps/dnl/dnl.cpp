@@ -140,8 +140,5 @@ int main() {
   DNL dnl;
   Codec& cc = CodecFactory<4, CC_SAMPLE_48>::get();  // 16x oversampling
   cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
-  cc.set_adc_correction(fix_dnl);
-  cc.select_adc_correction(Codec::All);
-  cc.set_adc_scale(true);
   cc.start();
 };
