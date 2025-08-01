@@ -287,21 +287,18 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
 
   const uint cv_lr = mux_state & 1;
 
-  // afaict this is an exponentially weighted moving average filter (and zeroing lowest 4 bits).
-  // from the general expression F(t) = a x + (1 - a) F(t - 1) we can see that a is 1/16
-  // see google or https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
-  // (but note that the arccos(x) is replaced by x (series expansion for cos)) to get the cutoff freq,
-  // f = a / (2 pi dt) where dt is time between samples.  for 48khz that gives 480hz (although the comment
-  // says 240hz):
-
+  // ComputerCard equivalent:
   // smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4;  // 240hz lpf
+  // afaict,  from the general expression F(t) = a x + (1 - a) F(t - 1),  this is an exponentially
+  // weighted moving average filter, but there's something odd about the sums and bit shifts i don't understand,
+
+  // from google or https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+  // (but note that the arccos(x) is replaced by x (series expansion for cos)) we can get the cutoff freq,
+  // f = a / (2 pi dt) where dt is time between samples.
 
   // in our case, dt varies (SAMPLE_FREQ):  a = 2 pi f / SAMPLE_FREQ
   // do we really need to smooth so much?   why not aim for, say, 1/10 nyquist?  then we don't need to adjust
   // for SAMPLE_FREQ (since the two scale together).  in that case  f = SAMPLE_FREQ / 20 and a = 1 / 3
-
-  // i am unsure about the various shifts by 4 in the cc code - i think bits are dropped from cv and knobs.
-  // that is not the case here - currently you need to throw data away yourself.
 
   smooth_cv[cv_lr] = (11 * smooth_cv[cv_lr] + 5 * adc_buffer[cpu_phase][3]) >> 4;
   uint16_t cv_tmp = smooth_cv[cv_lr];

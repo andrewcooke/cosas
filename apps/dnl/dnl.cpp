@@ -5,7 +5,6 @@
 #include "weas/codec.h"
 #include "weas/leds.h"
 
-#include <stdexcept>
 #include <weas/leds_direct.h>
 
 
