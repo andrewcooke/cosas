@@ -16,14 +16,14 @@ static int32_t sqr(int32_t x) {
 // switch up - show one correction (y selects display)
 // switch middle - show other connection (y selects display)
 // switch down - show comparative score
-// "showing" a corcetion involves:
+// "showing" a correction involves:
 // * generating a triangle wave on output 0
 // * reading triangle wave on input 1
 // * displaying raw, raw - expected, corrected - expected, corrected on output 1 (depending on y)
 // comparison is such that bright leds indicate "top" has "won"
 // "top" refers to upper switch and upper connection in code below
 
-class DNL final : public Codec {
+class DNL {
 
 private:
 

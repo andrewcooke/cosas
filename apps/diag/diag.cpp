@@ -12,8 +12,6 @@
 constexpr float FDIV = 44.1f;
 constexpr uint SAMPLE_FREQ = static_cast<uint>(CC_SAMPLE_44_1 / FDIV);
 
-typedef Codec<1, SAMPLE_FREQ> CC_;
-
 
 class Diagnostics final {
 
@@ -31,26 +29,26 @@ private:
   enum When { Now, Prev };
   constexpr static uint N_WHEN = Prev + 1;
   constexpr static uint THRESH_KNOBS = 4;
-  uint32_t knobs[N_WHEN][CC_::N_KNOBS] = {};
+  uint32_t knobs[N_WHEN][Codec::N_KNOBS] = {};
   constexpr static uint THRESH_ADCS = 7;
   constexpr static uint N_ADCS = 4;
   uint32_t adcs[N_WHEN][N_ADCS] = {};
   constexpr static uint THRESH_PULSES = 0;
   constexpr static uint N_PULSES = 2;
   bool pulses[N_WHEN][N_PULSES] = {};
-  constexpr static uint N_ALL = CC_::N_KNOBS + N_ADCS + N_PULSES;
+  constexpr static uint N_ALL = Codec::N_KNOBS + N_ADCS + N_PULSES;
 
   uint32_t count = 0;
   constexpr static uint WTABLE_BITS = 12;
   constexpr static uint WTABLE_SIZE = 1 << WTABLE_BITS;
   int16_t wtable[WTABLE_SIZE] = {};
 
-  void save_current(CC_& cc) {
-    for (uint knob = 0; knob < CC_::N_KNOBS; knob++) {
+  void save_current(Codec& cc) {
+    for (uint knob = 0; knob < Codec::N_KNOBS; knob++) {
       knobs[Prev][knob] = knobs[Now][knob];
       // for some reason knob values are signed integers, but we
       // need to display unsigned so cast here
-      knobs[Now][knob] = cc.read_knob(static_cast<CC_::Knob>(knob)) >> (knob == CC_::Switch ? 0 : THRESH_KNOBS);
+      knobs[Now][knob] = cc.read_knob(static_cast<Codec::Knob>(knob)) >> (knob == Codec::Switch ? 0 : THRESH_KNOBS);
     }
     for (uint adc = 0; adc < N_ADCS; adc++) {
       adcs[Prev][adc] = adcs[Now][adc];
@@ -63,8 +61,8 @@ private:
   }
 
   bool changed(uint idx) const {
-    if (idx < CC_::N_KNOBS) return knobs[0][idx] != knobs[1][idx];
-    idx -= CC_::N_KNOBS;
+    if (idx < Codec::N_KNOBS) return knobs[0][idx] != knobs[1][idx];
+    idx -= Codec::N_KNOBS;
     if (idx < N_ADCS) return adcs[0][idx] != adcs[1][idx];
     idx -= N_ADCS;
     if (idx < N_PULSES) return pulses[0][idx] != pulses[1][idx];
@@ -83,25 +81,25 @@ private:
 
   void identify(uint idx) {
     leds.all(0x40u);
-    if (idx < CC_::N_KNOBS) {
+    if (idx < Codec::N_KNOBS) {
       switch(idx) {
-      case static_cast<uint>(CC_::Main):
+      case static_cast<uint>(Codec::Main):
         leds_direct.sq4(0, 0xffu);
         return;
-      case static_cast<uint>(CC_::X):
+      case static_cast<uint>(Codec::X):
         leds_direct.v2(2, 0xffu);
         return;
-      case static_cast<uint>(CC_::Y):
+      case static_cast<uint>(Codec::Y):
         leds_direct.sq4(1, 0xffu);
         return;
-      case static_cast<uint>(CC_::Switch):
+      case static_cast<uint>(Codec::Switch):
         leds_direct.v2(1, 0xffu);
         return;
       default:
         return;
       }
     }
-    idx -= CC_::N_KNOBS;
+    idx -= Codec::N_KNOBS;
     if (idx < N_ADCS) {
       leds.on(idx);  // swap audio l/r
       return;
@@ -113,17 +111,17 @@ private:
     }
   }
 
-  void display(CC_& cc, uint idx) {
-    if (idx < CC_::N_KNOBS) {
-      if (idx == CC_::Switch) {
+  void display(Codec& cc, uint idx) {
+    if (idx < Codec::N_KNOBS) {
+      if (idx == Codec::Switch) {
         leds.all(false);
         leds_direct.h2(static_cast<uint>(cc.read_switch()), 0xffu);
       } else {
-        leds_direct.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<CC_::Knob>(idx))));
+        leds_direct.columns12bits(static_cast<uint16_t>(cc.read_knob(static_cast<Codec::Knob>(idx))));
       }
       return;
     }
-    idx -= CC_::N_KNOBS;
+    idx -= Codec::N_KNOBS;
     if (idx < N_ADCS) {
       leds_direct.columns12bits(idx < 2 ? cc.read_audio(idx) : cc.read_cv(idx - 2));
     }
@@ -140,7 +138,7 @@ private:
     return (count & (1 << n)) && ! ((count - 1) & (1 << n));
   }
 
-  void write_out(CC_& cc) {
+  void write_out(Codec& cc) {
     for (uint i = 0; i < 4; i++) {
       uint idx = (count >> (i + 3)) & (WTABLE_SIZE - 1);
       if (i < 2) cc.write_audio(i, wtable[idx]);
@@ -152,14 +150,14 @@ private:
   }
 
   static int delay(const uint prev_change) {
-    if (prev_change == CC_::N_KNOBS - 1) return static_cast<int>(30000 / FDIV);  // switch
+    if (prev_change == Codec::N_KNOBS - 1) return static_cast<int>(30000 / FDIV);  // switch
     if (prev_change == N_ALL - 1) return static_cast<int>(100 / FDIV);  // pulse
     return 2000;  // default
   }
 
 public:
 
-  void ProcessSample(CC_& cc) {
+  void ProcessSample(Codec& cc) {
     write_out(cc);
     save_current(cc);
     if (prev_change != NONE && ((recent-- > 0) || changed(prev_change))) {
@@ -185,10 +183,10 @@ public:
 int main()
 {
   Diagnostics diag;
-  CC_& cc = CC_::get();
-  cc.set_per_sample_cb([&](CC_& c){diag.ProcessSample(c);});
+  Codec& cc = CodecFactory<1, SAMPLE_FREQ>::get();
+  cc.set_per_sample_cb([&](Codec& c){diag.ProcessSample(c);});
   cc.set_adc_correction(fix_dnl);
-  cc.select_adc_correction(CC_::All);
+  cc.select_adc_correction(Codec::All);
   cc.set_adc_scale(true);
   cc.start();
 };

@@ -26,9 +26,10 @@
 
 // separated into two classes:
 // * Codec is the interface used elsewhere, but cannot be instantiated directly
-// * CodecFactory is a template class that creates instances of Codec and talks to teh hardware
-// the separation is purely to avoid having templates all over the place.  just downcast the
-// CodecFactory singleton to a Codec and pass that by reference.
+// * CodecFactory is a template class that creates instances of Codec and talks to the hardware
+// the separation is purely to avoid having templates all over the place.
+// downcast the CodecFactory singleton to a Codec and pass that by reference
+// (the CodeFactory instance adds no API interesting to the end user).
 
 
 static constexpr uint CC_SAMPLE_44_1 = 44100;
