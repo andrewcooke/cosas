@@ -10,7 +10,7 @@
 
 
 constexpr float FDIV = 44.1f;
-constexpr uint SAMPLE_FREQ = static_cast<uint>(CC_SAMPLE_44_1 / FDIV);
+constexpr uint SAMPLE_FREQ = static_cast<uint>(CODEC_SAMPLE_44_1 / FDIV);
 
 
 class Diagnostics final {
@@ -184,9 +184,9 @@ int main() {
   Diagnostics diag;
   Codec& cc = CodecFactory<1, SAMPLE_FREQ>::get();
   cc.set_per_sample_cb([&](Codec& c){diag.per_sample_cb(c);});
-  cc.set_adc_correction(fix_dnl);
+  cc.set_adc_correction_and_scale(fix_dnl);
   cc.select_adc_correction(Codec::All);
-  cc.set_adc_scale(true);
+  cc.select_adc_scale(true);
   cc.start();
 };
 

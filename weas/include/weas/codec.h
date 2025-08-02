@@ -32,8 +32,9 @@
 // (the CodeFactory instance adds no API interesting to the end user).
 
 
-static constexpr uint CC_SAMPLE_44_1 = 44100;
-static constexpr uint CC_SAMPLE_48 = 48000;
+static constexpr uint CODEC_SAMPLE_44_1 = 44100;
+static constexpr uint CODEC_SAMPLE_48 = 48000;
+static std::function<int16_t(uint16_t)> CODEC_NULL_CORRECTION = [](uint16_t adc) {return adc;};
 
 
 class Codec {
@@ -67,10 +68,10 @@ public:
   void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
   void set_knob_changes(KnobChanges* k) { knob_changes = k; }
   void select_knob_changes(bool on) {track_knob_changes = on; }
-  void set_adc_correction(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
+  void set_adc_correction_and_scale(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
   void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
-  void set_adc_scale(bool scale) {scale_adc = scale; };
+  void select_adc_scale(bool scale) {scale_adc = scale; };
   void set_adc_mask(ADCSource s, uint16_t mask) {adc_mask[s] = mask; };
   void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
 
@@ -147,7 +148,7 @@ protected:
   bool track_knob_changes = false;
 
   uint adc_correct_mask = 0;
-  std::function<int16_t(uint16_t)> adc_correction = [](uint16_t adc) {return adc;};
+  std::function<int16_t(uint16_t)> adc_correction = CODEC_NULL_CORRECTION;
   uint32_t adc_scale = calc_adc_scale();
   bool scale_adc = false;
   uint16_t adc_mask[N_ADC_SOURCES] = { 0xffffu, 0xffffu, 0xffffu };  // TODO - hardcodes N_AUDIO_SOURCES

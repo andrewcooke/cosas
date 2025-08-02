@@ -41,22 +41,24 @@ class DNL {
 private:
 
   // static constexpr uint NOISE = 12;  // bits of score to discard
-  static constexpr uint NOISE = 4;
+  static constexpr uint NOISE = 7;
   LEDsDirect leds = LEDsDirect();
   Codec::SwitchPosition sw = Codec::Down;
   uint32_t count = 0;
   uint slow_bits = 0;
-  int32_t score = 0;
+  int64_t score = 0;
   int prev_out = 0;
   uint wtable_idx = 0;
   constexpr static uint wtable_bits = 12;
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
-  ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3);
+  ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4);
+  ScaledDNL<int, int> correcn2 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4);
+  // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3);
   // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3); // best
   // ScaledDNL<int> correcn2 = ScaledDNL(fix_dnl_cx_px, 26, -10, -6); // best
   // ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best
-  ScaledDNL<> correcn2 = ScaledDNL(static_cast<int16_t (*)(uint16_t)>(nullptr), 26, -11);  // best
+  // ScaledDNL<> correcn2 = ScaledDNL(static_cast<int16_t (*)(uint16_t)>(nullptr), 26, -11);  // best
 
   void update_controls(Codec& cc) {
     sw = cc.read_switch();
@@ -116,7 +118,7 @@ private:
       leds.display7bits(
         static_cast<int16_t>(std::max(-0x7fff,
         static_cast<int>(std::min(
-          static_cast<int32_t>(0x7fff), score >> NOISE)))));
+          static_cast<int64_t>(0x7fff), score >> NOISE)))));
     }
   }
 
@@ -142,7 +144,10 @@ public:
 
 int main() {
   DNL dnl;
-  Codec& cc = CodecFactory<3, CC_SAMPLE_48>::get();  // actual freq lower for >1 bits oversample
+  Codec& cc = CodecFactory<3, CODEC_SAMPLE_48>::get();  // actual freq lower for >1 bits oversample
+  cc.set_adc_correction_and_scale(CODEC_NULL_CORRECTION);
+  cc.select_adc_correction(0);
+  cc.select_adc_scale(0);
   cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
   cc.start();
 };

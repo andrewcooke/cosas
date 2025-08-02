@@ -2,8 +2,16 @@
 #include "cosas/dnl.h"
 
 
+// see discussion on discord
+uint16_t fix_dnl(uint16_t adc) {
+  uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
+  if (!((adc - 0x01ff) & 0x01ff)) bdc += 4;  // TODO - is this ok?  -ve value but promoted to int
+  return bdc;
+}
+
+
 // see https://acooke.org/cute/RaspberryP1.html
-uint16_t fix_dnl(const uint16_t adc) {
+uint16_t fix_dnl_old(const uint16_t adc) {
   uint16_t bdc = adc + (((adc + 0x200) >> 10) << 3);
   if ((adc & 0x600) && !(adc & 0x800)) bdc += 3;
   if (!((adc + 0x200) & 0x3ff)) bdc -= 10;
@@ -51,3 +59,11 @@ int16_t fix_dnl_cx_px(uint16_t adc, int x) {
   if (!(adc512 % 0x0200)) bdc += x;
   return bdc + ((adc512>>10) << 3);
 }
+
+int16_t fix_dnl_cj2_pxy(uint16_t adc, int x, int y) {
+  auto zz = static_cast<int16_t>(adc + (((adc + 0x200) >> 10) << 3));
+  auto delta = static_cast<int16_t>(adc - (0x01ff + x));
+  if (! (delta & 0x01ff)) zz += y;
+  return zz;
+}
+

@@ -9,7 +9,7 @@
 
 #include <weas/leds_timer.h>
 
-typedef CodecFactory<1, CC_SAMPLE_44_1> CC_;
+typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 
 
 class FIFODemo : public KnobChanges {
