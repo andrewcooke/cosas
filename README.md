@@ -2,9 +2,7 @@
 # cosas
 
 various utilities and applications for the Music Thing Modular
-Workshop Computer (MTM WC).
-
-the project **cosas** contains:
+Workshop Computer (MTM WC):
 
 * the C++ library
   [cosas](https://github.com/andrewcooke/cosas/tree/main/cosas) which
