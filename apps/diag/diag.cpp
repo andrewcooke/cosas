@@ -127,7 +127,7 @@ private:
     }
     idx -= N_ADCS;
     if (idx < N_PULSES) {
-      for (uint i = 0; i < leds.N; i++) {
+      for (uint i = 0; i < LEDs::N; i++) {
         if (i == idx || i == idx + 4) leds.on(i);
         else leds.off(i);
       }

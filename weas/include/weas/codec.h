@@ -156,7 +156,7 @@ protected:
   bool starting = false;
   volatile ADCRunMode run_mode;
 
-  uint32_t cv_out[N_CHANNELS] = {};
+  uint32_t cv_out[N_CHANNELS] = {262144u, 262144u};  // TODO - again, hardcoding length
   uint16_t audio_out[N_CHANNELS] = {};
   volatile int16_t knobs[N_WHEN][N_KNOBS] = {};
   volatile bool pulse[N_CHANNELS] = {};
@@ -331,6 +331,9 @@ CodecFactory<O, SAMPLE_FREQ>::start() {
       adc_set_round_robin(0b0001111U);
       adc_run(true);
     } else if (run_mode == Stopped) {
+      irq_set_enabled(PWM_IRQ_WRAP, false);
+      pwm_clear_irq(pwm_gpio_to_slice_num(CV_OUT));
+      irq_remove_handler(PWM_IRQ_WRAP, cv_callback);
       break;
     }
   }
@@ -459,6 +462,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
     dma_channel_cleanup(adc_dma);
     dma_channel_cleanup(spi_dma);
+    irq_set_enabled(DMA_IRQ_0, false);
     irq_remove_handler(DMA_IRQ_0, adc_callback);
     run_mode = Stopped;
   }

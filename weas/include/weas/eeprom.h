@@ -32,6 +32,7 @@ public:
   USBPowerState get_usb_power_state();
   HardwareVersion get_hardware_version() const { return hw; }
   uint64_t get_unique_id() const { return unique_id; }
+  uint16_t crc_encode(const uint8_t *data, uint length);
 
   uint32_t midi_to_dac(Channel lr, uint midiNote);
   uint32_t midi_to_dac(uint lr, uint midiNote);
@@ -73,7 +74,6 @@ private:
 
   uint8_t read_byte_from_eeprom(uint ee_addr);
   int read_int_from_eeprom(uint ee_addr);
-  uint16_t crc_encode(const uint8_t *data, uint length);
   void calc_cal_coeffs(uint channel);
   int read_eeprom();
   HardwareVersion probe_hardware_version();
