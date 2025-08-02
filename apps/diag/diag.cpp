@@ -157,7 +157,7 @@ private:
 
 public:
 
-  void ProcessSample(Codec& cc) {
+  void per_sample_cb(Codec& cc) {
     write_out(cc);
     save_current(cc);
     if (prev_change != NONE && ((recent-- > 0) || changed(prev_change))) {
@@ -173,7 +173,7 @@ public:
     }
   }
 
-  Diagnostics() : leds_direct() {
+  Diagnostics() {
     for (uint i = 0; i < WTABLE_SIZE; i++)
       wtable[i] = static_cast<int16_t>(2047 * sin(2 * std::numbers::pi * i / WTABLE_SIZE));
   }
@@ -183,7 +183,7 @@ public:
 int main() {
   Diagnostics diag;
   Codec& cc = CodecFactory<1, SAMPLE_FREQ>::get();
-  cc.set_per_sample_cb([&](Codec& c){diag.ProcessSample(c);});
+  cc.set_per_sample_cb([&](Codec& c){diag.per_sample_cb(c);});
   cc.set_adc_correction(fix_dnl);
   cc.select_adc_correction(Codec::All);
   cc.set_adc_scale(true);
