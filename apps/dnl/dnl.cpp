@@ -124,7 +124,7 @@ private:
 
 public:
 
-  void ProcessSample(Codec& cc) {
+  void per_sample_cb(Codec& cc) {
     update_controls(cc);
     int16_t next_out = wtable[(count >> slow_bits) % wtable_size];
     cc.write_audio(0, next_out);
@@ -148,6 +148,6 @@ int main() {
   cc.set_adc_correction_and_scale(CODEC_NULL_CORRECTION);
   cc.select_adc_correction(0);
   cc.select_adc_scale(0);
-  cc.set_per_sample_cb([&](Codec& c){dnl.ProcessSample(c);});
+  cc.set_per_sample_cb([&](Codec& c){dnl.per_sample_cb(c);});
   cc.start();
 };
