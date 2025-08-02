@@ -2,10 +2,14 @@
 #include "weas/leds_timer.h"
 
 
-LEDsTimer::LEDsTimer(Codec& codec) : LEDsTimer(codec, 100) {};
+LEDsTimer::LEDsTimer(Codec& codec) : codec(codec), mask(0), extra(0) {
+  alarm_pool = alarm_pool_create_with_unused_hardware_alarm(1);
+  alarm_pool_add_repeating_timer_ms(alarm_pool, 1000 / TIMER_HZ, &trampoline, this, &out);
+}
 
-LEDsTimer::LEDsTimer(Codec& codec, uint freq) : codec(codec), freq(freq), mask(0), extra(0) {
-  add_repeating_timer_ms(static_cast<int32_t>(1000 / freq), &trampoline, this, &out);
+LEDsTimer &LEDsTimer::get(Codec &codec) {
+  static LEDsTimer leds_timer(codec);
+  return leds_timer;
 }
 
 bool LEDsTimer::trampoline(repeating_timer_t *rt) {
