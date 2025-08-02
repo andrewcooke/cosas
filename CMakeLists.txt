@@ -15,6 +15,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wdouble-promotion -Wfloat-conversion -Wall -Wextra -Werror)
+add_link_options(-Wl,--print-memory-usage)
 
 add_subdirectory(cosas/src)  # cosas_lib is common to both architectures
 
