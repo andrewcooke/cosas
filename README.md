@@ -11,8 +11,8 @@ Workshop Computer (MTM WC):
 
 * the C++ library
   [weas](https://github.com/andrewcooke/cosas/tree/main/weas) which is
-  based on a refactoring of the ComputerCard.h library and only runs
-  on the RP2040 based MTM WC.
+  based on a refactoring of the ComputerCard.h (CC) library and only
+  runs on the RP2040 based MTM WC.
 
 * [executables](https://github.com/andrewcooke/cosas/tree/main/apps)
   built on the two libraries above.  these either test functionality
@@ -29,9 +29,10 @@ the plan is to have a unified UI via the weas library (input via three
 knobs and a switch, display via 6 leds - what luxury!)
 
 significant waypoints:
+* 2025-08-02 - updated to include CC 0.2.6 chnages (afaict)
 * 2025-07-31 - refactored codec to avoid template mess; LED based UI started
-* 2025-07-26 - ComputerCard.h split into led, eeprom and codec
-* 2025-07-18 - use ComputerCard.h more directly (refactor rather than recreate)
+* 2025-07-26 - CC split into led, eeprom and codec
+* 2025-07-18 - use CC more directly (refactor rather than recreate)
 * 2025-07-03 - can flash LEDs on the pico
 * 2025-06-30 - can generate waveforms on the laptop and deploy an empty program to the pico
 
