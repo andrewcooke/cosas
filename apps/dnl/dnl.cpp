@@ -47,7 +47,7 @@ private:
   uint32_t count = 0;
   uint slow_bits = 0;
   int64_t score = 0;
-  int prev_out = 0;
+  int16_t prev_out = 0;
   uint wtable_idx = 0;
   constexpr static uint wtable_bits = 12;
   constexpr static uint wtable_size = 1 << wtable_bits;
