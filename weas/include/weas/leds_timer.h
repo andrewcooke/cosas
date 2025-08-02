@@ -21,10 +21,11 @@ public:
 
 private:
   LEDsTimer(Codec& codec);
+  void lazy_start_on_local_core();
   alarm_pool_t* alarm_pool = nullptr;
   Codec& codec;
-  int32_t mask;
-  int32_t extra;
+  uint32_t mask;
+  uint32_t extra;
   repeating_timer_t out = {};
   std::unique_ptr<LEDsMask> leds_mask = std::make_unique<LEDsMask>();
   void render();

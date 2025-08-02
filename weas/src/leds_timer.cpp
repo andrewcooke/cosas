@@ -2,9 +2,13 @@
 #include "weas/leds_timer.h"
 
 
-LEDsTimer::LEDsTimer(Codec& codec) : codec(codec), mask(0), extra(0) {
-  alarm_pool = alarm_pool_create_with_unused_hardware_alarm(1);
-  alarm_pool_add_repeating_timer_ms(alarm_pool, 1000 / TIMER_HZ, &trampoline, this, &out);
+LEDsTimer::LEDsTimer(Codec& codec) : codec(codec), mask(0), extra(0) {};
+
+void LEDsTimer::lazy_start_on_local_core() {
+  if (! alarm_pool) {
+    alarm_pool = alarm_pool_create_with_unused_hardware_alarm(1);
+    alarm_pool_add_repeating_timer_ms(alarm_pool, 1000 / TIMER_HZ, &trampoline, this, &out);
+  }
 }
 
 LEDsTimer &LEDsTimer::get(Codec &codec) {
@@ -28,4 +32,5 @@ void LEDsTimer::show(uint32_t mask) {
 void LEDsTimer::show(uint32_t mask_, uint32_t extra_) {
   mask = mask_;
   extra = extra_;
+  lazy_start_on_local_core();
 }
