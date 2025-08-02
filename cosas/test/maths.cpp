@@ -6,7 +6,7 @@
 
 TEST_CASE("Maths, SimpleRatio") {
 
-  CHECK(SimpleRatio(0.1) == SimpleRatio(-1, 1, false, true));
+  CHECK(SimpleRatio(0.1f) == SimpleRatio(-1, 1, false, true));
   CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
   CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
 
@@ -27,18 +27,18 @@ TEST_CASE("Maths, IEEEFloat") {
   for (int32_t s = SAMPLE_MIN; s <= SAMPLE_MAX; s += 1234) {
     CHECK(float2sample(sample2float(s)) == doctest::Approx(s).epsilon(0.001));
   }
-  for (float f = -1; f <= 1; f += 0.123) {
+  for (float f = -1; f <= 1; f += 0.123f) {
     CHECK(sample2float(float2sample(f)) == doctest::Approx(f).epsilon(0.001));
   }
 }
 
 
 TEST_CASE("Maths, MultShift8") {
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), INT32_C(300)) == 99);  // almost
+  CHECK(mult_shift8(scale2mult_shift8(0.33333f), INT32_C(300)) == 99);  // almost
   CHECK(mult_shift8(scale2mult_shift8(1), INT32_C(300)) == 300); 
-  CHECK(mult_shift8(scale2mult_shift8(-0.33333), INT32_C(300)) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(-0.33333f), INT32_C(300)) == -100);
   CHECK(mult_shift8(scale2mult_shift8(-1), INT32_C(300)) == -300); 
-  CHECK(mult_shift8(scale2mult_shift8(0.33333), -INT32_C(300)) == -100);
+  CHECK(mult_shift8(scale2mult_shift8(0.33333f), -INT32_C(300)) == -100);
   CHECK(mult_shift8(scale2mult_shift8(1), -INT32_C(300)) == -300); 
 }
 
@@ -46,10 +46,10 @@ TEST_CASE("Maths, MultShift8") {
 TEST_CASE("Maths, MultShift14") {
   CHECK(scale2mult_shift14(1) == 16384);
   CHECK(scale2mult_shift14(2) == 32768);
-  CHECK(scale2mult_shift14(3.99) == 65372);
-  CHECK(mult_shift14(scale2mult_shift14(0.33333), 300) == 99);  // almost
+  CHECK(scale2mult_shift14(3.99f) == 65372);
+  CHECK(mult_shift14(scale2mult_shift14(0.33333f), 300) == 99);  // almost
   CHECK(mult_shift14(scale2mult_shift14(1), 300) == 300);
-  CHECK(mult_shift14(scale2mult_shift14(1.5), 300) == 450);
+  CHECK(mult_shift14(scale2mult_shift14(1.5f), 300) == 450);
   CHECK(mult_shift14(scale2mult_shift14(1), -300) == -300);
   CHECK(mult_shift14(scale2mult_shift14(2), -300) == -600);
   CHECK(mult_shift14(scale2mult_shift14(2), (SAMPLE_MAX - 1) / 2) == SAMPLE_MAX - 1);
