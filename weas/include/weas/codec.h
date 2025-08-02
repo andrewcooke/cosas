@@ -41,7 +41,7 @@ class Codec {
 public:
 
   enum Knob { Main, X, Y, Switch };
-  enum SwitchPosition { Down, Middle, Up };
+  enum SwitchPosition { Up, Middle, Down };  // order matches leds_direct.h2
   static constexpr uint N_KNOBS = Switch + 1;
   enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
   static constexpr uint N_SOCKET_IN = Pulse2 + 1;
@@ -82,20 +82,26 @@ public:
 
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
-  void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { cv_out[lr] = v; }
+  void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { audio_out[lr] = v; }
   void __not_in_flash_func(write_audio)(uint lr, int16_t v) { write_audio(static_cast<Channel>(lr), v); }
 
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(Channel lr) { return cv[lr]; }
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
-  // cv pins in reverse order
-  void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    pwm_set_gpio_level(CV_OUT + 1 - lr, scale_cv_out(static_cast<uint16_t>(0x800 - v)));
-  }
 
+  // cv pins in reverse order
+  // 12 bit signed
+  void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
+    cv_out[lr] = (2047 - std::min(2047, std::max(-2048, static_cast<int>(v)))) << 7;
+  }
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
+  // 19 bit signed
+  void __not_in_flash_func(write_cv)(Channel lr, int32_t v) {
+    cv_out[lr] = 262143 - std::min(262143, std::max(-262144, static_cast<int>(v)));
+  }
+  void __not_in_flash_func(write_cv)(uint lr, int32_t v) { write_cv(static_cast<Channel>(lr), v); }
   // these are used, for example, to write midi
-  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { pwm_set_gpio_level(CV_OUT + 1 - lr, scale_cv_out(v)); }
-  void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
+  void __not_in_flash_func(write_cv)(Channel lr, uint32_t v) { cv_out[lr] = v; }
+  void __not_in_flash_func(write_cv)(uint lr, uint32_t v) { write_cv(static_cast<Channel>(lr), v); }
 
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(Channel lr) { return pulse[lr]; }
   [[nodiscard]] bool __not_in_flash_func(read_pulse)(uint lr) { return read_pulse(static_cast<Channel>(lr)); }
@@ -136,7 +142,6 @@ protected:
 
   Codec() = default;
 
-  virtual void buffer_full() = 0;
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
   KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
@@ -151,7 +156,8 @@ protected:
   bool starting = false;
   volatile ADCRunMode run_mode;
 
-  int16_t cv_out[N_CHANNELS] = {};
+  uint32_t cv_out[N_CHANNELS] = {};
+  uint16_t audio_out[N_CHANNELS] = {};
   volatile int16_t knobs[N_WHEN][N_KNOBS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
@@ -199,12 +205,18 @@ private:
 
   CodecFactory();
 
-  void buffer_full() override;
+  void handle_adc();
+  void handle_cv();
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
 
-  static void audio_callback() {
+  static void adc_callback() {
     CodecFactory& cf = CodecFactory::get();
-    cf.buffer_full();
+    cf.handle_adc();
+  }
+
+  static void cv_callback() {
+    CodecFactory& cf = CodecFactory::get();
+    cf.handle_cv();
   }
 };
 
@@ -261,7 +273,7 @@ template <uint O, uint S> CodecFactory<O, S>::CodecFactory() {
   for (uint lr = 0; lr < N_CHANNELS; lr++) pwm_set_gpio_level(CV_OUT + lr, scale_cv_out(0x800));
 }
 
-template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-audio-worker")))
+template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical." "cc-start")))
 CodecFactory<O, SAMPLE_FREQ>::start() {
 
   count = 0;
@@ -290,7 +302,14 @@ CodecFactory<O, SAMPLE_FREQ>::start() {
   dma_channel_set_irq0_enabled(adc_dma, true);
 
   irq_set_enabled(DMA_IRQ_0, true);
-  irq_set_exclusive_handler(DMA_IRQ_0, audio_callback);
+  irq_set_exclusive_handler(DMA_IRQ_0, adc_callback);
+
+  uint slice_num = pwm_gpio_to_slice_num(CV_OUT);
+  pwm_clear_irq(slice_num);
+  pwm_set_irq_enabled(slice_num, true);
+  irq_set_exclusive_handler(PWM_IRQ_WRAP, cv_callback);
+  irq_set_priority(PWM_IRQ_WRAP, 255);
+  irq_set_enabled(PWM_IRQ_WRAP, true);
 
   spi_dmacfg = dma_channel_get_default_config(spi_dma);
   channel_config_set_transfer_data_size(&spi_dmacfg, DMA_SIZE_16);
@@ -317,8 +336,8 @@ CodecFactory<O, SAMPLE_FREQ>::start() {
   }
 }
 
-template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-buffer-full")))
-void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
+template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-handle-adc")))
+void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
   uint mux_state = count & 0x3;
   uint norm_probe_count = count & 0xf;
@@ -384,7 +403,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
   smooth_knobs[knob] = (31 * smooth_knobs[knob] + adc_buffer[cpu_phase][2]) >> 5;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    knobs[Now][Switch] = (smooth_knobs[Switch] > 1000) + (smooth_knobs[Switch] > 3000);
+    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000) - (smooth_knobs[Switch] > 3000);
   } else {
     knobs[Now][knob] = smooth_knobs[knob] & adc_mask[Knobs];
   }
@@ -430,8 +449,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
   per_sample_cb(*this); // user callback
 
   // invert to counteract inverting output configuration
-  spi_buffer[cpu_phase][0] = dac_value(-cv_out[0], DAC_CHANNEL_A);
-  spi_buffer[cpu_phase][1] = dac_value(-cv_out[1], DAC_CHANNEL_B);
+  spi_buffer[cpu_phase][0] = dac_value(-audio_out[0], DAC_CHANNEL_A);  // TODO
+  spi_buffer[cpu_phase][1] = dac_value(-audio_out[1], DAC_CHANNEL_B);
 
   if (run_mode == ReqStop) {
     adc_run(false);
@@ -440,11 +459,28 @@ void CodecFactory<OVERSAMPLE_BITS, F>::buffer_full() {
     dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
     dma_channel_cleanup(adc_dma);
     dma_channel_cleanup(spi_dma);
-    irq_remove_handler(DMA_IRQ_0, audio_callback);
+    irq_remove_handler(DMA_IRQ_0, adc_callback);
     run_mode = Stopped;
   }
 
   count++;
+}
+
+template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-handle-cv")))
+void CodecFactory<OVERSAMPLE_BITS, F>::handle_cv() {
+
+  // TODO - understand this
+  // note channels swapped because CV pins swapped
+  pwm_clear_irq(pwm_gpio_to_slice_num(CV_OUT)); // clear the interrupt flag
+
+  static int32_t error_0 = 0, error_1 = 0;
+  uint32_t truncated_cv1_val = (cv_out[1] - error_1) & 0xFFFFFF00;
+  error_1 += truncated_cv1_val - cv_out[1];
+  pwm_set_gpio_level(CV_OUT, truncated_cv1_val >> 8);
+
+  uint32_t truncated_cv0_val = (cv_out[0] - error_0) & 0xFFFFFF00;
+  error_0 += truncated_cv0_val - cv_out[0];
+  pwm_set_gpio_level(CV_OUT + 1, truncated_cv0_val >> 8);
 }
 
 

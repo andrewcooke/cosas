@@ -5,6 +5,7 @@
 
 
 EEPROM::EEPROM() {
+
   gpio_init(BOARD_ID_0);
   gpio_init(BOARD_ID_1);
   gpio_init(BOARD_ID_2);
@@ -164,21 +165,25 @@ void EEPROM::calc_cal_coeffs(uint channel) {
     cal_coeffs[channel].m = 0.0;
   }
   cal_coeffs[channel].b = (sum_dac - cal_coeffs[channel].m * sum_v) / n;
-  cal_coeffs[channel].mi = int32_t(cal_coeffs[channel].m * 1.333333333333333f + 0.5f);
-  cal_coeffs[channel].bi = int32_t(cal_coeffs[channel].b + 0.5f);
+  cal_coeffs[channel].mi = static_cast<int32_t>(cal_coeffs[channel].m * 1.333333333333333f + 0.5f);
+  cal_coeffs[channel].bi = static_cast<int32_t>(cal_coeffs[channel].b + 0.5f);
 }
 
-uint16_t __not_in_flash_func(EEPROM::midi_to_dac)(int midiNote, int channel) {
-  int32_t dacValue = ((cal_coeffs[channel].mi * (midiNote - 60)) >> 4) + cal_coeffs[channel].bi;
+uint32_t __not_in_flash_func(EEPROM::midi_to_dac)(Channel lr, uint note) {
+  int32_t dacValue = ((cal_coeffs[lr].mi * (note - 60)) >> 4) + cal_coeffs[lr].bi;
   if (dacValue > 524287) dacValue = 524287; // 19 bits
   if (dacValue < 0) dacValue = 0;
-  return dacValue >> 8;
+  return dacValue;
 }
 
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, Channel lr, uint8_t note_num) {
-  cc.write_cv(lr, midi_to_dac(note_num, lr)); // 11 bits
+uint32_t __not_in_flash_func(EEPROM::midi_to_dac)(uint lr, uint note) {
+  return midi_to_dac(static_cast<Channel>(lr), note);
 }
 
-void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, uint lr, uint8_t note_num) {
-  write_cv_midi_note(cc, static_cast<Channel>(lr), note_num);
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, Channel lr, uint8_t note) {
+  cc.write_cv(lr, midi_to_dac(lr, note));
+}
+
+void __not_in_flash_func(EEPROM::write_cv_midi_note)(Codec& cc, uint lr, uint8_t note) {
+  write_cv_midi_note(cc, static_cast<Channel>(lr), note);
 }
