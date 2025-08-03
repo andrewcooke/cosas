@@ -131,7 +131,7 @@ protected:
   static constexpr uint DAC_TX = 19;
   static constexpr uint EEPROM_SDA = 16;
   static constexpr uint EEPROM_SCL = 17;
-  static constexpr uint PULSE_INPUT = 2;  // and 3
+  static constexpr uint PULSE_IN = 2;  // and 3
   static constexpr uint DEBUG_1 = 0;
   static constexpr uint DEBUG_2 = 1;
 
@@ -250,9 +250,9 @@ template <uint O, uint S> CodecFactory<O, S>::CodecFactory() {
   }
 
   for (uint lr = 0; lr < N_CHANNELS; lr++) {
-    gpio_init(PULSE_INPUT + lr);
-    gpio_set_dir(PULSE_INPUT + lr, GPIO_IN);
-    gpio_pull_up(PULSE_INPUT); // needs pullup to activate transistor on inputs
+    gpio_init(PULSE_IN + lr);
+    gpio_set_dir(PULSE_IN + lr, GPIO_IN);
+    gpio_pull_up(PULSE_IN + lr); // needs pullup to activate transistor on inputs
   }
 
   spi_init(spi0, 15625000);
@@ -397,7 +397,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
     last_pulse[pulse_lr] = pulse[pulse_lr];
-    pulse[pulse_lr] = !gpio_get(PULSE_INPUT + pulse_lr);
+    pulse[pulse_lr] = !gpio_get(PULSE_IN + pulse_lr);
   }
 
   const uint knob = mux_state;

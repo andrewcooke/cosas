@@ -52,9 +52,10 @@ private:
   constexpr static uint wtable_bits = 12;
   constexpr static uint wtable_size = 1 << wtable_bits;
   int16_t wtable[wtable_size] = {};
-  ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4);
-  ScaledDNL<int, int> correcn2 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4);
-  // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3);
+  ScaledDNL<int, int, int> correcn1 = ScaledDNL(fix_dnl_cj2_pxyz, 28, -11, 0, 4, 1);
+  // ScaledDNL<int, int> correcn2 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4);
+  ScaledDNL<int, int> correcn2 = ScaledDNL(fix_dnl_cj2_pxy, 28, -11, 0, 4); // best
+  // ScaledDNL<int, int> correcn2 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3);
   // ScaledDNL<int, int> correcn1 = ScaledDNL(fix_dnl_ac_pxy, 25, -10, -10, 3); // best
   // ScaledDNL<int> correcn2 = ScaledDNL(fix_dnl_cx_px, 26, -10, -6); // best
   // ScaledDNL<int> correcn1 = ScaledDNL(fix_dnl_cj_px, 26, -10, 0);  // best

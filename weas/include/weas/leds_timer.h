@@ -21,6 +21,7 @@ public:
   void set_speed(uint speed);
   void show(uint32_t mask);
   void show(uint32_t mask, uint32_t extra);
+  // void loop(int delta, std::vector<std::tuple<uint32_t, uint32_t>> mex);
   static bool trampoline(repeating_timer_t *rt);
 
 private:

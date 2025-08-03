@@ -2,7 +2,7 @@
 #ifndef COSAS_WAVETABLE_H
 #define COSAS_WAVETABLE_H
 
-#include <cstdint>
+
 #include <array>
 
 #include "cosas/constants.h"

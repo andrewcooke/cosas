@@ -18,6 +18,7 @@ uint16_t fix_dnl_cj(uint16_t adc);
 int16_t fix_dnl_cj_px(uint16_t adc, int x);
 int16_t fix_dnl_cx_px(uint16_t adc, int x);
 int16_t fix_dnl_cj2_pxy(uint16_t adc, int x, int y);
+int16_t fix_dnl_cj2_pxyz(uint16_t adc, int x, int y, int z);
 
 
 template <typename ...Args>

@@ -36,3 +36,5 @@ void LEDsTimer::show(uint32_t mask_, uint32_t extra_) {
   extra = extra_;
   lazy_start_on_local_core();
 }
+
+// void LEDsTimer::loop(int delta, std::vector<std::tuple<uint32_t, uint32_t>> mex) {}

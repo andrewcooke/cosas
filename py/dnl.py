@@ -119,3 +119,14 @@ cc2_corrected = apply(model_resp, cc2_correcn)
 cc2_err = resp_to_err(cc2_corrected)
 plot(cc2_err, "/tmp/cc2_err")
 
+## later cj correcn
+def cj_correcn(a):
+    b = a + (((a + 0x200) >> 10) << 3)
+    d = a - 0x1ff
+    if (d & 0x1dd) == 0: b += 4
+    return (519719 * b) >> 19
+
+cj_corrected = apply(model_resp, cj_correcn)
+cj_err = resp_to_err(cj_corrected)
+plot(cj_err, "/tmp/cj_err")
+

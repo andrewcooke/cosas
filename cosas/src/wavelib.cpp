@@ -12,6 +12,7 @@ Wavelib::Wavelib() // NOLINT(*-pro-type-member-init)
 // these are calculated on startup because large/slow
 
 void Wavelib::init_wavetables() {
+
   saw_start = all_wavetables->size();
   // do we need both sides?
   for (const auto& offset : {-1.0, -0.5, 0.0, 0.5, 1.0}) {

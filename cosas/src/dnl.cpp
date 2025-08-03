@@ -67,3 +67,11 @@ int16_t fix_dnl_cj2_pxy(uint16_t adc, int x, int y) {
   return zz;
 }
 
+int16_t fix_dnl_cj2_pxyz(uint16_t adc, int x, int y, int z) {
+  auto zz = static_cast<int16_t>(adc + (((adc + 0x200) >> 10) << 3));
+  auto delta = static_cast<int16_t>(adc - (0x01ff + x));
+  if (! (delta & 0x01ff)) zz += y;
+  if ((adc & 0x600) && !(adc & 0x800)) zz += z;
+  return zz;
+}
+

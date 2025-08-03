@@ -61,11 +61,11 @@ private:
   }
 
   bool changed(uint idx) const {
-    if (idx < Codec::N_KNOBS) return knobs[0][idx] != knobs[1][idx];
+    if (idx < Codec::N_KNOBS) return knobs[Now][idx] != knobs[Prev][idx];
     idx -= Codec::N_KNOBS;
-    if (idx < N_ADCS) return adcs[0][idx] != adcs[1][idx];
+    if (idx < N_ADCS) return adcs[Prev][idx] != adcs[Prev][idx];
     idx -= N_ADCS;
-    if (idx < N_PULSES) return pulses[0][idx] != pulses[1][idx];
+    if (idx < N_PULSES) return pulses[Now][idx] != pulses[Prev][idx];
     return false;
   }
 
