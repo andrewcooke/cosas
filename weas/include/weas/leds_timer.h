@@ -21,17 +21,23 @@ public:
   void set_speed(uint speed);
   void show(uint32_t mask);
   void show(uint32_t mask, uint32_t extra);
-  // void loop(int delta, std::vector<std::tuple<uint32_t, uint32_t>> mex);
+  void loop(int scale, int count, std::vector<std::tuple<uint32_t, uint32_t>> mex);
+  void clear_loop();
   static bool trampoline(repeating_timer_t *rt);
 
 private:
-  LEDsTimer(Codec& codec);
+  explicit LEDsTimer(Codec& codec);
   void lazy_start_on_local_core();
+  void load_loop();
   alarm_pool_t* alarm_pool = nullptr;
   Codec& codec;
   uint speed = 12;
   uint32_t mask;
   uint32_t extra;
+  std::vector<std::tuple<uint32_t, uint32_t>> loop_data;
+  uint32_t loop_zero = 0;
+  uint loop_scale = 0;
+  uint loop_limit = 0;
   repeating_timer_t out = {};
   std::unique_ptr<LEDsMask> leds_mask = std::make_unique<LEDsMask>();
   void render();

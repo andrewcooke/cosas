@@ -57,7 +57,7 @@ void FIFO::core1_marshaller() {
     uint8_t knob = packed >> 28;
     uint16_t prev = (packed >> 16 & 0xfff);
     uint16_t now = packed & 0xfff;
-    fifo.knob_changes->handle_knob_change(knob, prev, now);
+    fifo.knob_changes->handle_knob_change(knob, now, prev);
   }
 }
 
