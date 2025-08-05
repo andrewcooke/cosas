@@ -139,12 +139,10 @@ protected:
   static constexpr uint EEPROM_SDA = 16;
   static constexpr uint EEPROM_SCL = 17;
   static constexpr uint PULSE_IN = 2;  // and 3
-  static constexpr uint DEBUG_1 = 0;
-  static constexpr uint DEBUG_2 = 1;
 
   static constexpr uint SPI_DREQ = DREQ_SPI0_TX;
 
-  enum ADCRunMode { Running, ReqStop, Stopped, ReqStart };
+  enum ADCRunMode { Started, ReqStop, Stopped, ReqStart };
   static constexpr uint N_PHASES = 2; // adc and cpu
   static constexpr uint N_MUX = 2;
 
@@ -234,7 +232,7 @@ private:
 };
 
 template <uint O, uint S> CodecFactory<O, S>::CodecFactory() {
-  run_mode = Running;
+  run_mode = Started;
   adc_run(false);
   adc_select_input(0);
 
@@ -336,7 +334,7 @@ CodecFactory<O, SAMPLE_FREQ>::start() {
 
   while (true) {
     if (run_mode == ReqStart) {
-      run_mode = Running;
+      run_mode = Started;
 
       dma_hw->ints0 = 1u << adc_dma; // reset adc interrupt flag
       dma_channel_set_write_addr(adc_dma, adc_buffer[dma_phase], true); // start writing into new buffer
