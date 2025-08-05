@@ -74,6 +74,9 @@ public:
   void select_adc_scale(bool scale) {scale_adc = scale; };
   void set_adc_mask(ADCSource s, uint16_t mask) {adc_mask[s] = mask; };
   void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
+  // see discussion below.  1 is default giving 60hz lpf at 48khz sample.  6 gives 240khz.  scales with sample freq.
+  // in other words, use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
+  void set_knob_alpha(uint a) {knob_alpha = std::max(6u, std::min(1u, a)); }
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
@@ -146,6 +149,7 @@ protected:
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
   KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
+  uint knob_alpha = 1;
 
   uint adc_correct_mask = 0;
   std::function<int16_t(uint16_t)> adc_correction = CODEC_NULL_CORRECTION;
@@ -404,9 +408,12 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   const uint knob = mux_state;
-  // see discussion above.  here let's aim for 1/100 nyquist, but raw data already 1/4 cycles,
+  // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
   // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31
-  smooth_knobs[knob] = (26 * smooth_knobs[knob] + 6 * (adc_buffer[cpu_phase][2] << 4)) >> 5;
+  // but that's a bit noisy at 48khs.  how low can we go?
+  // an alpha of 1/32 would be 1/200 x 12khz = 60hz
+  // that's a decent range, so let's make it configurable
+  smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << 4)) >> 5;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
     knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > (1000 << 4)) - (smooth_knobs[Switch] > (3000 << 4));
@@ -449,10 +456,12 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
   }
 
-  if (track_knob_changes && knob_changed(knob) && knob_changes) {
-    knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
+  if (!starting) {
+    if (track_knob_changes && knob_changed(knob) && knob_changes) {
+      knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
+    }
+    per_sample_cb(*this); // user callback
   }
-  per_sample_cb(*this); // user callback
 
   // invert to counteract inverting output configuration
   spi_buffer[cpu_phase][0] = dac_value(-audio_out[0], DAC_CHANNEL_A);  // TODO
