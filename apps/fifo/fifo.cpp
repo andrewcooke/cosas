@@ -39,7 +39,7 @@ private:
   LEDsDirect leds;
   LEDsMask mask;
   LEDsTimer& leds_timer;
-  uint32_t square = mask.top_square(0x2);
+  uint32_t square = mask.top_square(0x4);
 };
 
 int main() {

@@ -22,7 +22,7 @@ void LEDsMask::show(uint32_t mask) {
 void LEDsMask::show(uint32_t mask, uint32_t extra, uint32_t count) {
   for (uint i = 0; i < leds.N; i++) {
     int v0 = static_cast<int>(mask & BITS_MASK) << (8 - BITS);
-    int v1 = static_cast<int>(((extra & BITS_MASK) << (8 - BITS)) * pulse[count & (N_CYCLE - 1)]);
+    int v1 = static_cast<int>((extra & BITS_MASK) * pulse[count & (N_CYCLE - 1)]);
     leds.set(i, static_cast<uint8_t>(std::min(0xff, v0 + v1)));
     mask >>= BITS;
     extra >>= BITS;

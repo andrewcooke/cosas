@@ -13,7 +13,14 @@ public:
 
 };
 
-static KnobChanges default_knob_changes;
+
+class ConnectedChanges {
+
+public:
+  virtual void handle_connected_change(uint8_t /* socket_in */, bool /* connected */) {};
+  virtual ~ConnectedChanges() = default;
+
+};
 
 
 #endif

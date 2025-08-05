@@ -74,8 +74,7 @@ public:
   void select_adc_scale(bool scale) {scale_adc = scale; };
   void set_adc_mask(ADCSource s, uint16_t mask) {adc_mask[s] = mask; };
   void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
-  // see discussion below.  1 is default giving 60hz lpf at 48khz sample.  6 gives 240khz.  scales with sample freq.
-  // in other words, use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
+  // use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
   void set_knob_alpha(uint a) {knob_alpha = std::min(6u, std::max(1u, a)); }
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
@@ -84,6 +83,8 @@ public:
   [[nodiscard]] bool __not_in_flash_func(knob_changed)(Knob k) { return knobs[Prev][k] != knobs[Now][k]; }
   [[nodiscard]] bool __not_in_flash_func(knob_changed)(uint k) { return knob_changed(static_cast<Knob>(k)); }
 
+  void set_connected_changes(KnobChanges* k) { knob_changes = k; }
+  void select_connected_changes(bool on) {track_connected_changes = on; }
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
   void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { audio_out[lr] = v; }
@@ -117,7 +118,10 @@ public:
   [[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) { return !pulse[lr] && last_pulse[lr]; }
   [[nodiscard]] bool __not_in_flash_func(pulse_fell)(uint lr) { return pulse_fell(static_cast<Channel>(lr)); }
 
-  [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[i]; }
+  [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[Now][i]; }
+  [[nodiscard]] bool __not_in_flash_func(is_connected)(uint i) { return is_connected(static_cast<SocketIn>(i)); }
+  [[nodiscard]] bool __not_in_flash_func(connected_changed)(SocketIn i) { return connected[Now][i] != connected[Prev][i]; }
+  [[nodiscard]] bool __not_in_flash_func(connected_changed)(uint i) { return connected_changed(static_cast<SocketIn>(i)); }
 
 protected:
 
@@ -147,9 +151,11 @@ protected:
   Codec() = default;
 
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
+
   KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
   uint knob_alpha = 1;
+  static constexpr uint NOISE_REDN = 4;
 
   uint adc_correct_mask = 0;
   std::function<int16_t(uint16_t)> adc_correction = CODEC_NULL_CORRECTION;
@@ -171,9 +177,11 @@ protected:
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
+  ConnectedChanges* connected_changes = nullptr;
+  bool track_connected_changes = false;
   bool use_norm_probe = false;
-  volatile int32_t probe_in[N_SOCKET_IN] = {};
-  volatile bool connected[N_SOCKET_IN] = {};
+  volatile uint32_t probe_in[N_SOCKET_IN] = {};
+  volatile bool connected[N_WHEN][N_SOCKET_IN] = {};
   static uint32_t next_norm_probe();
   static uint16_t dac_value(int16_t value, uint16_t dacChannel);
   static uint16_t scale_cv_out(uint16_t value);
@@ -231,7 +239,10 @@ template <uint O, uint S> CodecFactory<O, S>::CodecFactory() {
   adc_select_input(0);
 
   use_norm_probe = false;
-  for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = false;
+  for (uint i = 0; i < N_SOCKET_IN; i++) {
+    connected[Prev][i] = connected[Now][i];
+    connected[Now][i] = false;
+  }
 
   gpio_init(NORMALISATION_PROBE);
   gpio_set_dir(NORMALISATION_PROBE, GPIO_OUT);
@@ -351,10 +362,10 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   uint norm_probe_count = count & 0xf;
   uint cpu_phase = count & 0x1;
   uint dma_phase = 1 - cpu_phase;
-  static int probe_out = 0;
+  static uint32_t probe_out = 0;
 
-  static volatile uint16_t smooth_knobs[N_KNOBS] = {};
-  static volatile uint16_t smooth_cv[N_CHANNELS] = {};
+  static volatile uint32_t smooth_knobs[N_KNOBS] = {};  // 32 bits to provide room for NOISE_REDN
+  static volatile uint32_t smooth_cv[N_CHANNELS] = {};
 
   adc_select_input(0); // TODO - why is this here?
 
@@ -383,8 +394,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // so alpha/2pi = 1/10, but then alpha is no longer small, and using the other formula we get alpha = 1/3
   // and keep an extra 4 bits for noise:
 
-  smooth_cv[cv_lr] = (21 * smooth_cv[cv_lr] + 11 * (adc_buffer[cpu_phase][3] << 4)) >> 5;
-  uint16_t cv_tmp = smooth_cv[cv_lr] >> 4;
+  smooth_cv[cv_lr] = (21 * smooth_cv[cv_lr] + 11 * (adc_buffer[cpu_phase][3] << NOISE_REDN)) >> 5;
+  uint16_t cv_tmp = smooth_cv[cv_lr] >> NOISE_REDN;
   if (adc_correct_mask & (C1 << cv_lr)) {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
@@ -409,16 +420,14 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
   const uint knob = mux_state;
   // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
-  // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31
-  // but that's a bit noisy at 48khs.  how low can we go?
-  // an alpha of 1/32 would be 1/200 x 12khz = 60hz
-  // that's a decent range, so let's make it configurable
-  smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << 4)) >> 5;
+  // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
+  // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
+  smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << NOISE_REDN)) >> 5;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > (1000 << 4)) - (smooth_knobs[Switch] > (3000 << 4));
+    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > (1000 << NOISE_REDN)) - (smooth_knobs[Switch] > (3000 << NOISE_REDN));
   } else {
-    knobs[Now][knob] = (smooth_knobs[knob] >> 4) & adc_mask[Knobs];
+    knobs[Now][knob] = (smooth_knobs[knob] >> NOISE_REDN) & adc_mask[Knobs];
   }
 
   if (starting) {  // avoid startup noise
@@ -432,7 +441,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     // if we read in the same random sequence then we know that the socket is not connected
     // (presumably a connected socket reads the connect signal which will not match)
     if (norm_probe_count == 0) {
-      const int32_t next_probe_out_bit = next_norm_probe();
+      const uint32_t next_probe_out_bit = next_norm_probe();
       gpio_put(NORMALISATION_PROBE, next_probe_out_bit);
       probe_out = (probe_out << 1) + next_probe_out_bit;
     }
@@ -444,7 +453,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
       probe_in[SocketIn::Audio2] = (probe_in[SocketIn::Audio2] << 1) + (adc_buffer[cpu_phase][0] < 1800);
       probe_in[SocketIn::Pulse1] = (probe_in[SocketIn::Pulse1] << 1) + (pulse[0]);
       probe_in[SocketIn::Pulse2] = (probe_in[SocketIn::Pulse2] << 1) + (pulse[1]);
-      for (uint i = 0; i < N_SOCKET_IN; i++) connected[i] = (probe_out != probe_in[i]);
+      for (uint i = 0; i < N_SOCKET_IN; i++) connected[Now][i] = (probe_out != probe_in[i]);
     }
 
     // Force disconnected values to zero, rather than the normalisation probe garbage
@@ -459,6 +468,11 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   if (!starting) {
     if (track_knob_changes && knob_changed(knob) && knob_changes) {
       knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
+    }
+    if (track_connected_changes && connected_changes) {
+      for (uint skt = 0; skt < N_SOCKET_IN; skt++) {
+        if (connected_changed(skt)) connected_changes->handle_connected_change(skt, connected[Now][skt]);
+      }
     }
     per_sample_cb(*this); // user callback
   }
