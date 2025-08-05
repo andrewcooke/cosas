@@ -118,9 +118,9 @@ public:
   [[nodiscard]] bool __not_in_flash_func(pulse_fell)(Channel lr) { return !pulse[lr] && last_pulse[lr]; }
   [[nodiscard]] bool __not_in_flash_func(pulse_fell)(uint lr) { return pulse_fell(static_cast<Channel>(lr)); }
 
-  [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[Now][i]; }
+  [[nodiscard]] bool __not_in_flash_func(is_connected)(SocketIn i) { return connected[cn_now][i]; }
   [[nodiscard]] bool __not_in_flash_func(is_connected)(uint i) { return is_connected(static_cast<SocketIn>(i)); }
-  [[nodiscard]] bool __not_in_flash_func(connected_changed)(SocketIn i) { return connected[Now][i] != connected[Prev][i]; }
+  [[nodiscard]] bool __not_in_flash_func(connected_changed)(SocketIn i) { return connected[0][i] != connected[1][i]; }
   [[nodiscard]] bool __not_in_flash_func(connected_changed)(uint i) { return connected_changed(static_cast<SocketIn>(i)); }
 
 protected:
@@ -179,7 +179,8 @@ protected:
   bool track_connected_changes = false;
   bool use_norm_probe = false;
   volatile uint32_t probe_in[N_SOCKET_IN] = {};
-  volatile bool connected[N_WHEN][N_SOCKET_IN] = {};
+  uint cn_now = 0;  // avoid When for efficiency - no copies on swap
+  volatile bool connected[N_PHASES][N_SOCKET_IN] = {};
   static uint32_t next_norm_probe();
   static uint16_t dac_value(int16_t value, uint16_t dacChannel);
   static uint16_t scale_cv_out(uint16_t value);
@@ -232,15 +233,12 @@ private:
 };
 
 template <uint O, uint S> CodecFactory<O, S>::CodecFactory() {
+
   run_mode = Started;
   adc_run(false);
   adc_select_input(0);
 
   use_norm_probe = false;
-  for (uint i = 0; i < N_SOCKET_IN; i++) {
-    connected[Prev][i] = connected[Now][i];
-    connected[Now][i] = false;
-  }
 
   gpio_init(NORMALISATION_PROBE);
   gpio_set_dir(NORMALISATION_PROBE, GPIO_OUT);
@@ -435,6 +433,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   if (use_norm_probe) {
+    cn_now = count & 0x1;
     // this seems to send a random signal to all inputs, with a new bit sent every 16 cycles.
     // if we read in the same random sequence then we know that the socket is not connected
     // (presumably a connected socket reads the connect signal which will not match)
@@ -451,7 +450,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
       probe_in[SocketIn::Audio2] = (probe_in[SocketIn::Audio2] << 1) + (adc_buffer[cpu_phase][0] < 1800);
       probe_in[SocketIn::Pulse1] = (probe_in[SocketIn::Pulse1] << 1) + (pulse[0]);
       probe_in[SocketIn::Pulse2] = (probe_in[SocketIn::Pulse2] << 1) + (pulse[1]);
-      for (uint i = 0; i < N_SOCKET_IN; i++) connected[Now][i] = (probe_out != probe_in[i]);
+      for (uint i = 0; i < N_SOCKET_IN; i++) connected[cn_now][i] = (probe_out != probe_in[i]);
     }
 
     // Force disconnected values to zero, rather than the normalisation probe garbage
@@ -467,9 +466,9 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     if (track_knob_changes && knob_changed(knob) && knob_changes) {
       knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
     }
-    if (track_connected_changes && connected_changes) {
+    if (use_norm_probe && track_connected_changes && connected_changes) {
       for (uint skt = 0; skt < N_SOCKET_IN; skt++) {
-        if (connected_changed(skt)) connected_changes->handle_connected_change(skt, connected[Now][skt]);
+        if (connected_changed(skt)) connected_changes->handle_connected_change(skt, connected[cn_now][skt]);
       }
     }
     per_sample_cb(*this); // user callback
