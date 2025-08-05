@@ -76,7 +76,7 @@ public:
   void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
   // see discussion below.  1 is default giving 60hz lpf at 48khz sample.  6 gives 240khz.  scales with sample freq.
   // in other words, use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
-  void set_knob_alpha(uint a) {knob_alpha = std::max(6u, std::min(1u, a)); }
+  void set_knob_alpha(uint a) {knob_alpha = std::min(6u, std::max(1u, a)); }
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
