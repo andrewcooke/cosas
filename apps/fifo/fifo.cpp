@@ -2,9 +2,10 @@
 #include <cmath>
 
 #include "weas/codec.h"
-#include "weas/leds.h"
 #include "weas/fifo.h"
+#include "weas/leds.h"
 
+#include "weas/leds_direct.h"
 #include "weas/leds_mask.h"
 
 #include <weas/leds_timer.h>
@@ -35,6 +36,7 @@ public:
 
 private:
 
+  LEDsDirect leds;
   LEDsMask mask;
   LEDsTimer& leds_timer;
   uint32_t square = mask.top_square(0x7);
@@ -42,7 +44,7 @@ private:
 
 int main() {
   auto& codec = CC_::get();
-  codec.set_adc_mask(Codec::Knobs, 0xff0);
+  // codec.set_adc_mask(Codec::Knobs, 0xff0);
   FIFODemo demo(codec);
   auto& fifo = FIFO::get();
   fifo.set_knob_changes(&demo);

@@ -363,21 +363,24 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
   const uint cv_lr = mux_state & 1;
 
-  // ComputerCard equivalent:
-  // smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4;  // 240hz lpf
-  // afaict,  from the general expression F(t) = a x + (1 - a) F(t - 1),  this is an exponentially
-  // weighted moving average filter, but there's something odd about the sums and bit shifts i don't understand,
+  // context: from google or https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+  // (but note that the arccos(x) is replaced by x (series expansion for cos)) for a EWMA with coeffs alpha and
+  // 1-alpha (ie F(t) = alpha x + (1 - alpha) F(t - 1)) the cutoff freq f = sample_freq x alpha / (2 pi) for small alpha
+  // or sample_freq * alpha / ((1 - alpha) (2 pi)) for larger alpha.
 
-  // from google or https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
-  // (but note that the arccos(x) is replaced by x (series expansion for cos)) we can get the cutoff freq,
-  // f = a / (2 pi dt) where dt is time between samples.
+  // ComputerCard code:
+  //   smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4;  // 240hz lpf
+  //   cv[cv_lr] = smooth_cv[cv_lr] >> 4
+  // this has  the input shifted up by 4 bits (to reduce noise) which is dropped later.
+  // so alpha here is 1/16 and f = 24khz / (16 x 6) = 250hz (remember cv is sampled every other cycle).
 
-  // in our case, dt varies (SAMPLE_FREQ):  a = 2 pi f / SAMPLE_FREQ
-  // do we really need to smooth so much?   why not aim for, say, 1/10 nyquist?  then we don't need to adjust
-  // for SAMPLE_FREQ (since the two scale together).  in that case  f = SAMPLE_FREQ / 20 and a = 1 / 3
+  // here, the sample freq varies.  why not aim for, say, 1/10 audio nyquist?  then we don't need to adjust
+  // for sample freq (since the two scale together).  cv is already 1/2 cycles (ie audio nyquist),
+  // so alpha/2pi = 1/10, but then alpha is no longer small, and using the other formula we get alpha = 1/3
+  // and keep an extra 4 bits for noise:
 
-  smooth_cv[cv_lr] = (11 * smooth_cv[cv_lr] + 5 * adc_buffer[cpu_phase][3]) >> 4;
-  uint16_t cv_tmp = smooth_cv[cv_lr];
+  smooth_cv[cv_lr] = (21 * smooth_cv[cv_lr] + 11 * (adc_buffer[cpu_phase][3] << 4)) >> 5;
+  uint16_t cv_tmp = smooth_cv[cv_lr] >> 4;
   if (adc_correct_mask & (C1 << cv_lr)) {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
@@ -401,11 +404,10 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   const uint knob = mux_state;
-  // see discussion above.  this one does come out at 60hz.  but that gets very low when SAMPLE_FREQ drops.
-  // so let's aim for 1/100 nyquist which is roughly a = 1 / 30.
-  // smooth_knobs[knob] = (127 * smooth_knobs[knob] + 16 * (adc_buffer[cpu_phase][2] >> 4)) >> 7;  // 60hz lpf
-  smooth_knobs[knob] = (31 * smooth_knobs[knob] + adc_buffer[cpu_phase][2]) >> 5;
-  knobs[Prev][knob] = knobs[Now][knob];
+  // see discussion above.  here let's aim for 1/100 nyquist, but raw data already 1/4 cycles,
+  // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31
+  smooth_knobs[knob] = (26 * smooth_knobs[knob] + 6 * (adc_buffer[cpu_phase][2] << 4)) >> 5;
+  knobs[Prev][knob] = knobs[Now][knob] >> 4;
   if (knob == Switch) {
     knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000) - (smooth_knobs[Switch] > 3000);
   } else {
