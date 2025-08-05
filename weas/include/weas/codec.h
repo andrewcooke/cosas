@@ -407,11 +407,11 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // see discussion above.  here let's aim for 1/100 nyquist, but raw data already 1/4 cycles,
   // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31
   smooth_knobs[knob] = (26 * smooth_knobs[knob] + 6 * (adc_buffer[cpu_phase][2] << 4)) >> 5;
-  knobs[Prev][knob] = knobs[Now][knob] >> 4;
+  knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000) - (smooth_knobs[Switch] > 3000);
+    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > (1000 << 4)) - (smooth_knobs[Switch] > (3000 << 4));
   } else {
-    knobs[Now][knob] = smooth_knobs[knob] & adc_mask[Knobs];
+    knobs[Now][knob] = (smooth_knobs[knob] >> 4) & adc_mask[Knobs];
   }
 
   if (starting) {  // avoid startup noise

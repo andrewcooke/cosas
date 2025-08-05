@@ -9,7 +9,7 @@
 #include "weas/leds_direct.h"
 
 
-constexpr float FDIV = 44.1f;
+constexpr float FDIV = 1.0f;
 constexpr uint SAMPLE_FREQ = static_cast<uint>(CODEC_SAMPLE_44_1 / FDIV);
 
 
@@ -63,7 +63,7 @@ private:
   bool changed(uint idx) const {
     if (idx < Codec::N_KNOBS) return knobs[Now][idx] != knobs[Prev][idx];
     idx -= Codec::N_KNOBS;
-    if (idx < N_ADCS) return adcs[Prev][idx] != adcs[Prev][idx];
+    if (idx < N_ADCS) return adcs[Now][idx] != adcs[Prev][idx];
     idx -= N_ADCS;
     if (idx < N_PULSES) return pulses[Now][idx] != pulses[Prev][idx];
     return false;
