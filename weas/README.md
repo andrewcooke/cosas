@@ -20,11 +20,10 @@ compact).
 
 on the other hand, weas does have some interesting features:
 
-* you can choose what frequency you want to generate output at, for
-  example, so if you want to write very complex code that generates CV
-  output, you could do that by reducing output frequency to 1kHz (a
-  lower output frequency gives you more time to think between
-  outputs).
+* you can choose what frequency you want to generate output at.  so if
+  you want to write very complex code that generates CV output, you
+  could do that by reducing output frequency to 1kHz (a lower output
+  frequency gives you more time to think between outputs).
 
 * similarly, you can choose how much oversampling it does, which might
   be useful if you want to explore hardware limits.
