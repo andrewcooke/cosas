@@ -1,0 +1,23 @@
+
+#include <cstddef>
+#include <iostream>
+
+#include "doctest/doctest.h"
+
+#include "cosas/filter.h"
+
+#include <newlib/c++/14.2.1/cmath>
+
+TEST_CASE("Filter, SelfModLP") {
+  SelfModLP f(12, 48000, 600, 0.01f);
+  CHECK(f.next(static_cast<uint16_t>(1024)) == 5);
+  for (size_t i = 0; i < 4096; i++) f.next(static_cast<uint16_t>(i));
+  CHECK(f.next(static_cast<uint16_t>(4095)) == 4086);
+}
+
+TEST_CASE("Filter, SelfModLP_signed") {
+  SelfModLP f(12, 100, 5, 0.01f);
+  for (size_t i = 0; i < 100; i++) std::cout << f.next(static_cast<int16_t>(2047 * (sin(2 * i * std::numbers::pi) + sin(2 * i * std::numbers::pi / 100)))) << std::endl;
+  CHECK(f.next(static_cast<int16_t>(sin(2 * 101 * std::numbers::pi / 100))) == -119);
+  CHECK(f.next(static_cast<int16_t>(sin(2 * 102 * std::numbers::pi / 100))) == 0);
+}

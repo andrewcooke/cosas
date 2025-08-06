@@ -8,7 +8,7 @@
 #include "pico/multicore.h"
 
 #include "codec.h"
-
+#include "cosas/filter.h"
 
 // responsible for launching code on core1 and connecting fifos
 // that send knob change events.
@@ -46,6 +46,12 @@ private:
   void push(uint32_t msg);
   static void core1_marshaller();
   std::queue<uint32_t> overflow;
+  static constexpr uint16_t SAME = 4096;
+  SelfModLP filter[3] = {
+    SelfModLP(12, 44000, 30, 0.0001f),
+    SelfModLP(12, 44000, 30, 0.0001f),
+    SelfModLP(12, 44000, 30, 0.0001f)
+  };
 };
 
 
