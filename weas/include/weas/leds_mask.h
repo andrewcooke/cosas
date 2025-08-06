@@ -21,7 +21,8 @@ public:
   static uint32_t vinterp(uint off, uint32_t a, uint32_t b);
   static uint32_t hinterp(uint off, uint32_t a, uint32_t b);
   static uint32_t ring(float normalized, bool highlight);
-  static uint32_t top_square(uint amplitude);
+  static uint32_t square(uint bottom, uint amplitude);
+  static uint32_t vbar(uint right, uint amplitude);
 
 private:
 

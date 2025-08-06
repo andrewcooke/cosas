@@ -19,27 +19,38 @@ public:
   explicit FIFODemo(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {};
 
   void handle_knob_change(uint8_t knob, uint16_t now, uint16_t /* prev */) override {
-    static uint32_t ring = 0;
-    if (knob == Codec::Main) {
-      ring = mask.ring(static_cast<float>(now) / 4095,
-        abs(now - 2048) < 16 || now < 8 || now > 4087);
-      leds_timer.show(ring, square);
-    } else if (knob == Codec::Switch && now == Codec::Down) {
-      leds_timer.loop(12, 1, {
-        {LEDsMask::vinterp(1, ring, ring), LEDsMask::vinterp(1, square, square)},
-        {LEDsMask::vinterp(2, ring, ring), LEDsMask::vinterp(2, square, square)},
-        {ring, square}});
-    } else if (knob == Codec::Switch && now == Codec::Up) {
-      leds_timer.clear_loop();
+    // static uint32_t ring = 0;
+    switch (knob) {
+    case (Codec::Main):
+    case (Codec::X):
+      break;
+    case (Codec::Y):
+      // ring = leds_mask.ring(static_cast<float>(now) / 4095,
+      //   abs(now - 2048) < 16 || now < 8 || now > 4087);
+      // leds_timer.show(ring, overlay[knob]);
+      LEDsDirect().display12bits(now);
+      break;
+    case (Codec::Switch):
+      if (now == Codec::Down) {
+        leds_timer.loop(12, 1, {
+          {leds_timer.get_mask(), leds_timer.get_extra()},
+          {leds_timer.get_mask(), leds_timer.get_extra()}});
+      } else if (now == Codec::Up) {
+        leds_timer.clear_loop();
+      }
     }
   }
 
 private:
 
+  static constexpr uint8_t amp = 0x6;
   LEDsDirect leds;
-  LEDsMask mask;
+  LEDsMask leds_mask;
   LEDsTimer& leds_timer;
-  uint32_t square = mask.top_square(0x4);
+  uint32_t overlay[3] = {
+    leds_mask.square(0, amp),
+    leds_mask.vbar(0, amp),
+    leds_mask.square(1, amp)};
 };
 
 int main() {

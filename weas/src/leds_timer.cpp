@@ -61,3 +61,7 @@ void LEDsTimer::load_loop() {
 void LEDsTimer::clear_loop() {
   loop_data.clear();
 }
+
+uint32_t LEDsTimer::get_mask() {return mask;}
+
+uint32_t LEDsTimer::get_extra() {return extra;}

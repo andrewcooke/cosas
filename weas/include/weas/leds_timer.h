@@ -24,6 +24,8 @@ public:
   void loop(int scale, int count, std::vector<std::tuple<uint32_t, uint32_t>> mex);
   void clear_loop();
   static bool trampoline(repeating_timer_t *rt);
+  uint32_t get_mask();
+  uint32_t get_extra();
 
 private:
   explicit LEDsTimer(Codec& codec);

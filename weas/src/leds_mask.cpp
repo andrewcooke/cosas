@@ -97,11 +97,22 @@ uint32_t LEDsMask::overwrite(uint32_t mask, float centre, float width, uint ampl
   return mask;
 }
 
-uint32_t LEDsMask::top_square(uint amplitude) {
+uint32_t LEDsMask::square(uint bottom, uint amplitude) {
   uint32_t mask = 0;
   for (uint i = 0; i < 4; i++) {
     mask <<= BITS;
     mask |= (amplitude & BITS_MASK);
   }
+  if (bottom) mask <<= (2 * BITS);
+  return mask;
+}
+
+uint32_t LEDsMask::vbar(uint right, uint amplitude) {
+  uint32_t mask = 0;
+  for (uint i = 0; i < 3; i++) {
+    mask <<= (2 * BITS);
+    mask |= (amplitude & BITS_MASK);
+  }
+  if (!right) mask <<= BITS;
   return mask;
 }
