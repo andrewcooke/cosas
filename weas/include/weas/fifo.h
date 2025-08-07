@@ -48,9 +48,9 @@ private:
   std::queue<uint32_t> overflow;
   static constexpr uint16_t SAME = 4096;
   SelfModLP filter[3] = {
-    SelfModLP(12, 44000, 30, 0.0001f),
-    SelfModLP(12, 44000, 30, 0.0001f),
-    SelfModLP(12, 44000, 30, 0.0001f)
+    SelfModLP(12, 100, 74, 0.9f),
+    SelfModLP(12, 100, 74, 0.9f),
+    SelfModLP(12, 100, 74, 0.9f)
   };
 };
 

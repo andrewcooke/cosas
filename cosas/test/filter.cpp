@@ -21,3 +21,25 @@ TEST_CASE("Filter, SelfModLP_signed") {
   CHECK(f.next(static_cast<int16_t>(sin(2 * 101 * std::numbers::pi / 100))) == -119);
   CHECK(f.next(static_cast<int16_t>(sin(2 * 102 * std::numbers::pi / 100))) == 0);
 }
+
+TEST_CASE("Filter, SelfModLP_or") {
+  SelfModLP f(12, 10, 1, 0.5f);
+  CHECK(f.next_or(static_cast<uint16_t>(0), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1024), 4096) == 246);
+  CHECK(f.next_or(static_cast<uint16_t>(1024), 4096) == 1024);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
+}
+
