@@ -13,8 +13,12 @@ FIFO::FIFO() {
 
 // TODO - in memory?
 void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
-  push(packed);
+  static uint32_t count = 0;
+  now = filter[knob].next_or(now, count++);
+  if (now != SAME) {
+    uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
+    push(packed);
+  }
 }
 
 void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {

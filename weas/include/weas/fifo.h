@@ -47,10 +47,10 @@ private:
   static void core1_marshaller();
   std::queue<uint32_t> overflow;
   static constexpr uint16_t SAME = 4096;
-  SelfModLP filter[3] = {
-    SelfModLP(12, 100, 74, 0.9f),
-    SelfModLP(12, 100, 74, 0.9f),
-    SelfModLP(12, 100, 74, 0.9f)
+  MovingAverage<2> filter[3] = {
+    MovingAverage<2>(SAME),
+    MovingAverage<2>(SAME),
+    MovingAverage<2>(SAME)
   };
 };
 

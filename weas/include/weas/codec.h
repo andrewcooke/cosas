@@ -423,7 +423,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // smooth_knobs[knob] = ((4095 - knob_alpha) * smooth_knobs[knob] + knob_alpha * adc_buffer[cpu_phase][2]) >> 12;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000 - (smooth_knobs[Switch] > 3000);
+    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000) - (smooth_knobs[Switch] > 3000);
   } else {
     knobs[Now][knob] = smooth_knobs[knob] & adc_mask[Knobs];
   }
