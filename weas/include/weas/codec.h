@@ -219,6 +219,7 @@ private:
   void handle_adc();
   void handle_cv();
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
+  static constexpr uint EXTRA = 5;  // extra "fractional" bits for filter
 
   static void adc_callback() {
     CodecFactory& cf = CodecFactory::get();
@@ -381,7 +382,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // ComputerCard code:
   //   smooth_cv[cv_lr] = (15 * (smooth_cv[cv_lr]) + 16 * adc_buffer[cpu_phase][3]) >> 4;  // 240hz lpf
   //   cv[cv_lr] = smooth_cv[cv_lr] >> 4
-  // this has  the input shifted up by 4 bits (to reduce noise?  pointless!) which is dropped later.
+  // this has  the input shifted up by 4 bits (to give extra resolution) which is dropped later.
   // so alpha here is 1/16 and f = 24khz / (16 x 6) = 250hz (remember cv is sampled every other cycle).
 
   // here, the sample freq varies.  why not aim for, say, 1/10 audio nyquist?  then we don't need to adjust
@@ -389,8 +390,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // so alpha/2pi = 1/10, but then alpha is no longer small, and using the other formula we get alpha = 1/3
   // and keep an extra 4 bits for noise:
 
-  smooth_cv[cv_lr] = (21 * smooth_cv[cv_lr] + 11 * adc_buffer[cpu_phase][3]) >> 5;
-  uint16_t cv_tmp = smooth_cv[cv_lr];
+  smooth_cv[cv_lr] = (21 * smooth_cv[cv_lr] + 11 * (adc_buffer[cpu_phase][3] << EXTRA)) >> 5;
+  uint16_t cv_tmp = smooth_cv[cv_lr] >> EXTRA;
   if (adc_correct_mask & (C1 << cv_lr)) {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
@@ -417,15 +418,16 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
   // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
   // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
-  smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * adc_buffer[cpu_phase][2]) >> 5;
+  smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 5;
   // crazy amount of smoothing to make interface stable
   // equivalent to 0.5hz?!
   // smooth_knobs[knob] = ((4095 - knob_alpha) * smooth_knobs[knob] + knob_alpha * adc_buffer[cpu_phase][2]) >> 12;
+  uint32_t knob_now = smooth_knobs[knob] >> EXTRA;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {
-    knobs[Now][Switch] = 2 - (smooth_knobs[Switch] > 1000) - (smooth_knobs[Switch] > 3000);
+    knobs[Now][Switch] = 2 - (knob_now > 1000) - (knob_now > 3000);
   } else {
-    knobs[Now][knob] = smooth_knobs[knob] & adc_mask[Knobs];
+    knobs[Now][knob] = knob_now & adc_mask[Knobs];
   }
 
   if (starting) {  // avoid startup noise
