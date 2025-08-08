@@ -140,7 +140,7 @@ private:
 
   void write_out(Codec& cc) {
     for (uint i = 0; i < 4; i++) {
-      uint idx = (count >> (i + 3)) & (WTABLE_SIZE - 1);
+      uint idx = (count >> (i + 4)) & (WTABLE_SIZE - 1);
       if (i < 2) cc.write_audio(i, wtable[idx]);
       else cc.write_cv(i - 2, wtable[idx]);
     }
@@ -152,7 +152,7 @@ private:
   static int delay(const uint prev_change) {
     if (prev_change == Codec::N_KNOBS - 1) return static_cast<int>(30000 / FDIV);  // switch
     if (prev_change == N_ALL - 1) return static_cast<int>(100 / FDIV);  // pulse
-    return 2000;  // default
+    return 20000 / FDIV;  // default
   }
 
 public:

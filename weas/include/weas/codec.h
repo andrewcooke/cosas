@@ -96,9 +96,11 @@ public:
   // cv pins in reverse order
   // 12 bit signed
   void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    cv_out[lr] = (2047 - std::min(2047, std::max(-2048, static_cast<int>(v)))) << 7;
+    cv_out[lr] = (2047 + std::min(2047, std::max(-2048, static_cast<int>(v)))) << 7;
   }
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
+  void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { cv_out[lr] = static_cast<uint32_t>(v) << 7; }
+  void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
   // 19 bit signed
   void __not_in_flash_func(write_cv)(Channel lr, int32_t v) {
     cv_out[lr] = 262143 - std::min(262143, std::max(-262144, static_cast<int>(v)));
@@ -218,8 +220,12 @@ private:
 
   void handle_adc();
   void handle_cv();
-  uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
+  uint32_t probe_out = 0;
   static constexpr uint EXTRA = 5;  // extra "fractional" bits for filter
+  uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
+  volatile uint32_t smooth_knobs[N_KNOBS] = {};
+  volatile uint32_t smooth_cv[N_CHANNELS] = {};
+  int32_t cv_error[N_CHANNELS] = {};
 
   static void adc_callback() {
     CodecFactory& cf = CodecFactory::get();
@@ -358,10 +364,6 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   uint norm_probe_count = count & 0xf;
   uint cpu_phase = count & 0x1;
   uint dma_phase = 1 - cpu_phase;
-  static uint32_t probe_out = 0;
-
-  static volatile uint32_t smooth_knobs[N_KNOBS] = {};
-  static volatile uint32_t smooth_cv[N_CHANNELS] = {};
 
   adc_select_input(0); // TODO - why is this here?
 
@@ -500,18 +502,15 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-handle-cv")))
 void CodecFactory<OVERSAMPLE_BITS, F>::handle_cv() {
 
-  // TODO - understand this
-  // note channels swapped because CV pins swapped
+  // TODO - understand this (looks like lowest 8 bits are accumulated until significant?)
   pwm_clear_irq(pwm_gpio_to_slice_num(CV_OUT)); // clear the interrupt flag
 
-  static int32_t error_0 = 0, error_1 = 0;
-  uint32_t truncated_cv1_val = (cv_out[1] - error_1) & 0xFFFFFF00;
-  error_1 += truncated_cv1_val - cv_out[1];
-  pwm_set_gpio_level(CV_OUT, truncated_cv1_val >> 8);
-
-  uint32_t truncated_cv0_val = (cv_out[0] - error_0) & 0xFFFFFF00;
-  error_0 += truncated_cv0_val - cv_out[0];
-  pwm_set_gpio_level(CV_OUT + 1, truncated_cv0_val >> 8);
+  for (uint lr = 0; lr < N_CHANNELS; lr++) {
+    uint32_t truncated = (cv_out[lr] - cv_error[lr]) & 0xffffff00;
+    cv_error[lr] += truncated - cv_out[lr];
+    // CV pins swapped
+    pwm_set_gpio_level(CV_OUT + (1 - lr), truncated >> 8);
+  }
 }
 
 
