@@ -32,19 +32,18 @@ template<size_t WIDTH_BITS> class MovingAverage {
 
 public:
 
-  MovingAverage(uint16_t same) : same(same) {};
+  MovingAverage() {};
 
-  uint16_t next(uint16_t in, size_t count) {
-    for (size_t i = 0; i < WIDTH; i++) weights[i] += in;
-    uint16_t out = weights[count & MASK] >> WIDTH_BITS;
-    weights[count & MASK] = 0;
+  uint16_t next(uint16_t in) {
+    for (size_t i = 0; i < WIDTH; i++) sums[i] += in;
+    uint16_t out = sums[index & MASK] >> WIDTH_BITS;
+    sums[index++ & MASK] = 0;  // setting to in would extend length by 1
     return out;
   };
 
-  uint16_t next_or(uint16_t in, size_t count) {
-    static uint16_t prev = same;
-    uint16_t out = next(in, count);
-    if (prev == out) return same;
+  uint16_t next_or(uint16_t in, uint16_t repeat) {
+    uint16_t out = next(in);
+    if (prev == out) return repeat;
     prev = out;
     return out;
   };
@@ -52,8 +51,9 @@ public:
 private:
   static constexpr uint16_t WIDTH = 1 << WIDTH_BITS;
   static constexpr uint16_t MASK = WIDTH - 1;
-  uint16_t same;
-  uint16_t weights[WIDTH] = {};
+  uint32_t index = 0;
+  uint16_t prev = 0;
+  uint16_t sums[WIDTH] = {};
 
 };
 

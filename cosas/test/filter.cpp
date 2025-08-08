@@ -45,16 +45,30 @@ TEST_CASE("Filter, SelfModLP_or") {
 
 
 TEST_CASE("MovingAverage, next") {
-  MovingAverage<2> f(4096);
-  CHECK(f.next(2, 0) == 0);
-  for (size_t i = 1; i < 3; i++) CHECK(f.next(2, i) == 1);
-  CHECK(f.next(2, 3) == 2);
+  MovingAverage<2> f;
+  CHECK(f.next(2) == 0);
+  for (size_t i = 1; i < 3; i++) CHECK(f.next(2) == 1);
+  CHECK(f.next(2) == 2);
 }
 
-TEST_CASE("MovingAverage, next_or") {
-  MovingAverage<2> f(4096);
-  CHECK(f.next_or(2, 0) == 0);
-  CHECK(f.next_or(2, 1) == 1);
-  CHECK(f.next_or(2, 2) == 4096);
-  CHECK(f.next_or(2, 3) == 2);
+TEST_CASE("MovingAverage, next_or_2") {
+  MovingAverage<2> f;
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 1);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 2);
+  CHECK(f.next_or(2, 4096) == 4096);
+}
+
+TEST_CASE("MovingAverage, next_or_3") {
+  MovingAverage<3> f;
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 1);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 4096) == 2);
+  CHECK(f.next_or(2, 4096) == 4096);
 }
