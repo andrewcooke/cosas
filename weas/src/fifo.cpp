@@ -13,7 +13,7 @@ FIFO::FIFO() {
 
 // TODO - in memory?
 void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  now = filter[knob].next_or(now, SAME);
+  if (knob != Codec::Switch) now = filter[knob].next_or(now, SAME);
   if (now != SAME) {
     uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
     push(packed);

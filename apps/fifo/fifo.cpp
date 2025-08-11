@@ -15,7 +15,9 @@ typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 class FIFODemo : public KnobChanges {
 public:
 
-  explicit FIFODemo(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {};
+  explicit FIFODemo(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {
+    leds_timer.set_speed(16);
+  };
 
   void handle_knob_change(uint8_t knob, uint16_t now, uint16_t /* prev */) override {
     uint32_t ring = 0;

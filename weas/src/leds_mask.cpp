@@ -113,6 +113,6 @@ uint32_t LEDsMask::vbar(uint right, uint amplitude) {
     mask <<= (2 * BITS);
     mask |= (amplitude & BITS_MASK);
   }
-  if (!right) mask <<= BITS;
+  if (right) mask <<= BITS;
   return mask;
 }
