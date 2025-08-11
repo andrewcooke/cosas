@@ -28,6 +28,8 @@ private:
 };
 
 
+// WIDTH_BITS should < 5 for 12 bit values
+
 template<size_t WIDTH_BITS> class MovingAverage {
 
 public:

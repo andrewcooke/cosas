@@ -50,7 +50,7 @@ void LEDsTimer::loop(int scale, int limit, std::vector<std::tuple<uint32_t, uint
 
 void LEDsTimer::load_loop() {
   uint count = (codec.get_count() >> loop_scale) - loop_zero;
-  if (count < loop_limit) {
+  if (count < loop_limit && !loop_data.empty()) {
     uint idx = count % loop_data.size();
     show(std::get<0>(loop_data[idx]), std::get<1>(loop_data[idx]));
   } else if (count == loop_limit) {
