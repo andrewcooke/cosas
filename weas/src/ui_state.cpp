@@ -2,7 +2,7 @@
 #include "weas/ui_state.h"
 
 
-UIState::UIState(Codec& codec, Knob& knob) : leds_timer(LEDsTimer::get(codec)), knob(knob) {};
+UIState::UIState(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {};
 
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   switch (state) {
@@ -22,7 +22,7 @@ void UIState::state_adjust(uint8_t k, uint16_t now, uint16_t prev) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y): {
-    KnobChange change = knob.handle_knob_change(now, prev);
+    KnobChange change = knobs[k].handle_knob_change(now, prev);
     uint32_t ring = leds_mask.ring(change.normalized, change.highlight);
     leds_timer.show(ring, overlay[k]);
     break;

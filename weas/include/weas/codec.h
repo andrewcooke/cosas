@@ -13,8 +13,8 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
+#include "weas/ui_iface.h"
 #include "weas.h"
-#include "cosas/ui.h"
 
 
 // the interface to the DAC and ADC - hardware logic largely from ComputerCard.h
@@ -51,8 +51,6 @@ public:
     C1 = 4, C2 = 8, AllC = 12,
     All = 15
   };
-  enum When { Now, Prev };
-  static constexpr uint N_WHEN = Prev + 1;
   enum ADCSource { Audios, CVs, Knobs };
   static constexpr uint N_ADC_SOURCES = Knobs + 1;
 
@@ -498,10 +496,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-handle-cv")))
 void CodecFactory<OVERSAMPLE_BITS, F>::handle_cv() {
-
   // TODO - understand this (looks like lowest 8 bits are accumulated until significant?)
   pwm_clear_irq(pwm_gpio_to_slice_num(CV_OUT)); // clear the interrupt flag
-
   for (uint lr = 0; lr < N_CHANNELS; lr++) {
     uint32_t truncated = (cv_out[lr] - cv_error[lr]) & 0xffffff00;
     cv_error[lr] += truncated - cv_out[lr];

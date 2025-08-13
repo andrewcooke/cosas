@@ -5,10 +5,9 @@
 
 #include <queue>
 
-#include "pico/multicore.h"
-
-#include "codec.h"
 #include "cosas/filter.h"
+
+#include "weas/codec.h"
 
 
 // responsible for launching code on core1 and connecting fifos
@@ -49,7 +48,7 @@ private:
   std::queue<uint32_t> overflow;
   static constexpr uint16_t SAME = 4096;
   static constexpr uint8_t FILTER_SIZE = 2;
-  MovingAverage<FILTER_SIZE> filter[Codec::N_WHEN][3] = {
+  MovingAverage<FILTER_SIZE> filter[N_WHEN][3] = {
     MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),
     MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),
     MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>()

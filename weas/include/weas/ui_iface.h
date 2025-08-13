@@ -1,6 +1,6 @@
 
-#ifndef COSAS_UI_H
-#define COSAS_UI_H
+#ifndef WEAS_UI_IFACE_H
+#define WEAS_UI_IFACE_H
 
 #include <cstdint>
 
