@@ -421,9 +421,6 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
   // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
   smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 5;
-  // crazy amount of smoothing to make interface stable
-  // equivalent to 0.5hz?!
-  // smooth_knobs[knob] = ((4095 - knob_alpha) * smooth_knobs[knob] + knob_alpha * adc_buffer[cpu_phase][2]) >> 12;
   uint32_t knob_now = smooth_knobs[knob] >> EXTRA;
   knobs[Prev][knob] = knobs[Now][knob];
   if (knob == Switch) {

@@ -47,7 +47,7 @@ void FIFO::core1_marshaller() {
     case KNOB: {
       uint8_t knob = (packed >> 24) & 0x3;
       if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
-      uint16_t prev = (packed >> 12 & 0xfff);
+      uint16_t prev = (packed >> 12) & 0xfff;
       uint16_t now = packed & 0xfff;
       fifo.knob_changes->handle_knob_change(knob, now, prev);
       break;

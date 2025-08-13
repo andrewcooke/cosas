@@ -1,89 +1,19 @@
 
-#include <cmath>
-
 #include "weas/codec.h"
 #include "weas/fifo.h"
-#include "weas/leds.h"
-#include "weas/leds_direct.h"
-#include "weas/leds_mask.h"
-#include "weas/leds_timer.h"
+#include "weas/knobs.h"
+#include "weas/ui_state.h"
 
 
 typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 
-
-class FIFODemo : public KnobChanges {
-public:
-
-  explicit FIFODemo(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {
-    // leds_timer.set_speed(16);
-  };
-
-  void handle_knob_change(uint8_t knob, uint16_t now, uint16_t /* prev */) override {
-    uint32_t ring;
-    switch (state) {
-    case (ADJUST):
-      switch (knob) {
-      case (Codec::Main):
-      case (Codec::X):
-      case (Codec::Y):
-        ring = leds_mask.ring(static_cast<float>(now) / 4095,
-          abs(now - 2048) < 16 || now < 8 || now > 4087);
-        leds_timer.show(ring, overlay[knob]);
-        break;
-      case (Codec::Switch):
-        if (now == Codec::Down) {
-          uint32_t m = leds_timer.get_mask();
-          uint32_t e = leds_timer.get_extra();
-          leds_timer.show(leds_mask.vinterp(1, m, m), leds_mask.vinterp(1, e, e));
-          state = FREEWHEEL;
-        } else if (now == Codec::Up) {
-          leds_timer.clear_loop();
-          // TODO
-        }
-        break;
-      default:
-        break;
-      }
-      break;
-    case (FREEWHEEL):
-      switch (knob) {
-      case (Codec::Switch):
-        if (now == Codec::Middle) {
-          state = ADJUST;
-        }
-        break;
-      default:
-        break;
-      }
-      break;
-    default:
-      break;
-    }
-  }
-
-private:
-
-  enum State {ADJUST, FREEWHEEL, META};
-  State state = ADJUST;
-  static constexpr uint8_t amp = 0x6;
-  LEDsDirect leds;
-  LEDsMask leds_mask;
-  LEDsTimer& leds_timer;
-  // afaict the "3" should not be needed here, but i get an error without it.
-  uint32_t overlay[3] = {
-    leds_mask.square(0, amp),
-    leds_mask.vbar(0, amp),
-    leds_mask.square(1, amp)};
-};
-
 int main() {
   auto& codec = CC_::get();
   // codec.set_adc_mask(Codec::Knobs, 0xff0);
-  FIFODemo demo(codec);
+  Knob knob;
+  UIState demo(codec, knob);
   auto& fifo = FIFO::get();
   fifo.set_knob_changes(&demo);
   fifo.start(codec);
   codec.start();
 };
-
