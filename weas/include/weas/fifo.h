@@ -49,10 +49,10 @@ private:
   std::queue<uint32_t> overflow;
   static constexpr uint16_t SAME = 4096;
   static constexpr uint8_t FILTER_SIZE = 2;
-  MovingAverage<FILTER_SIZE> filter[3] = {
-    MovingAverage<FILTER_SIZE>(),
-    MovingAverage<FILTER_SIZE>(),
-    MovingAverage<FILTER_SIZE>()
+  MovingAverage<FILTER_SIZE> filter[Codec::N_WHEN][3] = {
+    MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),
+    MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),
+    MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>()
   };
 };
 
