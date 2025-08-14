@@ -31,8 +31,8 @@ private:
     leds_mask.vbar(0, amp),
     leds_mask.square(1, amp)};
   std::array<std::unique_ptr<Knob>, 3> knobs = {
-    std::make_unique<Sigmoid>(0.5, 0),
-    std::make_unique<Knob>(0.5),
+    std::make_unique<Knob>(0.5, 0, true, 0, 3),
+    std::make_unique<Knob>(0.5, 1, false, 0, 1),
     std::make_unique<Knob>()};
 
   void state_adjust(uint8_t k, uint16_t now, uint16_t prev);

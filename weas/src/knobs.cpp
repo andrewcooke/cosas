@@ -1,5 +1,6 @@
 
 #include <cmath>
+#include <iostream>
 
 #include "weas/knobs.h"
 
@@ -10,7 +11,8 @@ KnobChange::~KnobChange() {
 
 
 KnobChange Knob::handle_knob_change(uint16_t now, uint16_t prev) {
-  normalized = clip(normalized + scale * static_cast<float>(now - prev) / 4095);
+  normalized = clip(sigmoid(now, prev));
+  // normalized = clip(linear(now, prev));
   return KnobChange(this, normalized, ends());
 }
 
@@ -22,19 +24,24 @@ KnobChange::Highlight Knob::ends() {
 }
 
 void Knob::apply_change() {
-  // TODO - something would happen here (more expensive than just changing LEDs)
+  float val = lo + (hi - lo) * normalized;
+  if (log) val = powf(10, val);
+  // TODO - something with val
+  std::cout << val << std::endl;
 }
 
 float Knob::clip(float n) {
   return std::max(0.0f, std::min(1.0f, n));
 }
 
+float Knob::linear(uint16_t now, uint16_t prev) {
+  return clip(normalized + scale * static_cast<float>(now - prev) / 4095);
+}
 
-KnobChange Sigmoid::handle_knob_change(uint16_t now, uint16_t prev) {
+float Knob::sigmoid(uint16_t now, uint16_t prev) {
   float x1 = static_cast<float>(now - 2048) / 4095;
   float x0 = static_cast<float>(prev - 2048) / 4095;
   float y1 =  4.0f * (1.0f - linearity) * powf(x1, 3.0f) + linearity * x1 + 0.5f;
   float y0 =  4.0f * (1.0f - linearity) * powf(x0, 3.0f) + linearity * x0 + 0.5f;
-  normalized = clip(normalized + scale * (y1 - y0));
-  return KnobChange(this, normalized, ends());
+  return clip(normalized + scale * (y1 - y0));
 }
