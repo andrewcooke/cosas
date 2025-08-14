@@ -28,7 +28,6 @@ void Knob::apply_change() {
   float val = lo + (hi - lo) * normalized;
   if (log) val = powf(10, val);
   // TODO - something with val
-  std::cout << val << std::endl;
 }
 
 float Knob::clip(float n) {
