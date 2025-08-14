@@ -27,12 +27,25 @@ class Knob {
 
 public:
   friend class KnobChange;
-  Knob() = default;
-  KnobChange handle_knob_change(uint16_t now, uint16_t prev);
+  Knob(float s) : scale(s) {};
+  Knob() : Knob(1) {};
+  virtual KnobChange handle_knob_change(uint16_t now, uint16_t prev);
 
-private:
+protected:
   float normalized = 0.5;
+  float scale = 1;
   void apply_change();
+  KnobChange::Highlight ends();
+  float clip(float n);
+};
+
+
+class Sigmoid : public Knob {
+public:
+  Sigmoid(float s, float l) : Knob(s), linearity(l) {};
+  KnobChange handle_knob_change(uint16_t now, uint16_t prev) override;
+private:
+  float linearity;  // 0 flat, 1 linear
 };
 
 

@@ -30,7 +30,10 @@ private:
     leds_mask.square(0, amp),
     leds_mask.vbar(0, amp),
     leds_mask.square(1, amp)};
-  Knob knobs[Codec::N_KNOBS -1] = {Knob(), Knob(), Knob()};
+  std::array<std::unique_ptr<Knob>, 3> knobs = {
+    std::make_unique<Sigmoid>(0.5, 0),
+    std::make_unique<Knob>(0.5),
+    std::make_unique<Knob>()};
 
   void state_adjust(uint8_t k, uint16_t now, uint16_t prev);
   void state_freewheel(uint8_t knob, uint16_t now, uint16_t prev);
