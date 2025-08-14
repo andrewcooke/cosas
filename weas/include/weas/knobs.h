@@ -44,6 +44,7 @@ protected:
   void apply_change();
   KnobChange::Highlight ends();
   float clip(float n);
+  float absolute(uint16_t now, uint16_t prev);
   float linear(uint16_t now, uint16_t prev);
   float sigmoid(uint16_t now, uint16_t prev);
 };

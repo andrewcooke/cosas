@@ -2,7 +2,7 @@
 #include "weas/ui_state.h"
 
 
-UIState::UIState(Codec& codec) : leds_timer(LEDsTimer::get(codec)) {};
+UIState::UIState(LEDsTimer& leds_timer) : leds_timer(leds_timer) {};
 
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   switch (state) {
@@ -29,9 +29,10 @@ void UIState::state_adjust(uint8_t k, uint16_t now, uint16_t prev) {
   }
   case (Codec::Switch): {
     if (now == Codec::Down) {
-      uint32_t m = leds_timer.get_mask();
-      uint32_t e = leds_timer.get_extra();
-      leds_timer.show(leds_mask.vinterp(1, m, m), leds_mask.vinterp(1, e, e));
+      // uint32_t m = leds_timer.get_mask();
+      // uint32_t e = leds_timer.get_extra();
+      // leds_timer.show(leds_mask.vinterp(1, m, m), leds_mask.vinterp(1, e, e));
+      leds_timer.show(0xffff);
       state = FREEWHEEL;
     } else if (now == Codec::Up) {
       leds_timer.clear_loop();

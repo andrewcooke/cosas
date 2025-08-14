@@ -14,7 +14,7 @@ class UIState : public KnobChanges {
 
 public:
 
-  explicit UIState(Codec& codec);
+  explicit UIState(LEDsTimer& leds_timer);
   void handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) override;
 
 private:
@@ -26,20 +26,21 @@ private:
   LEDsMask leds_mask;
   LEDsTimer& leds_timer;
   // afaict the "3" should not be needed here, but i get an error without it.
-  uint32_t overlay[Codec::N_KNOBS -1] = {
+  uint32_t overlay[Codec::N_KNOBS - 1] = {
     leds_mask.square(0, amp),
     leds_mask.vbar(0, amp),
     leds_mask.square(1, amp)};
-  std::array<std::unique_ptr<Knob>, 3> knobs = {
-    std::make_unique<Knob>(0.5, 0, true, 0, 3),
-    std::make_unique<Knob>(0.5, 1, false, 0, 1),
+  std::array<std::unique_ptr<Knob>, Codec::N_KNOBS - 1> knobs = {
+    // std::make_unique<Knob>(0.5, 0, true, 0, 3),
+    // std::make_unique<Knob>(0.5, 1, false, 0, 1),
+    std::make_unique<Knob>(),
+    std::make_unique<Knob>(),
     std::make_unique<Knob>()};
 
   void state_adjust(uint8_t k, uint16_t now, uint16_t prev);
   void state_freewheel(uint8_t knob, uint16_t now, uint16_t prev);
 
 };
-
 
 
 #endif

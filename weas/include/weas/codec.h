@@ -13,8 +13,27 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-#include "weas/ui_iface.h"
 #include "weas.h"
+
+
+// useful interfaces
+
+class KnobChanges {
+
+public:
+  virtual void handle_knob_change(uint8_t /* knob */, uint16_t /* now */, uint16_t /* prev */) {};
+  virtual ~KnobChanges() = default;
+
+};
+
+
+class ConnectedChanges {
+
+public:
+  virtual void handle_connected_change(uint8_t /* socket_in */, bool /* connected */) {};
+  virtual ~ConnectedChanges() = default;
+
+};
 
 
 // the interface to the DAC and ADC - hardware logic largely from ComputerCard.h

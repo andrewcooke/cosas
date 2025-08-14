@@ -1,5 +1,5 @@
 
-ui is impoerant because system is complex but interface limited
+ui is important because system is complex but interface limited
 
 try to make display (leds) feel like it's connected to the associated
 actions so that connections are intuitve.
@@ -8,8 +8,8 @@ focus on displaying a limited amount of information well.  have to
 rely on user's memory (or some kind of printed reference?) for the rest.
 
 possible ideas that are on hold for now:
-- wire buttons to cv input and use them as controlers
-- gnerate audio output (beeps, or even voice synthesis / recordings)
+- wire buttons to cv input and use them as controllers
+- generate audio output (beeps, or even voice synthesis / recordings)
 
 to start with, use switch as main control:
 - up is meta/edit mode
@@ -64,11 +64,11 @@ should this scroll too?
 if flashing works, should we also show what knob was used?
 probably too much.
 
-implememntation
+implementation
 
 how do we implement all this?
 
 at a very high level, we use core 1.
-core 0 sends eventss via fifo.
+core 0 sends events via fifo.
 
 at a lower level, no idea yet.
