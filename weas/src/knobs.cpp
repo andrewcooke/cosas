@@ -11,9 +11,9 @@ KnobChange::~KnobChange() {
 
 
 KnobChange Knob::handle_knob_change(uint16_t now, uint16_t prev) {
-  // normalized = clip(sigmoid(now, prev));
+  normalized = clip(sigmoid(now, prev));
   // normalized = linear(now, prev);
-  normalized = absolute(now, prev);
+  // normalized = absolute(now, prev);
   return KnobChange(this, normalized, ends());
 }
 

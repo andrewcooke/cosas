@@ -7,6 +7,7 @@
 
 // an interface to the LEDs
 // (unlike ComputerCard) the raw input for these is 8 bits
+// indices are top left 0, top right 1, bottom left 4.
 
 
 class LEDs {

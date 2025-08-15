@@ -2,6 +2,7 @@
 #include "pico/multicore.h"
 
 #include "weas/fifo.h"
+#include "weas/debug.h"
 
 
 FIFO& FIFO::get() {
@@ -19,7 +20,8 @@ void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
     now = filter[Now][knob].next_or(now, SAME);
     prev = filter[Prev][knob].next(prev);
   }
-  if (now != SAME) {
+  if (now != SAME && abs(static_cast<int>(now) - prev) > FILTER_CUTOFF) {
+    // Debug::log("change", static_cast<int>(knob), now, prev);
     uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
     push(packed);
   }
@@ -36,11 +38,15 @@ void FIFO::push(uint32_t msg) {
     if (multicore_fifo_push_timeout_us(pending, 0)) {
       overflow.pop();
     } else {
+      Debug::log("overflow");
       overflow.push(OVERFLOW | msg);
       return;
     }
   }
-  if (!multicore_fifo_push_timeout_us(msg, 0)) overflow.push(OVERFLOW | msg);
+  if (!multicore_fifo_push_timeout_us(msg, 0)) {
+    Debug::log("overflow");
+    overflow.push(OVERFLOW | msg);
+  }
 }
 
 // TODO - in memory?
@@ -54,6 +60,7 @@ void FIFO::core1_marshaller() {
       if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
       uint16_t prev = (packed >> 12) & 0xfff;
       uint16_t now = packed & 0xfff;
+      // Debug::log("unpacked", static_cast<int>(knob));
       fifo.knob_changes->handle_knob_change(knob, now, prev);
       break;
     }
@@ -64,7 +71,6 @@ void FIFO::core1_marshaller() {
     }
     default: break;
     }
-
   }
 }
 

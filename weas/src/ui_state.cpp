@@ -1,8 +1,7 @@
 
 #include "weas/ui_state.h"
+#include "weas/leds_buffer.h"
 
-
-UIState::UIState(LEDsTimer& leds_timer) : leds_timer(leds_timer) {};
 
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   switch (state) {
@@ -18,24 +17,22 @@ void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
 }
 
 void UIState::state_adjust(uint8_t k, uint16_t now, uint16_t prev) {
+  LEDsBuffer& buffer = LEDsBuffer::get();
   switch (k) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y): {
     KnobChange change = knobs[k]->handle_knob_change(now, prev);
-    uint32_t ring = leds_mask.ring(change.normalized, change.highlight);
-    leds_timer.show(ring, overlay[k]);
+    uint32_t ring = LEDsMask::ring(change.normalized, change.highlight);
+    buffer.queue(ring, false, false, 0);
     break;
   }
   case (Codec::Switch): {
     if (now == Codec::Down) {
-      // uint32_t m = leds_timer.get_mask();
-      // uint32_t e = leds_timer.get_extra();
-      // leds_timer.show(leds_mask.vinterp(1, m, m), leds_mask.vinterp(1, e, e));
-      leds_timer.show(0xffff);
+      uint32_t m = LEDsBuffer::get().get_mask();
+      buffer.queue(LEDsMask::vinterp(1, m, m), true, false, 1);
       state = FREEWHEEL;
     } else if (now == Codec::Up) {
-      leds_timer.clear_loop();
       // TODO
     }
     break;
@@ -46,9 +43,15 @@ void UIState::state_adjust(uint8_t k, uint16_t now, uint16_t prev) {
 }
 
 void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
+  LEDsBuffer& buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch):
-    if (now == Codec::Middle) state = ADJUST;
+    if (now == Codec::Middle) {
+      page = (page + 1) % n_pages;
+      buffer.queue(LEDsMask::rot2dot(page, LEDsMask::BITS_MASK, true), true, true, 2);
+      state = ADJUST;
+      sleep_ms(500);  // so visible despite noise
+    }
     break;
   default:
     break;

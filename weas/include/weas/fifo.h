@@ -47,7 +47,8 @@ private:
   static void core1_marshaller();
   std::queue<uint32_t> overflow;
   static constexpr uint16_t SAME = 4096;
-  static constexpr uint8_t FILTER_SIZE = 2;
+  static constexpr uint8_t FILTER_SIZE = 4;
+  static constexpr int FILTER_CUTOFF = 2;
   MovingAverage<FILTER_SIZE> filter[N_WHEN][Codec::N_KNOBS - 1] = {
     MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),
     MovingAverage<FILTER_SIZE>(), MovingAverage<FILTER_SIZE>(),

@@ -6,26 +6,10 @@
 #include "weas/leds_mask.h"
 
 
-LEDsMask::LEDsMask() : pulse() {
-  // pulse always >= 0
-  for (uint i = 0; i < N_CYCLE; ++i) pulse[i] = 1 + std::sinf(static_cast<float>(2 * std::numbers::pi * i / N_CYCLE));
- }
-
-
-void LEDsMask::show(uint32_t mask) {
+void LEDsMask::show(LEDs& leds, uint32_t mask) {
   for (uint i = 0; i < leds.N; i++) {
     leds.set(i, static_cast<uint>(mask & BITS_MASK) << (8 - BITS));
     mask = mask >> BITS;
-  }
-}
-
-void LEDsMask::show(uint32_t mask, uint32_t extra, uint32_t count) {
-  for (uint i = 0; i < leds.N; i++) {
-    int v0 = static_cast<int>(mask & BITS_MASK) << (8 - BITS);
-    int v1 = static_cast<int>((extra & BITS_MASK) * pulse[count & (N_CYCLE - 1)]);
-    leds.set(i, static_cast<uint8_t>(std::min(0xff, v0 + v1)));
-    mask >>= BITS;
-    extra >>= BITS;
   }
 }
 
@@ -49,7 +33,6 @@ uint32_t LEDsMask::vinterp(uint off, uint32_t a, uint32_t b) {
 }
 
 uint32_t LEDsMask::hinterp(uint off, uint32_t a, uint32_t b) {
-  // TODO - not sure i have this the right way round?  is it l to r?
   switch (off % 3) {
   case 0: return a;
   case 1: return ((a & SIDE_MASK) >> BITS) | ((b << BITS) & SIDE_MASK);
@@ -114,5 +97,23 @@ uint32_t LEDsMask::vbar(uint right, uint amplitude) {
     mask |= (amplitude & BITS_MASK);
   }
   if (right) mask <<= BITS;
+  return mask;
+}
+
+uint32_t LEDsMask::rot2dot(uint off, uint amplitude, bool inverse) {
+  uint32_t dot = amplitude & BITS_MASK;
+  uint32_t hbase = dot << BITS | dot;
+  uint32_t vbase = dot << (2 * BITS) | dot;
+  uint32_t mask = 0;
+  switch(off % 6) {
+  default:
+  case 0: mask = hbase << (4 * BITS); break;
+  case 1: mask = vbase << (2 * BITS); break;
+  case 2: mask = vbase; break;
+  case 3: mask = hbase; break;
+  case 4: mask = vbase << BITS; break;
+  case 5: mask = vbase << (3 * BITS); break;
+  }
+  if (inverse) mask = mask ^ FULL_MASK;
   return mask;
 }
