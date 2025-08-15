@@ -41,7 +41,7 @@ uint32_t LEDsBuffer::get_mask() {return mask;}
 
 void LEDsBuffer::queue(uint32_t mask_new, bool force, bool interp, uint n) {
   if (DISABLED) {
-    Debug::log("direct [", std::bitset<30>(mask_new), "]");
+    // Debug::log("direct [", std::bitset<30>(mask_new), "]");
     LEDsMask::show(LEDs::get(), mask_new);
   } else {
     lazy_start_on_local_core();

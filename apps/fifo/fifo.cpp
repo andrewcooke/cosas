@@ -8,7 +8,7 @@
 typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 
 int main() {
-  Debug::init();
+  // Debug::init();
   auto& fifo = FIFO::get();
   UIState ui;
   Debug::log(1);

@@ -20,7 +20,7 @@ void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
     now = filter[Now][knob].next_or(now, SAME);
     prev = filter[Prev][knob].next(prev);
   }
-  if (now != SAME && abs(static_cast<int>(now) - prev) > FILTER_CUTOFF) {
+  if (now != SAME) {
     // Debug::log("change", static_cast<int>(knob), now, prev);
     uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
     push(packed);
@@ -58,10 +58,10 @@ void FIFO::core1_marshaller() {
     case KNOB: {
       uint8_t knob = (packed >> 24) & 0x3;
       if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
-      // uint16_t prev = (packed >> 12) & 0xfff;
+      uint16_t prev = (packed >> 12) & 0xfff;
       uint16_t now = packed & 0xfff;
       Debug::log("unpacked", static_cast<int>(knob), now);
-      // fifo.knob_changes->handle_knob_change(knob, now, prev);
+      fifo.knob_changes->handle_knob_change(knob, now, prev);
       break;
     }
     case CONNECTED: {

@@ -12,10 +12,10 @@
 class LEDsBuffer {
 
 public:
-  static constexpr uint TIMER_MS = 100;
-  static constexpr uint INTERP_BITS = 2;
+  static constexpr uint TIMER_MS = 25;
+  static constexpr uint INTERP_BITS = 3;
   static constexpr uint INTERP_N = 1 << INTERP_BITS;
-  static constexpr bool DISABLED = true;
+  static constexpr bool DISABLED = false;
   static LEDsBuffer& get();
   void queue(uint32_t mask, bool force, bool interp, uint n);
   static bool trampoline(repeating_timer_t *rt);

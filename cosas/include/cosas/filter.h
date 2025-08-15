@@ -28,9 +28,10 @@ private:
 };
 
 
-// WIDTH_BITS should < 5 for 12 bit values
+// WIDTH_BITS should < 5 for 12 bit values and uint16_t
+// for larger WIDTH_BITS using uint32_t
 
-template<size_t WIDTH_BITS> class MovingAverage {
+template<typename INT, size_t WIDTH_BITS> class MovingAverage {
 
 public:
 
@@ -55,7 +56,7 @@ private:
   static constexpr uint16_t MASK = WIDTH - 1;
   uint32_t index = 0;
   uint16_t prev = 0;
-  uint16_t sums[WIDTH] = {};
+  INT sums[WIDTH] = {};
 
 };
 
