@@ -45,7 +45,9 @@ private:
   ConnectedChanges* connected_changes = nullptr;
   void push(uint32_t msg);
   static void core1_marshaller();
+  static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
+  uint overflow_count = 0;
   static constexpr uint16_t SAME = 4096;
   static constexpr uint8_t FILTER_SIZE = 4;
   static constexpr int FILTER_CUTOFF = 2;

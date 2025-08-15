@@ -15,6 +15,7 @@ public:
   static constexpr uint TIMER_MS = 100;
   static constexpr uint INTERP_BITS = 2;
   static constexpr uint INTERP_N = 1 << INTERP_BITS;
+  static constexpr bool DISABLED = true;
   static LEDsBuffer& get();
   void queue(uint32_t mask, bool force, bool interp, uint n);
   static bool trampoline(repeating_timer_t *rt);

@@ -20,7 +20,7 @@ public:
   static void init(std::ostream& os, uint n) {
     stdio_init_all();
     used = true;
-    for (uint i = 0; i < n; i++) {os << "debug startup " << i << "/" << n << std::endl; sleep_ms(1000);}
+    for (uint i = 0; i < n; i++) {os << "debug startup " << (n - i) << std::endl; sleep_ms(300);}
   }
   static void init() {init(std::cout, 5);}
 
