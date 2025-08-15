@@ -100,20 +100,24 @@ uint32_t LEDsMask::vbar(uint right, uint amplitude) {
   return mask;
 }
 
-uint32_t LEDsMask::rot2dot(uint off, uint amplitude, bool inverse) {
-  uint32_t dot = amplitude & BITS_MASK;
-  uint32_t hbase = dot << BITS | dot;
-  uint32_t vbase = dot << (2 * BITS) | dot;
-  uint32_t mask = 0;
+uint32_t LEDsMask::rot2dot(uint off, uint fg, uint bg) {
+  uint32_t dot = fg & BITS_MASK;
+  uint32_t spc = bg & BITS_MASK;
+  uint32_t spc3 = (((spc << BITS) | spc) << BITS) | spc;
+  uint32_t spc4 = (spc3 << BITS) | spc;
+  uint32_t hbase = (((spc4 << BITS) | dot) << BITS) | dot;
+  uint32_t vbase = (((((spc3 << BITS) | dot) << BITS) | spc) << BITS) | dot;
   switch(off % 6) {
   default:
-  case 0: mask = hbase << (4 * BITS); break;
-  case 1: mask = vbase << (2 * BITS); break;
-  case 2: mask = vbase; break;
-  case 3: mask = hbase; break;
-  case 4: mask = vbase << BITS; break;
-  case 5: mask = vbase << (3 * BITS); break;
+  case 0: return rotate(hbase, 4);
+  case 1: return rotate(vbase, 2);
+  case 2: return vbase;
+  case 3: return hbase;
+  case 4: return rotate(vbase, 1);
+  case 5: return rotate(vbase, 3);
   }
-  if (inverse) mask = mask ^ FULL_MASK;
-  return mask;
+}
+
+uint32_t LEDsMask::rotate(uint32_t mask, uint n) {
+  return ((mask << (n * BITS)) & FULL_MASK) | (mask >> ((LEDs::N - n) * BITS));
 }

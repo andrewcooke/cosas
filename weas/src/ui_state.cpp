@@ -48,7 +48,7 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
   case (Codec::Switch):
     if (now == Codec::Middle) {
       page = (page + 1) % n_pages;
-      buffer.queue(LEDsMask::rot2dot(page, LEDsMask::BITS_MASK, true), true, true, 2);
+      buffer.queue(LEDsMask::rot2dot(page, LEDsMask::BITS_MASK, LEDsMask::BITS_MASK >> 2), true, true, 2);
       state = ADJUST;
       sleep_ms(500);  // so visible despite noise
     }

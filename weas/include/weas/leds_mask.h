@@ -21,7 +21,8 @@ public:
   static uint32_t ring(float normalized, bool highlight);
   static uint32_t square(uint bottom, uint amplitude);
   static uint32_t vbar(uint right, uint amplitude);
-  static uint32_t rot2dot(uint off, uint amplitude, bool inverse);
+  static uint32_t rot2dot(uint off, uint fg, uint bg);
+  static uint32_t rotate(uint32_t mask, uint n);
   static constexpr uint BITS = 5;  // can't be more than 5 for uint32_t
   static constexpr uint32_t FULL_MASK = (1 << (LEDs::N * BITS)) - 1;
   static constexpr uint BITS_MASK = (1 << BITS) - 1;
