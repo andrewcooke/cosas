@@ -10,7 +10,8 @@ typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 int main() {
   // Debug::init();
   auto& fifo = FIFO::get();
-  UIState ui;
+  DummyApp app;
+  UIState ui(app);
   Debug::log(1);
   fifo.set_knob_changes(&ui);
   Debug::log(2);

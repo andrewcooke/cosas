@@ -7,7 +7,7 @@
 
 void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
   auto m = Manager(true);
-    RelSource& fm = m.build(e);
+  RelSource& fm = m.build(e);
   const auto p = m.get_pane(pane);
   for (size_t i = 0; i < n; i++) {
     p.top.set(i / static_cast<float>(n));
