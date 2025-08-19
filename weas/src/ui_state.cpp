@@ -1,8 +1,19 @@
 
 #include "weas/ui_state.h"
+
+#include "weas/codec.h"
+#include "weas/debug.h"
 #include "weas/leds_buffer.h"
 
+
+UIState::UIState(App& app, Codec::SwitchPosition initial)
+: KnobChanges(), app(app) {
+  handle_knob_change(Codec::Switch, initial, initial);
+}
+
+
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
+  Debug::log("knob", static_cast<uint>(knob), "now", now, "prev", prev);
   switch (state) {
   case (ADJUST):
     state_adjust(knob, now, prev);
@@ -29,8 +40,11 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
       state = SELECT;
       break;
     case (Codec::Down): {
-      uint32_t m = LEDsBuffer::get().get_mask();
-      buffer.queue(LEDsMask::vinterp(1, m, m), true, false, 1);
+      uint32_t m_adjust = LEDsBuffer::get().get_mask();
+      uint32_t m_next_page = current_page_mask();
+      buffer.queue(LEDsMask::vinterp(1, m_adjust, m_next_page), true, true, 0);
+      buffer.queue(LEDsMask::vinterp(2, m_adjust, m_next_page), false, true, 0);
+      buffer.queue(m_next_page, false, true, 0);
       state = NEXT_PAGE;
       break;
     }
@@ -52,6 +66,10 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   }
 }
 
+uint32_t UIState::current_page_mask() {
+  return LEDsMask::rot2dot(page, LEDsMask::BITS_MASK, LEDsMask::BITS_MASK >> 2);
+}
+
 void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
   LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
@@ -59,9 +77,7 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
     switch (now) {
     case (Codec::Middle):
       page = (page + 1) % n_pages;
-      buffer.queue(LEDsMask::rot2dot(page, LEDsMask::BITS_MASK,
-                                     LEDsMask::BITS_MASK >> 2),
-                   true, true, LEDsBuffer::INTERP_N << 1);
+      buffer.queue(current_page_mask(), true, true, LEDsBuffer::INTERP_N << 1);
       state = ADJUST;
       sleep_ms(500); // so visible despite noise
       break;

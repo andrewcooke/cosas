@@ -55,6 +55,10 @@ private:
     MovingAverage<uint32_t, FILTER_SIZE>(), MovingAverage<uint32_t, FILTER_SIZE>(),
     MovingAverage<uint32_t, FILTER_SIZE>(), MovingAverage<uint32_t, FILTER_SIZE>()
   };
+  static constexpr uint16_t THRESH = 4;
+  ThresholdRange thresh[Codec::N_KNOBS - 1] = {
+    ThresholdRange(THRESH), ThresholdRange(THRESH), ThresholdRange(THRESH)
+  };
 };
 
 

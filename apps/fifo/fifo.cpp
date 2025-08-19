@@ -9,16 +9,11 @@ typedef CodecFactory<1, CODEC_SAMPLE_44_1> CC_;
 
 int main() {
   // Debug::init();
+  auto& codec = CC_::get();
   auto& fifo = FIFO::get();
   DummyApp app;
-  UIState ui(app);
-  Debug::log(1);
+  UIState ui(app, codec.read_switch());
   fifo.set_knob_changes(&ui);
-  Debug::log(2);
-  auto& codec = CC_::get();
-  Debug::log(3);
   fifo.start(codec);
-  Debug::log(4);
   codec.start();
-  Debug::log(5);
 };

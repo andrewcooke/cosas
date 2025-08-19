@@ -19,6 +19,13 @@ void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   if (knob != Codec::Switch) {
     now = filter[Now][knob].next_or(now, SAME);
     prev = filter[Prev][knob].next(prev);
+    if (now == SAME) return;
+    if (thresh[knob].add(now, prev)) {
+      now = thresh[knob].now;
+      prev = thresh[knob].prev;
+    } else {
+      return;
+    }
   }
   if (now != SAME) {
     // Debug::log("change", static_cast<int>(knob), now, prev);
@@ -39,13 +46,11 @@ void FIFO::push(uint32_t msg) {
       overflow.pop();
     } else {
       overflow.push(OVERFLOW | msg);
-      Debug::log("overflow (1)", ++overflow_count, overflow.size());
       return;
     }
   }
   if (!multicore_fifo_push_timeout_us(msg, TIMEOUT_US)) {
     overflow.push(OVERFLOW | msg);
-    Debug::log("overflow (2)", ++overflow_count, overflow.size());
   }
 }
 
@@ -60,7 +65,6 @@ void FIFO::core1_marshaller() {
       if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
       uint16_t prev = (packed >> 12) & 0xfff;
       uint16_t now = packed & 0xfff;
-      Debug::log("unpacked", static_cast<int>(knob), now);
       fifo.knob_changes->handle_knob_change(knob, now, prev);
       break;
     }

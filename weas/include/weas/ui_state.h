@@ -12,18 +12,18 @@
 #include "weas/leds_mask.h"
 
 
-class UIState : public KnobChanges {
+class UIState final : public KnobChanges {
 
 public:
 
-  UIState(App& app) : KnobChanges(), app(app) {}
+  UIState(App& app, Codec::SwitchPosition initial);
   void handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) override;
 
 private:
 
   App& app;
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SELECT};
-  State state = ADJUST;
+  State state = SELECT;
   uint page = 0;
   uint n_pages = 6;
   static constexpr uint8_t amp = 0x6;
@@ -37,6 +37,8 @@ private:
   void state_next_page(uint8_t knob, uint16_t now, uint16_t prev);
   void state_freewheel(uint8_t knob, uint16_t now, uint16_t prev);
   void state_select(uint8_t knob, uint16_t now, uint16_t prev);
+
+  uint32_t current_page_mask();
 
 };
 

@@ -6,28 +6,6 @@
 #include <cstddef>
 
 
-// https://cytomic.com/files/dsp/DynamicSmoothing.pdf
-
-class SelfModLP {
-
-public:
-  SelfModLP(uint8_t bits, uint32_t sample_freq, uint32_t cutoff, float sensitivity);
-  uint16_t next(uint16_t in);
-  int16_t next(int16_t in);
-  uint16_t next_or(uint16_t in, uint16_t same);
-  int16_t next_or(int16_t in, int16_t same);
-
-private:
-  uint16_t max;
-  uint16_t zero;
-  uint16_t low1 = 0;
-  uint16_t low2 = 0;
-  float g0;
-  float sense;
-
-};
-
-
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
 // for larger WIDTH_BITS using uint32_t
 
@@ -57,6 +35,25 @@ private:
   uint32_t index = 0;
   uint16_t prev = 0;
   INT sums[WIDTH] = {};
+
+};
+
+
+// the idea here is that we accumulate until the difference between next and
+// prev is large enough to be significant.  at that point add() returns true
+// and the attributes should be used.
+
+class ThresholdRange {
+
+public:
+  ThresholdRange(uint16_t thresh);
+  bool add(uint16_t now, uint16_t prev);
+  uint16_t now;
+  uint16_t prev;
+
+private:
+  uint16_t thresh;
+  bool initialised = false;
 
 };
 

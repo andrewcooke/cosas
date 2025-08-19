@@ -8,51 +8,15 @@
 
 #include <newlib/c++/14.2.1/cmath>
 
-TEST_CASE("Filter, SelfModLP") {
-  SelfModLP f(12, 48000, 600, 0.01f);
-  CHECK(f.next(static_cast<uint16_t>(1024)) == 5);
-  for (size_t i = 0; i < 4096; i++) f.next(static_cast<uint16_t>(i));
-  CHECK(f.next(static_cast<uint16_t>(4095)) == 4086);
-}
-
-TEST_CASE("Filter, SelfModLP_signed") {
-  SelfModLP f(12, 100, 5, 0.01f);
-  for (size_t i = 0; i < 100; i++) /* std::cout << */ f.next(static_cast<int16_t>(2047 * (sin(2 * i * std::numbers::pi) + sin(2 * i * std::numbers::pi / 100)))) /* << std::endl */;
-  CHECK(f.next(static_cast<int16_t>(sin(2 * 101 * std::numbers::pi / 100))) == -119);
-  CHECK(f.next(static_cast<int16_t>(sin(2 * 102 * std::numbers::pi / 100))) == 0);
-}
-
-TEST_CASE("Filter, SelfModLP_or") {
-  SelfModLP f(12, 10, 1, 0.5f);
-  CHECK(f.next_or(static_cast<uint16_t>(0), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1024), 4096) == 246);
-  CHECK(f.next_or(static_cast<uint16_t>(1024), 4096) == 1024);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-  CHECK(f.next_or(static_cast<uint16_t>(1026), 4096) == 4096);
-}
-
-
 TEST_CASE("MovingAverage, next") {
-  MovingAverage<2> f;
+  MovingAverage<uint16_t, 2> f;
   CHECK(f.next(2) == 0);
   for (size_t i = 1; i < 3; i++) CHECK(f.next(2) == 1);
   CHECK(f.next(2) == 2);
 }
 
 TEST_CASE("MovingAverage, next_or_2") {
-  MovingAverage<2> f;
+  MovingAverage<uint16_t, 2> f;
   CHECK(f.next_or(2, 4096) == 4096);
   CHECK(f.next_or(2, 4096) == 1);
   CHECK(f.next_or(2, 4096) == 4096);
@@ -61,7 +25,7 @@ TEST_CASE("MovingAverage, next_or_2") {
 }
 
 TEST_CASE("MovingAverage, next_or_3") {
-  MovingAverage<3> f;
+  MovingAverage<uint16_t, 3> f;
   CHECK(f.next_or(2, 4096) == 4096);
   CHECK(f.next_or(2, 4096) == 4096);
   CHECK(f.next_or(2, 4096) == 4096);
@@ -71,4 +35,14 @@ TEST_CASE("MovingAverage, next_or_3") {
   CHECK(f.next_or(2, 4096) == 4096);
   CHECK(f.next_or(2, 4096) == 2);
   CHECK(f.next_or(2, 4096) == 4096);
+}
+
+
+TEST_CASE("ThresholdRange") {
+  ThresholdRange tr = ThresholdRange(2);
+  CHECK(!tr.add(10, 10));
+  CHECK(!tr.add(12, 10));
+  CHECK(tr.add(13, 12));
+  CHECK(tr.now == 13);
+  CHECK(tr.prev == 10);
 }
