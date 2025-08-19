@@ -48,7 +48,7 @@ private:
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
   uint overflow_count = 0;
-  Gate gate = Gate(1, 256);
+  Gate gate = Gate(1, 8);
 };
 
 

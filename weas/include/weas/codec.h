@@ -93,6 +93,7 @@ public:
   void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
   // use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
   void set_knob_alpha(uint a) {knob_alpha = std::min(6u, std::max(1u, a)); }
+  void set_knob_sample_rate(uint bits) {knob_sample_mask = ((1u << bits) - 1) << 2; }
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(Knob k) { return knobs[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_knob)(uint k) { return read_knob(static_cast<Knob>(k)); }
@@ -172,6 +173,9 @@ protected:
   KnobChanges* knob_changes = nullptr;
   bool track_knob_changes = false;
   uint knob_alpha = 1;
+  // smoothing by default is 60hz when sampling at 48khz.  48000/60 = 800 or 9-10 bits
+  // so use 8 shifted right two for the mux
+  uint32_t knob_sample_mask = 0xf << 2;
 
   uint adc_correct_mask = 0;
   std::function<int16_t(uint16_t)> adc_correction = CODEC_NULL_CORRECTION;
@@ -434,22 +438,27 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   const uint knob = mux_state;
-  // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
-  // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
-  // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
+  const bool sample_knobs = !(count & knob_sample_mask);
   smooth_knobs[knob] = ((32 - knob_alpha) * smooth_knobs[knob] + knob_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 5;
-  uint32_t knob_now = smooth_knobs[knob] >> EXTRA;
-  knobs[Prev][knob] = knobs[Now][knob];
-  if (knob == Switch) {
-    knobs[Now][Switch] = 2 - (knob_now > 1000) - (knob_now > 3000);
-  } else {
-    knobs[Now][knob] = knob_now & adc_mask[Knobs];
-  }
-
-  if (starting) {  // avoid startup noise
+  if (sample_knobs) {
+    // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
+    // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
+    // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
+    // with default (1) at 60hz
     knobs[Prev][knob] = knobs[Now][knob];
-    // TODO - Should initialise knob and CV smoothing filters here too
-    starting = count < 8;
+    uint32_t knob_now = smooth_knobs[knob] >> EXTRA;
+    if (knob == Switch) {
+      knobs[Now][Switch] = 2 - (knob_now > 1000) - (knob_now > 3000);
+    } else {
+      knobs[Now][knob] = knob_now & adc_mask[Knobs];
+    }
+
+    // TODO - do we still care about starting?
+    if (starting) {  // avoid startup noise
+      knobs[Prev][knob] = knobs[Now][knob];
+      // TODO - Should initialise knob and CV smoothing filters here too
+      starting = count < 8;
+    }
   }
 
   if (use_norm_probe) {
@@ -483,7 +492,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   if (!starting) {
-    if (track_knob_changes && knob_changed(knob) && knob_changes) {
+    if (sample_knobs && track_knob_changes && knob_changed(knob) && knob_changes) {
       knob_changes->handle_knob_change(knob, knobs[Now][knob], knobs[Prev][knob]);
     }
     if (use_norm_probe && track_connected_changes && connected_changes) {
