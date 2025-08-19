@@ -7,13 +7,12 @@
 
 
 UIState::UIState(App& app, Codec::SwitchPosition initial)
-: KnobChanges(), app(app) {
+  : KnobChanges(), app(app) {
   handle_knob_change(Codec::Switch, initial, initial);
 }
 
 
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  Debug::log("knob", static_cast<uint>(knob), "now", now, "prev", prev);
   switch (state) {
   case (ADJUST):
     state_adjust(knob, now, prev);

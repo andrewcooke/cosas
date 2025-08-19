@@ -16,15 +16,6 @@ FIFO::FIFO() {
 
 // TODO - in memory?
 void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  if (knob != Codec::Switch) {
-    if (gate.accumulate(knob, now, prev)) {
-      now = gate.now[knob];
-      prev = gate.prev[knob];
-    } else {
-      return;
-    }
-  }
-  // Debug::log("change", static_cast<int>(knob), now, prev);
   uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
   push(packed);
 }
@@ -35,16 +26,20 @@ void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
 }
 
 void FIFO::push(uint32_t msg) {
+  if (!(total_write & DUMP_MASK)) Debug::log("write", overflow_write, "/", total_write);
+  total_write++;
   while (!overflow.empty()) {
     uint32_t pending = overflow.front();
     if (multicore_fifo_push_timeout_us(pending, TIMEOUT_US)) {
       overflow.pop();
     } else {
+      overflow_write++;
       overflow.push(OVERFLOW | msg);
       return;
     }
   }
   if (!multicore_fifo_push_timeout_us(msg, TIMEOUT_US)) {
+    overflow_write++;
     overflow.push(OVERFLOW | msg);
   }
 }
@@ -52,12 +47,18 @@ void FIFO::push(uint32_t msg) {
 // TODO - in memory?
 void FIFO::core1_marshaller() {
   auto& fifo = get();
+  uint total_read = 0, overflow_read = 0;
   while (true) {
+    if (!(total_read & DUMP_MASK)) Debug::log("read", overflow_read, "/", total_read);
+    total_read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     switch (packed & TAG_MASK) {
     case KNOB: {
       uint8_t knob = (packed >> 24) & 0x3;
-      if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
+      if ((packed & OVERFLOW) && (knob != Codec::Switch)) {
+        overflow_read++;
+        break;  // discard to clear backlog
+      }
       uint16_t now = packed & 0xfff;
       uint16_t prev = (packed >> 12) & 0xfff;
       fifo.knob_changes->handle_knob_change(knob, now, prev);

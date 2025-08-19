@@ -25,6 +25,7 @@ public:
   static constexpr uint32_t KNOB = 0x0 << 30;
   static constexpr uint32_t CONNECTED = 0x1 << 30;
   static constexpr uint32_t TAG_MASK = KNOB | CONNECTED;
+  static constexpr uint DUMP_MASK = (1 << 10) - 1;
   // then quite a bit of space before the payload
 
   FIFO(const FIFO&) = delete;
@@ -47,7 +48,8 @@ private:
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
-  uint overflow_count = 0;
+  uint total_write = 0;
+  uint overflow_write = 0;
   Gate gate = Gate(1, 8);
 };
 
