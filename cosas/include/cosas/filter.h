@@ -2,9 +2,10 @@
 #ifndef WEAS_FILTER_H
 #define WEAS_FILTER_H
 
-#include <stdint.h>
-#include <cstddef>
+#include "app.h"
 
+#include <cstddef>
+#include <stdint.h>
 
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
 // for larger WIDTH_BITS using uint32_t
@@ -48,12 +49,32 @@ class ThresholdRange {
 public:
   ThresholdRange(uint16_t thresh);
   bool add(uint16_t now, uint16_t prev);
-  uint16_t now;
-  uint16_t prev;
+  uint16_t now = 0;
+  uint16_t prev = 0;
 
 private:
   uint16_t thresh;
   bool initialised = false;
+
+};
+
+
+// similar to above, but we reduce the threshold for the "current" knob
+// also, trying to be fast because this is in main loop
+
+class Gate {
+
+public:
+  Gate(uint16_t lo, uint16_t hi);
+  bool accumulate(size_t knob, uint16_t now, uint16_t prev);
+  uint16_t now[KnobSpec::N_KNOBS] = {};
+  uint16_t prev[KnobSpec::N_KNOBS] = {};
+
+private:
+  size_t active = KnobSpec::N_KNOBS;  // initially invalid
+  uint16_t thresh_lo;
+  uint16_t thresh_hi;
+  bool retain[KnobSpec::N_KNOBS] = {};
 
 };
 

@@ -17,12 +17,9 @@ FIFO::FIFO() {
 // TODO - in memory?
 void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   if (knob != Codec::Switch) {
-    now = filter[Now][knob].next_or(now, SAME);
-    prev = filter[Prev][knob].next(prev);
-    if (now == SAME) return;
-    if (thresh[knob].add(now, prev)) {
-      now = thresh[knob].now;
-      prev = thresh[knob].prev;
+    if (gate.accumulate(knob, now, prev)) {
+      now = gate.now[knob];
+      prev = gate.prev[knob];
     } else {
       return;
     }
@@ -61,14 +58,14 @@ void FIFO::core1_marshaller() {
     case KNOB: {
       uint8_t knob = (packed >> 24) & 0x3;
       if ((packed & OVERFLOW) && (knob != Codec::Switch)) break;  // discard to clear backlog
-      uint16_t prev = (packed >> 12) & 0xfff;
       uint16_t now = packed & 0xfff;
+      uint16_t prev = (packed >> 12) & 0xfff;
       fifo.knob_changes->handle_knob_change(knob, now, prev);
       break;
     }
     case CONNECTED: {
-      uint8_t socket_in = (packed >> 1) & 0x7;
       bool connected = packed & 0x1;
+      uint8_t socket_in = (packed >> 1) & 0x7;
       fifo.handle_connected_change(socket_in, connected);
     }
     default: break;

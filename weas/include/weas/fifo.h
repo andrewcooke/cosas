@@ -48,17 +48,7 @@ private:
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
   uint overflow_count = 0;
-  static constexpr uint16_t SAME = 4096;
-  static constexpr uint8_t FILTER_SIZE = 6;
-  MovingAverage<uint32_t, FILTER_SIZE> filter[N_WHEN][Codec::N_KNOBS - 1] = {
-    MovingAverage<uint32_t, FILTER_SIZE>(), MovingAverage<uint32_t, FILTER_SIZE>(),
-    MovingAverage<uint32_t, FILTER_SIZE>(), MovingAverage<uint32_t, FILTER_SIZE>(),
-    MovingAverage<uint32_t, FILTER_SIZE>(), MovingAverage<uint32_t, FILTER_SIZE>()
-  };
-  static constexpr uint16_t THRESH = 8;
-  ThresholdRange thresh[Codec::N_KNOBS - 1] = {
-    ThresholdRange(THRESH), ThresholdRange(THRESH), ThresholdRange(THRESH)
-  };
+  Gate gate = Gate(1, 256);
 };
 
 
