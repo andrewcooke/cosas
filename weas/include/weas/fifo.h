@@ -50,7 +50,6 @@ private:
   std::queue<uint32_t> overflow;
   uint total_write = 0;
   uint overflow_write = 0;
-  Gate gate = Gate(1, 8);
 };
 
 

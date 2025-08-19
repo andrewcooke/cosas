@@ -2,10 +2,12 @@
 #ifndef WEAS_FILTER_H
 #define WEAS_FILTER_H
 
+#include "common.h"
 #include "app.h"
 
 #include <cstddef>
 #include <stdint.h>
+
 
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
 // for larger WIDTH_BITS using uint32_t
@@ -24,8 +26,12 @@ public:
   };
 
   uint16_t next_or(uint16_t in, uint16_t repeat) {
+    return next_or(in, 1, repeat);
+  };
+
+  uint16_t next_or(uint16_t in, uint16_t thresh, uint16_t repeat) {
     uint16_t out = next(in);
-    if (prev == out) return repeat;
+    if ((prev > out && prev - out < thresh) || (prev <= out && out - prev < thresh)) return repeat;
     prev = out;
     return out;
   };
@@ -60,7 +66,7 @@ private:
 
 
 // similar to above, but we reduce the threshold for the "current" knob
-// also, trying to be fast because this is in main loop
+// also, trying to be fast so this can go in main loop
 
 class Gate {
 
@@ -78,6 +84,25 @@ private:
 
 };
 
+
+// with oversampling, we can leave filtering to core 1 and combine the above
+
+class KnobCleaner {
+
+public:
+  KnobCleaner(uint8_t lo, uint8_t hi);
+  static constexpr uint16_t SKIP = 0xffff;
+  uint16_t get(uint8_t knob, When when);
+  bool append(uint8_t knob, uint16_t now, uint16_t prev);
+
+private:
+  uint8_t active = KnobSpec::N_KNOBS;
+  uint8_t thresh_lo;
+  uint8_t thresh_hi;
+  uint16_t latest[N_WHEN][KnobSpec::N_KNOBS];
+  MovingAverage<uint16_t, 3> average[N_WHEN][KnobSpec::N_KNOBS];
+
+};
 
 #endif
 
