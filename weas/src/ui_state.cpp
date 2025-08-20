@@ -13,12 +13,10 @@ UIState::UIState(App& app, Codec::SwitchPosition initial)
 
 
 void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  if (knob != Codec::Switch) {
-    if (knob_cleaner.append(knob, now, prev)) {
-      now = knob_cleaner.get(knob, Now);
-      prev = knob_cleaner.get(knob, Prev);
-    } else return;
-  }
+  if (knob_cleaner.append(knob, now, prev)) {
+    now = knob_cleaner.get(knob, Now);
+    prev = knob_cleaner.get(knob, Prev);
+  } else return;
   switch (state) {
   case (ADJUST):
     state_adjust(knob, now, prev);

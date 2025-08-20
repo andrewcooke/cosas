@@ -48,17 +48,17 @@ void LEDsBuffer::queue(uint32_t mask_new, bool force, bool interp, uint n) {
     if (buffer.empty() && !interp && !n && mask == mask_new) return;
     if (force) std::queue<std::tuple<uint32_t, bool>>().swap(buffer);
     if (interp) {
-      for (uint weight = 0; weight < INTERP_N - 1; ++weight) {
+      for (uint weight = 0; weight < INTERP_N - 1; weight++) {
         uint32_t old = mask;
         uint32_t new_ = mask_new;
         uint32_t between = 0;
         for (uint led = 0; led < LEDs::N; led++) {
           uint32_t b0 = old & LEDsMask::BITS_MASK;
           uint32_t b1 = new_ & LEDsMask::BITS_MASK;
+          between <<= LEDsMask::BITS;
           between |= LEDsMask::BITS_MASK & ((weight * b1 + (INTERP_N - weight) * b0) >> INTERP_BITS);
           old >>= LEDsMask::BITS;
           new_ >>= LEDsMask::BITS;
-          between <<= LEDsMask::BITS;
         }
         buffer.push({LEDsMask::reverse(between), true});
       }

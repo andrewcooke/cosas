@@ -33,7 +33,7 @@ private:
     std::make_unique<Knob>(0.5, 0, true, 0, 3),
     std::make_unique<Knob>(0.5, 1, false, 0, 1),
     std::make_unique<Knob>()};
-  KnobCleaner knob_cleaner = KnobCleaner(1, 8);
+  KnobCleaner knob_cleaner = KnobCleaner(1, 16);
 
   void state_adjust(uint8_t knob, uint16_t now, uint16_t prev);
   void state_next_page(uint8_t knob, uint16_t now, uint16_t prev);

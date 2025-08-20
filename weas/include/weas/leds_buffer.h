@@ -12,7 +12,7 @@
 class LEDsBuffer {
 
 public:
-  static constexpr uint TIMER_MS = 75;
+  static constexpr uint TIMER_MS = 10;
   static constexpr uint INTERP_BITS = 2;
   static constexpr uint INTERP_N = 1 << INTERP_BITS;
   static constexpr bool DISABLED = false;
