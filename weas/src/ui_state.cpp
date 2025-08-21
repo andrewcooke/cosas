@@ -74,10 +74,10 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
 void UIState::transition_to(uint32_t mask, bool down) {
   uint32_t start = buffer.get_mask();
   if (down) {
-    buffer.queue(leds_mask->vinterp(1, start, mask), true, true, 0);
+    buffer.queue(leds_mask->vinterp(1, start, mask), false, true, 0);
     buffer.queue(leds_mask->vinterp(2, start, mask), false, true, 0);
   } else {
-    buffer.queue(leds_mask->vinterp(2, mask, start), true, true, 0);
+    buffer.queue(leds_mask->vinterp(2, mask, start), false, true, 0);
     buffer.queue(leds_mask->vinterp(1, mask, start), false, true, 0);
   }
   buffer.queue(mask, false, true, 0);
@@ -94,8 +94,8 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
     switch (now) {
     case (Codec::Middle):
       page = (page + 1) % app.get_n_pages(source);
-      buffer.queue(current_page_mask(), true, true, LEDsBuffer::INTERP_N << 1);
-      transition_to(saved_adjust_mask, true);
+      buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
+      transition_to(saved_adjust_mask, false);
       state = ADJUST;
       break;
     default:
@@ -128,7 +128,6 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y):
-    break;
   default:
     break;
   }
@@ -149,7 +148,7 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Main): {
     KnobChange change = source_knob.handle_knob_change(now, prev);
     source = static_cast<uint>(app.get_n_sources() * change.normalized);
-    buffer.queue(current_source_mask(), true, false, 0);
+    buffer.queue(current_source_mask(), false, false, 0);
     break;
   }
   default:

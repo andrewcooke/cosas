@@ -14,6 +14,7 @@ class BaseLEDsMask {
 public:
   static constexpr size_t N = 6;
   explicit BaseLEDsMask(uint8_t bits);
+  virtual ~BaseLEDsMask() = default;
   uint32_t reverse(uint32_t mask);
   uint32_t vinterp(size_t off, uint32_t a, uint32_t b);
   uint32_t hinterp(size_t off, uint32_t a, uint32_t b);

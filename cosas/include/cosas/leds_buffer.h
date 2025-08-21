@@ -12,10 +12,10 @@
 class BaseLEDsBuffer {
 
 public:
-  static constexpr size_t TIMER_MS = 100;
   static constexpr size_t INTERP_BITS = 2;
   static constexpr size_t INTERP_N = 1 << INTERP_BITS;
   static BaseLEDsBuffer& get();
+  // TODO - not clear we need force (since n=0 does the same)
   void queue(uint32_t mask, bool force, bool interp, size_t n);
   uint32_t get_mask();
   const std::unique_ptr<BaseLEDsMask> leds_mask;

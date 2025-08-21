@@ -6,10 +6,10 @@
 #include "cosas/leds_mask.h"
 
 
-class LEDsMask : public BaseLEDsMask {
+class LEDsMask final : public BaseLEDsMask {
 
 public:
-  LEDsMask(uint8_t bits) : BaseLEDsMask(bits) {};
+  explicit LEDsMask(uint8_t bits) : BaseLEDsMask(bits) {};
   void show(uint32_t mask) override;
 
 };

@@ -14,6 +14,7 @@
 class LEDsBuffer final : public BaseLEDsBuffer {
 
 public:
+  static constexpr size_t TIMER_MS = 20;
   static LEDsBuffer& get();
 
 private:

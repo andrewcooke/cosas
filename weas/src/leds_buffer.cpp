@@ -1,8 +1,6 @@
 
 #include "weas/leds_buffer.h"
 
-#include "weas/leds.h"
-
 
 void LEDsBuffer::lazy_start_on_local_core() {
   if (!alarm_pool) {
