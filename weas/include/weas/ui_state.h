@@ -8,9 +8,8 @@
 #include "cosas/knobs.h"
 
 #include "weas/codec.h"
-#include "weas/leds_buffer.h"
 #include "weas/leds_direct.h"
-#include "weas/leds_mask.h"
+#include "weas/leds_buffer.h"
 
 
 class UIState final : public KnobChanges {
@@ -23,6 +22,8 @@ public:
 private:
 
   App& app;
+  LEDsBuffer& buffer;
+  BaseLEDsMask* leds_mask;
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SOURCE};
   State state = SOURCE;
   State prev_state = SOURCE;
@@ -44,7 +45,7 @@ private:
 
   uint32_t current_page_mask();
   uint32_t current_source_mask();
-  void transition_to(uint32_t mask);
+  void transition_to(uint32_t mask, bool down);
   uint32_t saved_adjust_mask = 0;
 
 };

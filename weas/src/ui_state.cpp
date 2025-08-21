@@ -1,13 +1,13 @@
 
 #include "weas/ui_state.h"
 
+#include "weas/leds_buffer.h"
 #include "weas/codec.h"
 #include "weas/debug.h"
-#include "weas/leds_buffer.h"
 
 
 UIState::UIState(App& app, Codec::SwitchPosition initial)
-  : KnobChanges(), app(app) {
+  : KnobChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
   handle_knob_change(Codec::Switch, initial, initial);
 }
 
@@ -39,18 +39,17 @@ void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
 }
 
 void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
-  LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch): {
     switch (now) {
     case (Codec::Up):
       saved_adjust_mask = buffer.get_mask();
-      transition_to(current_source_mask());
+      transition_to(current_source_mask(), false);
       state = SOURCE;
       break;
     case (Codec::Down): {
       saved_adjust_mask = buffer.get_mask();
-      transition_to(current_page_mask());
+      transition_to(current_page_mask(), true);
       state = NEXT_PAGE;
       break;
     }
@@ -63,7 +62,7 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::X):
   case (Codec::Y): {
     KnobChange change = knobs[knob]->handle_knob_change(now, prev);
-    uint32_t ring = LEDsMask::ring(change.normalized, change.highlight);
+    uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
     buffer.queue(ring, false, false, 0);
     break;
   }
@@ -72,28 +71,31 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   }
 }
 
-void UIState::transition_to(uint32_t mask) {
-  LEDsBuffer &buffer = LEDsBuffer::get();
+void UIState::transition_to(uint32_t mask, bool down) {
   uint32_t start = buffer.get_mask();
-  buffer.queue(LEDsMask::vinterp(1,  start, mask), true, true, 0);
-  buffer.queue(LEDsMask::vinterp(2, start, mask), false, true, 0);
+  if (down) {
+    buffer.queue(leds_mask->vinterp(1, start, mask), true, true, 0);
+    buffer.queue(leds_mask->vinterp(2, start, mask), false, true, 0);
+  } else {
+    buffer.queue(leds_mask->vinterp(2, mask, start), true, true, 0);
+    buffer.queue(leds_mask->vinterp(1, mask, start), false, true, 0);
+  }
   buffer.queue(mask, false, true, 0);
 }
 
 uint32_t UIState::current_page_mask() {
   // +1 is shifting from 0 to 1 index
-  return LEDsMask::rot2dot(page + 1, LEDsMask::BITS_MASK, LEDsMask::BITS_MASK >> 2);
+  return leds_mask->rot2dot(page + 1, leds_mask->BITS_MASK, leds_mask->BITS_MASK >> 2);
 }
 
 void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
-  LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
       page = (page + 1) % app.get_n_pages(source);
       buffer.queue(current_page_mask(), true, true, LEDsBuffer::INTERP_N << 1);
-      transition_to(saved_adjust_mask);
+      transition_to(saved_adjust_mask, true);
       state = ADJUST;
       break;
     default:
@@ -112,12 +114,11 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
 }
 
 void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
-  // LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle): {
-      transition_to(saved_adjust_mask);
+      transition_to(saved_adjust_mask, false);
       state = ADJUST;
       break;
     }
@@ -134,12 +135,11 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
 }
 
 void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
-  LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
-      transition_to(saved_adjust_mask);
+      transition_to(saved_adjust_mask, true);
       state = ADJUST;
       break;
     default:
@@ -159,6 +159,6 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
 
 uint32_t UIState::current_source_mask() {
   // +1 is shifting from 0 to 1 index
-  return LEDsMask::rot2dot(source + 1, LEDsMask::BITS_MASK >> 3, LEDsMask::BITS_MASK >> 1);
+  return leds_mask->rot2dot(source + 1, leds_mask->BITS_MASK >> 3, leds_mask->BITS_MASK >> 1);
 }
 
