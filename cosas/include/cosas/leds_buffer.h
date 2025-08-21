@@ -2,7 +2,8 @@
 #ifndef COSAS_LEDS_BUFFER_H
 #define COSAS_LEDS_BUFFER_H
 
-#include "leds_mask.h"
+
+#include "cosas/leds_mask.h"
 
 #include <memory>
 #include <queue>
