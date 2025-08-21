@@ -1,6 +1,8 @@
 
-#include "weas/debug.h"
 #include "weas/fifo.h"
+#include "weas/debug.h"
+
+#include "cosas/dnl.h"
 #include "weas/codec.h"
 #include "weas/ui_state.h"
 
@@ -15,5 +17,6 @@ int main() {
   UIState ui(app, codec.read_switch());
   fifo.set_knob_changes(&ui);
   fifo.start(codec);
+  codec.set_adc_correction_and_scale(fix_dnl);
   codec.start();
 };

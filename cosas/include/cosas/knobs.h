@@ -1,9 +1,6 @@
 
-#ifndef WEAS_KNOBS_H
-#define WEAS_KNOBS_H
-
-
-#include <cstdint>
+#ifndef COSAS_KNOBS_H
+#define COSAS_KNOBS_H
 
 
 class Knob;

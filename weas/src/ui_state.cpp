@@ -17,6 +17,10 @@ void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
     now = knob_cleaner.get(knob, Now);
     prev = knob_cleaner.get(knob, Prev);
   } else return;
+  if (state != prev_state) {
+    Debug::log(prev_state, "->", state);
+    prev_state = state;
+  }
   switch (state) {
   case (ADJUST):
     state_adjust(knob, now, prev);
@@ -27,8 +31,8 @@ void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
   case (FREEWHEEL):
     state_freewheel(knob, now, prev);
     break;
-  case (SELECT):
-    state_select(knob, now, prev);
+  case (SOURCE):
+    state_source(knob, now, prev);
   default:
     break;
   }
@@ -40,14 +44,13 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Switch): {
     switch (now) {
     case (Codec::Up):
-      state = SELECT;
+      saved_adjust_mask = buffer.get_mask();
+      transition_to(current_source_mask());
+      state = SOURCE;
       break;
     case (Codec::Down): {
-      uint32_t m_adjust = LEDsBuffer::get().get_mask();
-      uint32_t m_next_page = current_page_mask();
-      buffer.queue(LEDsMask::vinterp(1, m_adjust, m_next_page), true, true, 0);
-      buffer.queue(LEDsMask::vinterp(2, m_adjust, m_next_page), false, true, 0);
-      buffer.queue(m_next_page, false, true, 0);
+      saved_adjust_mask = buffer.get_mask();
+      transition_to(current_page_mask());
       state = NEXT_PAGE;
       break;
     }
@@ -69,8 +72,17 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   }
 }
 
+void UIState::transition_to(uint32_t mask) {
+  LEDsBuffer &buffer = LEDsBuffer::get();
+  uint32_t start = buffer.get_mask();
+  buffer.queue(LEDsMask::vinterp(1,  start, mask), true, true, 0);
+  buffer.queue(LEDsMask::vinterp(2, start, mask), false, true, 0);
+  buffer.queue(mask, false, true, 0);
+}
+
 uint32_t UIState::current_page_mask() {
-  return LEDsMask::rot2dot(page, LEDsMask::BITS_MASK, LEDsMask::BITS_MASK >> 2);
+  // +1 is shifting from 0 to 1 index
+  return LEDsMask::rot2dot(page + 1, LEDsMask::BITS_MASK, LEDsMask::BITS_MASK >> 2);
 }
 
 void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
@@ -79,10 +91,10 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
-      page = (page + 1) % n_pages;
+      page = (page + 1) % app.get_n_pages(source);
       buffer.queue(current_page_mask(), true, true, LEDsBuffer::INTERP_N << 1);
+      transition_to(saved_adjust_mask);
       state = ADJUST;
-      sleep_ms(500); // so visible despite noise
       break;
     default:
       break;
@@ -105,6 +117,7 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle): {
+      transition_to(saved_adjust_mask);
       state = ADJUST;
       break;
     }
@@ -120,20 +133,32 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
   }
 }
 
-void UIState::state_select(uint8_t knob, uint16_t now, uint16_t) {
-  // LEDsBuffer &buffer = LEDsBuffer::get();
+void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
+  LEDsBuffer &buffer = LEDsBuffer::get();
   switch (knob) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
+      transition_to(saved_adjust_mask);
       state = ADJUST;
       break;
     default:
       break;
     }
-  case (Codec::Main):
     break;
+  case (Codec::Main): {
+    KnobChange change = source_knob.handle_knob_change(now, prev);
+    source = static_cast<uint>(app.get_n_sources() * change.normalized);
+    buffer.queue(current_source_mask(), true, false, 0);
+    break;
+  }
   default:
     break;
   }
 }
+
+uint32_t UIState::current_source_mask() {
+  // +1 is shifting from 0 to 1 index
+  return LEDsMask::rot2dot(source + 1, LEDsMask::BITS_MASK >> 3, LEDsMask::BITS_MASK >> 1);
+}
+

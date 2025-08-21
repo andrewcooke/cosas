@@ -2,8 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-#include "weas/knobs.h"
-
+#include "cosas/knobs.h"
 
 KnobChange::~KnobChange() {
   knob->apply_change();
@@ -11,7 +10,7 @@ KnobChange::~KnobChange() {
 
 
 KnobChange Knob::handle_knob_change(uint16_t now, uint16_t prev) {
-  normalized = clip(sigmoid(now, prev));
+  normalized = sigmoid(now, prev);
   // normalized = linear(now, prev);
   // normalized = absolute(now, prev);
   return KnobChange(this, normalized, ends());
@@ -31,7 +30,8 @@ void Knob::apply_change() {
 }
 
 float Knob::clip(float n) {
-  return std::max(0.0f, std::min(1.0f, n));
+  // aiming for [0, 1) here
+  return std::max(0.0f, std::min(0.999999f, n));
 }
 
 float Knob::absolute(uint16_t now, uint16_t /* prev */) {

@@ -5,11 +5,9 @@
 
 
 TEST_CASE("Maths, SimpleRatio") {
-
   CHECK(SimpleRatio(0.1f) == SimpleRatio(-1, 1, false, true));
   CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
   CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
-
 }
 
 

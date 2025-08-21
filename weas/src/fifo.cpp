@@ -26,7 +26,7 @@ void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
 }
 
 void FIFO::push(uint32_t msg) {
-  if (!(total_write & DUMP_MASK)) Debug::log("write", overflow_write, "/", total_write);
+  // if (!(total_write & DUMP_MASK)) Debug::log("write", overflow_write, "/", total_write);
   total_write++;
   while (!overflow.empty()) {
     uint32_t pending = overflow.front();
@@ -49,7 +49,7 @@ void FIFO::core1_marshaller() {
   auto& fifo = get();
   uint total_read = 0, overflow_read = 0;
   while (true) {
-    if (!(total_read & DUMP_MASK)) Debug::log("read", overflow_read, "/", total_read);
+    // if (!(total_read & DUMP_MASK)) Debug::log("read", overflow_read, "/", total_read);
     total_read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     switch (packed & TAG_MASK) {

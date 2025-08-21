@@ -100,7 +100,7 @@ private:
   uint8_t thresh_lo;
   uint8_t thresh_hi;
   uint16_t latest[N_WHEN][KnobSpec::N_KNOBS+1];
-  MovingAverage<uint16_t, 3> average[N_WHEN][KnobSpec::N_KNOBS];
+  MovingAverage<uint32_t, 5> average[N_WHEN][KnobSpec::N_KNOBS];
 
 };
 
