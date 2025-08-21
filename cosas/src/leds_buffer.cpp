@@ -20,8 +20,9 @@ void BaseLEDsBuffer::queue(uint32_t mask_new, bool force, bool interp, size_t n)
   if (buffer.empty() && !interp && !n && mask == mask_new) return;
   if (force) std::queue<std::tuple<uint32_t, bool>>().swap(buffer);
   if (interp) {
-    uint32_t old = buffer.empty() ? mask : std::get<0>(buffer.back());
-    for (size_t weight = 0; weight < INTERP_N - 1; weight++) {
+    uint32_t mask_old = buffer.empty() ? mask : std::get<0>(buffer.back());
+    for (size_t weight = 0; weight < INTERP_N; weight++) {
+      uint32_t old = mask_old;
       uint32_t new_ = mask_new;
       uint32_t between = 0;
       for (size_t led = 0; led < BaseLEDsMask::N; led++) {
