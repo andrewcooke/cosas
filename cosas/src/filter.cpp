@@ -39,7 +39,7 @@ bool Gate::accumulate(size_t knob, uint16_t n, uint16_t p) {
 KnobCleaner::KnobCleaner(uint8_t lo, uint8_t hi) : thresh_lo(lo), thresh_hi(hi) {};
 
 bool KnobCleaner::append(uint8_t knob, uint16_t now, uint16_t prev) {
-  if (knob < KnobSpec::N_KNOBS) {
+  if (knob < N_KNOBS) {
     latest[Prev][knob] = average[Prev][knob].next(prev);
     uint16_t thresh = knob == active ? thresh_lo : thresh_hi;
     latest[Now][knob] = average[Now][knob].next_or(now, thresh, SKIP);

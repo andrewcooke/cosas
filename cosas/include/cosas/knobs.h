@@ -3,7 +3,7 @@
 #define COSAS_KNOBS_H
 
 
-class Knob;
+class KnobHandler;
 
 
 // afair the idea here is that this applies the change when it goes out of
@@ -14,23 +14,23 @@ class KnobChange {
 
 public:
   enum Highlight {No, Near, Yes};
-  KnobChange(Knob *k, float n, Highlight h) : normalized(n), highlight(h), knob(k) {};
+  KnobChange(KnobHandler *k, float n, Highlight h) : normalized(n), highlight(h), knob(k) {};
   ~KnobChange();
   float normalized;
   Highlight highlight;
 
 private:
-  Knob *knob;
+  KnobHandler *knob;
 };
 
 
-class Knob {
+class KnobHandler {
 
 public:
   friend class KnobChange;
-  Knob(float s, float ln, bool lg, float lo, float hi)
+  KnobHandler(float s, float ln, bool lg, float lo, float hi)
   : scale(s), linearity(ln), log(lg), lo(lo), hi(hi) {};
-  Knob() : Knob(1, 1, false, 0, 1) {};
+  KnobHandler() : KnobHandler(1, 1, false, 0, 1) {};
   KnobChange handle_knob_change(uint16_t now, uint16_t prev);
 
 protected:

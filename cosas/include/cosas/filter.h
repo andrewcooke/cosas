@@ -2,11 +2,10 @@
 #ifndef WEAS_FILTER_H
 #define WEAS_FILTER_H
 
-#include "common.h"
-#include "app.h"
-
 #include <cstddef>
 #include <stdint.h>
+
+#include "cosas/common.h"
 
 
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
@@ -73,14 +72,14 @@ class Gate {
 public:
   Gate(uint16_t lo, uint16_t hi);
   bool accumulate(size_t knob, uint16_t now, uint16_t prev);
-  uint16_t now[KnobSpec::N_KNOBS] = {};
-  uint16_t prev[KnobSpec::N_KNOBS] = {};
+  uint16_t now[N_KNOBS] = {};
+  uint16_t prev[N_KNOBS] = {};
 
 private:
-  size_t active = KnobSpec::N_KNOBS;  // initially invalid
+  size_t active = N_KNOBS;  // initially invalid
   uint16_t thresh_lo;
   uint16_t thresh_hi;
-  bool retain[KnobSpec::N_KNOBS] = {};
+  bool retain[N_KNOBS] = {};
 
 };
 
@@ -96,11 +95,11 @@ public:
   bool append(uint8_t knob, uint16_t now, uint16_t prev);
 
 private:
-  uint8_t active = KnobSpec::N_KNOBS;
+  uint8_t active = N_KNOBS;
   uint8_t thresh_lo;
   uint8_t thresh_hi;
-  uint16_t latest[N_WHEN][KnobSpec::N_KNOBS+1];
-  MovingAverage<uint32_t, 5> average[N_WHEN][KnobSpec::N_KNOBS];
+  uint16_t latest[N_WHEN][N_KNOBS+1];
+  MovingAverage<uint32_t, 5> average[N_WHEN][N_KNOBS];
 
 };
 

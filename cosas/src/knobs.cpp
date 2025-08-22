@@ -9,30 +9,30 @@ KnobChange::~KnobChange() {
 }
 
 
-KnobChange Knob::handle_knob_change(uint16_t now, uint16_t prev) {
+KnobChange KnobHandler::handle_knob_change(uint16_t now, uint16_t prev) {
   normalized = sigmoid(now, prev);
   return KnobChange(this, normalized, ends());
 }
 
-KnobChange::Highlight Knob::ends() {
+KnobChange::Highlight KnobHandler::ends() {
   KnobChange::Highlight highlight = KnobChange::No;
   if (normalized < 0.1f || normalized > 0.9f) highlight = KnobChange::Near;
   if (normalized < 0.01f || normalized > 0.99f) highlight = KnobChange::Yes;
   return highlight;
 }
 
-void Knob::apply_change() {
+void KnobHandler::apply_change() {
   float val = lo + (hi - lo) * normalized;
   if (log) val = powf(10, val);
   // TODO - something with val
 }
 
-float Knob::clip(float n) {
+float KnobHandler::clip(float n) {
   // aiming for [0, 1) here
   return std::max(0.0f, std::min(0.999999f, n));
 }
 
-float Knob::sigmoid(uint16_t now, uint16_t prev) {
+float KnobHandler::sigmoid(uint16_t now, uint16_t prev) {
   float x1 = static_cast<float>(now - 2048) / 4095;
   float x0 = static_cast<float>(prev - 2048) / 4095;
   float y1 =  4.0f * (1.0f - linearity) * powf(x1, 3.0f) + linearity * x1 + 0.5f;

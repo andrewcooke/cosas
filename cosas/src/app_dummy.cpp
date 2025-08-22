@@ -25,7 +25,7 @@ uint8_t DummyApp::get_n_pages(uint8_t /* source */) {
   return 3;
 }
 
-KnobSpec DummyApp::get_knob_spec(uint8_t /* page */, KnobSpec::Knob /* knob */) {
-  static KnobSpec knob_spec(0, 1, false, [](float /* x */) -> void {}, 1, 0);
-  return knob_spec;
+KnobHandler DummyApp::get_knob(uint8_t /* page */, Knob /* knob */) {
+  static KnobHandler knob(1, 0, false, 0, 1);
+  return knob;
 }
