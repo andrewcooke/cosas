@@ -9,6 +9,8 @@
 UIState::UIState(App& app, Codec::SwitchPosition initial)
   : KnobChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
   handle_knob_change(Codec::Switch, initial, initial);
+  app.set_source(source);
+
 }
 
 
@@ -148,6 +150,7 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Main): {
     KnobChange change = source_knob.handle_knob_change(now, prev);
     source = static_cast<uint>(app.get_n_sources() * change.normalized);
+    app.set_source(source);
     buffer.queue(current_source_mask(), false, false, 0);
     break;
   }

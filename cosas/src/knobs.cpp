@@ -11,8 +11,6 @@ KnobChange::~KnobChange() {
 
 KnobChange Knob::handle_knob_change(uint16_t now, uint16_t prev) {
   normalized = sigmoid(now, prev);
-  // normalized = linear(now, prev);
-  // normalized = absolute(now, prev);
   return KnobChange(this, normalized, ends());
 }
 
@@ -32,14 +30,6 @@ void Knob::apply_change() {
 float Knob::clip(float n) {
   // aiming for [0, 1) here
   return std::max(0.0f, std::min(0.999999f, n));
-}
-
-float Knob::absolute(uint16_t now, uint16_t /* prev */) {
-  return static_cast<float>(now) / 4095;
-}
-
-float Knob::linear(uint16_t now, uint16_t prev) {
-  return clip(normalized + scale * static_cast<float>(now - prev) / 4095);
 }
 
 float Knob::sigmoid(uint16_t now, uint16_t prev) {

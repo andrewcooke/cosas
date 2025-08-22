@@ -38,6 +38,7 @@ public:
   virtual RelSource& get_source(uint8_t source) = 0;
   virtual uint8_t get_n_pages(uint8_t source) = 0;
   virtual KnobSpec get_knob_spec(uint8_t page, KnobSpec::Knob knob) = 0;
+  virtual void set_source(uint8_t source) = 0;
 
 };
 
@@ -50,6 +51,7 @@ public:
   RelSource& get_source(uint8_t source) override;
   uint8_t get_n_pages(uint8_t source) override;
   KnobSpec get_knob_spec(uint8_t page, KnobSpec::Knob knob) override;
+  void set_source(uint8_t /* source */) override {};
 
 };
 

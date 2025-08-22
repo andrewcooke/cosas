@@ -6,6 +6,10 @@
 class Knob;
 
 
+// afair the idea here is that this applies the change when it goes out of
+// scope (and the destructor is called).  that way the UI updates before the
+// (possibly slow) change is made to the system.
+
 class KnobChange {
 
 public:
@@ -27,7 +31,7 @@ public:
   Knob(float s, float ln, bool lg, float lo, float hi)
   : scale(s), linearity(ln), log(lg), lo(lo), hi(hi) {};
   Knob() : Knob(1, 1, false, 0, 1) {};
-  virtual KnobChange handle_knob_change(uint16_t now, uint16_t prev);
+  KnobChange handle_knob_change(uint16_t now, uint16_t prev);
 
 protected:
   // processing on input
@@ -41,8 +45,6 @@ protected:
   void apply_change();
   KnobChange::Highlight ends();
   float clip(float n);
-  float absolute(uint16_t now, uint16_t prev);
-  float linear(uint16_t now, uint16_t prev);
   float sigmoid(uint16_t now, uint16_t prev);
 };
 
