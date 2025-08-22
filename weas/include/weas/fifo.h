@@ -16,7 +16,7 @@
 // this is the basis for a UI using the knobs.
 
 
-class FIFO final : public KnobChanges, public ConnectedChanges {
+class FIFO final : public CtrlChanges, public ConnectedChanges {
 
 public:
 
@@ -32,8 +32,8 @@ public:
   FIFO& operator=(const FIFO&) = delete;
   static FIFO& get();
 
-  void set_knob_changes(KnobChanges* k) {knob_changes = k;};
-  void handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) override;
+  void set_knob_changes(CtrlChanges* k) {knob_changes = k;};
+  void handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) override;
   void set_connected_changes(ConnectedChanges* c) {connected_changes = c;};
   void handle_connected_change(uint8_t socket_in, bool connected) override;
   void start(Codec& cc);
@@ -42,7 +42,7 @@ public:
 private:
 
   FIFO();
-  KnobChanges* knob_changes = nullptr;
+  CtrlChanges* knob_changes = nullptr;
   ConnectedChanges* connected_changes = nullptr;
   void push(uint32_t msg);
   static void core1_marshaller();

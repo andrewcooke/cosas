@@ -15,7 +15,7 @@ FIFO::FIFO() {
 }
 
 // TODO - in memory?
-void FIFO::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
+void FIFO::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
   uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
   push(packed);
 }
@@ -61,7 +61,7 @@ void FIFO::core1_marshaller() {
       }
       uint16_t now = packed & 0xfff;
       uint16_t prev = (packed >> 12) & 0xfff;
-      fifo.knob_changes->handle_knob_change(knob, now, prev);
+      fifo.knob_changes->handle_ctrl_change(knob, now, prev);
       break;
     }
     case CONNECTED: {
@@ -76,8 +76,8 @@ void FIFO::core1_marshaller() {
 
 void FIFO::start(Codec& cc) {
   multicore_launch_core1(core1_marshaller);
-  cc.set_knob_changes(this);
-  cc.select_knob_changes(true);
+  cc.set_ctrl_changes(this);
+  cc.select_ctrl_changes(true);
 }
 
 

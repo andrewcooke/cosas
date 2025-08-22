@@ -11,12 +11,12 @@
 #include "weas/leds_buffer.h"
 
 
-class UIState final : public KnobChanges {
+class UIState final : public CtrlChanges {
 
 public:
 
   UIState(App& app, Codec::SwitchPosition initial);
-  void handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) override;
+  void handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) override;
 
 private:
 
@@ -28,7 +28,7 @@ private:
   State prev_state = SOURCE;
   uint page = 0;
   uint source = 0;
-  std::array<std::unique_ptr<Knob>, Codec::N_KNOBS - 1> knobs = {
+  std::array<std::unique_ptr<Knob>, Codec::N_CTRLS - 1> knobs = {
     std::make_unique<Knob>(0.5, 0, true, 0, 3),
     std::make_unique<Knob>(0.5, 1, false, 0, 1),
     std::make_unique<Knob>()};

@@ -1,10 +1,6 @@
 
 
-#include "cosas/app.h"
-
-
-KnobSpec::KnobSpec(float lo, float hi, bool log, void (*callback)(float), float scale, float linearity)
-  : lo(lo), hi(hi), log(log), callback(callback), scale(scale), linearity(linearity) {};
+#include "cosas/app_dummy.h"
 
 
 uint8_t DummyApp::get_n_sources() {

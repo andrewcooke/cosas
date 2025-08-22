@@ -63,8 +63,8 @@ private:
 
   void update_controls(Codec& cc) {
     sw = cc.read_switch();
-    if (cc.knob_changed(Codec::Switch)) score = 0;
-    slow_bits = cc.read_knob(Codec::Main) >> 10;  // leave 2 bits
+    if (cc.ctrl_changed(Codec::Switch)) score = 0;
+    slow_bits = cc.read_ctrl(Codec::Main) >> 10;  // leave 2 bits
   }
 
   int16_t correct(bool top, int16_t in) {
@@ -78,7 +78,7 @@ private:
   }
 
   void display(Codec& cc, int16_t prev_out, int16_t raw_in, int16_t fixed_in) {
-    uint display = cc.read_knob(Codec::Y) / 1024;
+    uint display = cc.read_ctrl(Codec::Y) / 1024;
     switch (display) {
     case 0:
       cc.write_audio(1, raw_in);

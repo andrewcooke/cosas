@@ -3,6 +3,8 @@
 #include "weas/debug.h"
 
 #include "cosas/dnl.h"
+#include "cosas/app_dummy.h"
+
 #include "weas/codec.h"
 #include "weas/ui_state.h"
 

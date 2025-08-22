@@ -7,14 +7,14 @@
 
 
 UIState::UIState(App& app, Codec::SwitchPosition initial)
-  : KnobChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
-  handle_knob_change(Codec::Switch, initial, initial);
+  : CtrlChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
+  handle_ctrl_change(Codec::Switch, initial, initial);
   app.set_source(source);
 
 }
 
 
-void UIState::handle_knob_change(uint8_t knob, uint16_t now, uint16_t prev) {
+void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
   if (knob_cleaner.append(knob, now, prev)) {
     now = knob_cleaner.get(knob, Now);
     prev = knob_cleaner.get(knob, Prev);
