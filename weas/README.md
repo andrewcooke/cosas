@@ -25,10 +25,12 @@ on the other hand, weas does have some interesting features:
   could do that by reducing output frequency to 1kHz (a lower output
   frequency gives you more time to think between outputs).
 
-* similarly, you can choose how much oversampling it does, which might
-  be useful if you want to explore hardware limits.
+* you can choose how much oversampling it does, which might be useful
+  if you want to explore hardware limits.
 
-* it can pass events to core 1 for handling of knob and connection
-  changes.  this is the basis for the (still very immature) UI
-  library.
+* there is support for a UI running on core 1 (while core 0 handles
+  the sounds generation and hardware).
+
+* you can what frequency you want the UI to work at (no need to handle
+  knob changes at audio frequencies!)
   
