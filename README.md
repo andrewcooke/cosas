@@ -29,6 +29,7 @@ the plan is to have a unified UI via the weas library (input via three
 knobs and a switch, display via 6 leds - what luxury!)
 
 significant waypoints:
+* 2025-08-22 - finally have LEDs and knobs working cleanly
 * 2025-08-02 - updated to include CC 0.2.6 chnages (afaict)
 * 2025-07-31 - refactored codec to avoid template mess; LED based UI started
 * 2025-07-26 - CC split into led, eeprom and codec
@@ -37,6 +38,6 @@ significant waypoints:
 * 2025-06-30 - can generate waveforms on the laptop and deploy an empty program to the pico
 
 all development is done inside debian (typically latest testing) with
-the clion ide.  running install.sh should get you started.
+the clion IDE.  running install.sh should get you started.
 
 *hecho en chile con amooooor*
