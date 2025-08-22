@@ -15,7 +15,7 @@ int main() {
   auto& fifo = FIFO::get();
   DummyApp app;
   UIState ui(app, codec.read_switch());
-  fifo.set_knob_changes(&ui);
+  fifo.set_ctrl_changes(&ui);
   fifo.start(codec);
   codec.set_adc_correction_and_scale(fix_dnl);
   codec.start();

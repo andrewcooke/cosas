@@ -22,9 +22,9 @@ public:
 
   // topmost bits
   static constexpr uint32_t OVERFLOW = 0x1 << 31;
-  static constexpr uint32_t KNOB = 0x0 << 30;
+  static constexpr uint32_t CTRL = 0x0 << 30;
   static constexpr uint32_t CONNECTED = 0x1 << 30;
-  static constexpr uint32_t TAG_MASK = KNOB | CONNECTED;
+  static constexpr uint32_t TAG_MASK = CTRL | CONNECTED;
   static constexpr uint DUMP_MASK = (1 << 10) - 1;
   // then quite a bit of space before the payload
 
@@ -32,8 +32,8 @@ public:
   FIFO& operator=(const FIFO&) = delete;
   static FIFO& get();
 
-  void set_knob_changes(CtrlChanges* k) {knob_changes = k;};
-  void handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) override;
+  void set_ctrl_changes(CtrlChanges* k) {ctrl_changes = k;};
+  void handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) override;
   void set_connected_changes(ConnectedChanges* c) {connected_changes = c;};
   void handle_connected_change(uint8_t socket_in, bool connected) override;
   void start(Codec& cc);
@@ -42,7 +42,7 @@ public:
 private:
 
   FIFO();
-  CtrlChanges* knob_changes = nullptr;
+  CtrlChanges* ctrl_changes = nullptr;
   ConnectedChanges* connected_changes = nullptr;
   void push(uint32_t msg);
   static void core1_marshaller();

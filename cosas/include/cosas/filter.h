@@ -86,13 +86,13 @@ private:
 
 // with oversampling, we can leave filtering to core 1 and combine the above
 
-class KnobCleaner {
+class CtrlDamper {
 
 public:
-  KnobCleaner(uint8_t lo, uint8_t hi);
+  CtrlDamper(uint8_t lo, uint8_t hi);
   static constexpr uint16_t SKIP = 0xffff;
   uint16_t get(uint8_t knob, When when);
-  bool append(uint8_t knob, uint16_t now, uint16_t prev);
+  bool append(uint8_t ctrl, uint16_t now, uint16_t prev);
 
 private:
   uint8_t active = N_KNOBS;

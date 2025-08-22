@@ -32,7 +32,7 @@ private:
     std::make_unique<KnobHandler>(0.5, 0, true, 0, 3),
     std::make_unique<KnobHandler>(0.5, 1, false, 0, 1),
     std::make_unique<KnobHandler>()};
-  KnobCleaner knob_cleaner = KnobCleaner(1, 32);
+  CtrlDamper knob_cleaner = CtrlDamper(1, 32);
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(uint8_t knob, uint16_t now, uint16_t prev);

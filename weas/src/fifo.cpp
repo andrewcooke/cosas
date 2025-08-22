@@ -15,8 +15,8 @@ FIFO::FIFO() {
 }
 
 // TODO - in memory?
-void FIFO::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  uint32_t packed = KNOB | ((knob & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
+void FIFO::handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) {
+  uint32_t packed = CTRL | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
   push(packed);
 }
 
@@ -53,15 +53,15 @@ void FIFO::core1_marshaller() {
     total_read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     switch (packed & TAG_MASK) {
-    case KNOB: {
-      uint8_t knob = (packed >> 24) & 0x3;
-      if ((packed & OVERFLOW) && (knob != Codec::Switch)) {
+    case CTRL: {
+      uint8_t ctrl = (packed >> 24) & 0x3;
+      if ((packed & OVERFLOW) && (ctrl != Codec::Switch)) {
         overflow_read++;
         break;  // discard to clear backlog
       }
       uint16_t now = packed & 0xfff;
       uint16_t prev = (packed >> 12) & 0xfff;
-      fifo.knob_changes->handle_ctrl_change(knob, now, prev);
+      fifo.ctrl_changes->handle_ctrl_change(ctrl, now, prev);
       break;
     }
     case CONNECTED: {
@@ -79,5 +79,3 @@ void FIFO::start(Codec& cc) {
   cc.set_ctrl_changes(this);
   cc.select_ctrl_changes(true);
 }
-
-
