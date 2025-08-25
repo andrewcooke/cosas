@@ -27,7 +27,7 @@ knobs and a switch, display via 6 leds - what luxury!)
 significant waypoints:
 * 2025-08-25 - refactored audio code tyo interface to knobs in UI
 * 2025-08-22 - finally have LEDs and knobs working cleanly
-* 2025-08-02 - updated to include CC 0.2.6 chnages (afaict)
+* 2025-08-02 - updated to include CC 0.2.6 changes (afaict)
 * 2025-07-31 - refactored codec to avoid template mess; LED based UI started
 * 2025-07-26 - CC split into led, eeprom and codec
 * 2025-07-18 - use CC more directly (refactor rather than recreate)
