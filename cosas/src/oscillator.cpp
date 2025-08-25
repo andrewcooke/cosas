@@ -53,6 +53,10 @@ void AbsFreqParam::set(const float f) {
   set_relative_freqs(frequency);
 }
 
+float AbsFreqParam::get() {
+  return freq2hz(frequency);
+}
+
 uint32_t AbsFreqParam::get_frequency() const {
   return frequency;
 }
@@ -75,9 +79,17 @@ void RelFreqParam::set(float v) {
   recalculate();
 };
 
+float RelFreqParam::get() {
+  return ratio.as_float();
+}
+
 void RelFreqParam::set_detune(float v) {
   detune = scale2mult_shift8(v);
   recalculate();
+}
+
+float RelFreqParam::get_detune() {
+  return unscale2mult_shift8(detune);
 }
 
 void RelFreqParam::set_root(uint32_t f) {
@@ -102,6 +114,10 @@ void RelFreqParam::DetuneParam::set(float v) {
   rel_freq_param->set_detune(v);
 }
 
+float RelFreqParam::DetuneParam::get() {
+  return rel_freq_param->get_detune();
+}
+
 
 WavedexMixin::WavedexMixin(BaseOscillator* o, Wavelib& wl) : wavedex(o, wl) {};
 
@@ -114,9 +130,14 @@ WavedexMixin::WavedexParam::WavedexParam(BaseOscillator* o, Wavelib& wl)
 
 void WavedexMixin::WavedexParam::set(float val) {
   const size_t n = wavelib.size() - 1;
-  const size_t widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
+  widx = std::max(static_cast<size_t>(0), std::min(n, static_cast<size_t>(val)));
   oscillator->abs_source = &wavelib[widx];
 }
+
+float WavedexMixin::WavedexParam::get() {
+  return widx;
+}
+
 
 
 AbsDexOsc::AbsDexOsc(float f, Wavelib& wl, size_t widx)
@@ -138,20 +159,26 @@ RelFreqParam& RelDexOsc::get_freq_param() {
 }
 
 
-PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> d)
-  : Param(1, 0.5, false, 0, hi), mixin(m), delegate(d) {};
+PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> s, std::function<float()> g)
+  : Param(1, 0.5, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
 
 void PolyMixin::CtrlParam::set(float v) {
-  delegate(v);
+  delegate_set(v);
   mixin.update();
 }
 
-// no except here to get rid of a complex compiler error i did not understand
+float PolyMixin::CtrlParam::get() {
+  return delegate_get();
+}
+
 PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   : oscillator(o), shape(s), asym(a), offset(off) {
-  shape_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this, [this](float v) noexcept {shape = v;}));
-  asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this, [this](float v) noexcept {asym = v;}));
-  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this, [this](float v) noexcept {offset = v;}));
+  shape_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
+    [this](float v) noexcept {shape = v;}, [this]() noexcept -> float {return shape;}));
+  asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
+    [this](float v) noexcept {asym = v;}, [this]() noexcept -> float {return asym;}));
+  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this,
+    [this](float v) noexcept {offset = v;}, [this]() noexcept -> float {return offset;}));
   update();
 }
 

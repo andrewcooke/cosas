@@ -85,6 +85,10 @@ inline int16_t scale2mult_shift8(float f) {
   return static_cast<int16_t>(f * one8);
 }
 
+inline float unscale2mult_shift8(int16_t k) {
+  return static_cast<float>(k) / one8;
+}
+
 inline int16_t mult_shift8(int16_t k, int16_t x) {
   return static_cast<int16_t>((k * static_cast<int32_t>(x)) >> one8_bits);
 }
@@ -100,6 +104,10 @@ constexpr uint16_t one14 = static_cast<uint16_t>(1) << one14_bits;
 
 inline uint16_t scale2mult_shift14(float f) {
   return clip_u16(f * one14);
+}
+
+inline float unscale2mult_shift14(int16_t k) {
+  return static_cast<float>(k) / one14;
 }
 
 inline int16_t mult_shift14(uint16_t k, int16_t x) {

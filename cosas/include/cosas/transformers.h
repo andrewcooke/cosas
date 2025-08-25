@@ -24,6 +24,7 @@ public:
   public:
     explicit Value(SingleFloat* p, float scale, float linearity, bool log, float lo, float hi);
     void set(float v) override;
+    float get() override;
   private:
     SingleFloat* parent;
   };
@@ -49,6 +50,7 @@ public:
   public:
     explicit Value(Single14* p, float scale, float linearity, bool log, float lo, float hi);
     void set(float v) override;
+    float get() override;
   private:
     Single14* parent;
   };
@@ -114,6 +116,7 @@ public:
   public:
     explicit Length(Boxcar* p);
     void set(float v) override;
+    float get() override;
   private:
     Boxcar* parent = nullptr;
   };
@@ -121,6 +124,7 @@ public:
   public:
     explicit CircBuffer(size_t l);
     int16_t next(int16_t cur) const;
+    size_t size();
   private:
     std::unique_ptr<std::vector<int32_t>> sums;
     mutable size_t circular_idx;
@@ -135,7 +139,7 @@ private:
 };
 
 
-// the smenatics here are maybe unexpected, but useful.  the first
+// the semantics here may be unexpected, but are useful.  the first
 // node is weighted explicitly.  the weights for subsequent nodes are
 // then taken as relative to the first.
 
@@ -152,6 +156,7 @@ public:
   public:
     Weight(MergeFloat* m, size_t i);
     void set(float w) override;
+    float get() override;
   private:
     MergeFloat* merge = nullptr;
     size_t idx;

@@ -20,6 +20,10 @@ void SingleFloat::Value::set(float v) {
   parent->value = v;
 }
 
+float SingleFloat::Value::get() {
+  return parent->value;
+}
+
 
 GainFloat::GainFloat(RelSource& nd, float amp, float hi)
   : SingleFloat(nd, amp, 1, 1, true, 0, hi) {};
@@ -42,6 +46,10 @@ Single14::Value::Value(Single14* p, float scale, float linearity, bool log, floa
 
 void Single14::Value::set(const float v) {
   parent->value = scale2mult_shift14(v);
+}
+
+float Single14::Value::get() {
+  return unscale2mult_shift14(parent->value);
 }
 
 
@@ -115,6 +123,11 @@ auto Boxcar::CircBuffer::next(const int16_t cur) const -> int16_t {
   return clip_16(next / static_cast<int32_t>(sums->size()));
 };
 
+size_t Boxcar::CircBuffer::size() {
+  return sums->size();
+}
+
+
 Boxcar::Length::Length(Boxcar* p)
   : Param(1, 1, false, 0, MAX_BOXCAR), parent(p) {}
 
@@ -123,6 +136,11 @@ void Boxcar::Length::set(const float v) {
   l = static_cast<size_t>(std::min(static_cast<float>(MAX_BOXCAR), std::max(1.0f, v)));
   parent->cbuf = std::move(std::make_unique<CircBuffer>(l));
 }
+
+float Boxcar::Length::get() {
+  return parent->cbuf->size();
+}
+
 
 int16_t Boxcar::next(int32_t delta, int32_t phi) {
   return cbuf->next(src.next(delta, phi));
@@ -177,6 +195,10 @@ MergeFloat::Weight::Weight(MergeFloat* m, size_t i)
 void MergeFloat::Weight::set(float v) {
   merge->given_weights->at(idx) = v;
   merge->normalize();
+}
+
+float MergeFloat::Weight::get() {
+  return merge->given_weights->at(idx);
 }
 
 

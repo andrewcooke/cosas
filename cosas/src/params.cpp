@@ -10,6 +10,13 @@ void Blank::set(float value) {
   }
 }
 
+float Blank::get() {
+  if (delegate != nullptr) {
+    return delegate->get();
+  }
+  return 0.0;
+}
+
 void Blank::unblank(Param *del) {
   this->delegate = del;
   scale = del->scale;

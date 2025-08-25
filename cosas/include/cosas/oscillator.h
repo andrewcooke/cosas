@@ -45,6 +45,7 @@ class AbsFreqParam final : public FrequencyParam {
 public:
   AbsFreqParam(BaseOscillator* o, float f);
   void set(float f) override;  // set frequency (propagate to osc and rel freqs)
+  float get() override;
   [[nodiscard]] uint32_t get_frequency() const;  // used by rel freq in initial setup
   // on change, frequency is sent to dependent relative freqs
   void add_relative_freq(RelFreqParam* f);
@@ -65,16 +66,19 @@ public:
   public:
     explicit DetuneParam(RelFreqParam* f);
     void set(float val) override;
+    float get() override;
   private:
     RelFreqParam* rel_freq_param;
   };
   friend class DetuneParam;
   RelFreqParam(BaseOscillator* o, AbsFreqParam& ref, float r, float d);
   void set(float f) override;  // set ratio
+  float get() override;  // get ratio
   void set_root(uint32_t r);
   DetuneParam& get_det_param();  // expose a second param
 protected:
   void set_detune(float f);
+  float get_detune();
 private:
   void recalculate();
   uint32_t root;
@@ -90,7 +94,9 @@ public:
   public:
     WavedexParam(BaseOscillator* o, Wavelib& wl);
     void set(float val) override;
+    float get() override;
   private:
+    size_t widx;
     BaseOscillator* oscillator;
     Wavelib& wavelib;
   };
@@ -124,11 +130,13 @@ class PolyMixin {
 public:
   class CtrlParam : public Param {
   public:
-    CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> d);
+    CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> s, std::function<float()> g);
     void set(float val) override;
+    float get() override;
   private:
     PolyMixin& mixin;
-    std::function<void(float)> delegate;
+    std::function<void(float)> delegate_set;
+    std::function<float()> delegate_get;
   };
   PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
   friend class CtrlParam;
