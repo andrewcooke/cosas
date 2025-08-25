@@ -17,6 +17,7 @@ Workshop Computer (MTM WC):
 * [executables](https://github.com/andrewcooke/cosas/tree/main/apps)
   built on the two libraries above.  these either test functionality
   in cosas or are applications that can be deployed to the MTM WC.
+  note - many are historical artefacts and may not currently compile.
 
 * other scraps that were need along the way (currently some python
   code to explore DNL errors)
