@@ -5,6 +5,8 @@
 
 class KnobHandler;
 
+// these are NOT intended for use in cosas code; they're here only because
+// i wanted to test them.  see param.h for the cosas "side".
 
 // afair the idea here is that this applies the change when it goes out of
 // scope (and the destructor is called).  that way the UI updates before the

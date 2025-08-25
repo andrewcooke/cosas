@@ -10,17 +10,19 @@
 #include "cosas/transformers.h"
 
 
-SingleFloat::SingleFloat(RelSource& nd, float v)
-  : SingleSource(nd), value(v), param(Value(this)) {};
+SingleFloat::SingleFloat(RelSource& nd, float v, float scale, float linearity, bool log, float lo, float hi)
+  : SingleSource(nd), value(v), param(Value(this, scale, linearity, log, lo, hi)) {};
 
-SingleFloat::Value::Value(SingleFloat* p) : parent(p) {};
+SingleFloat::Value::Value(SingleFloat* p, float scale, float linearity, bool log, float lo, float hi)
+  : Param(scale, linearity, log, lo, hi), parent(p) {};
 
 void SingleFloat::Value::set(float v) {
   parent->value = v;
 }
 
 
-GainFloat::GainFloat(RelSource& nd, float amp) : SingleFloat(nd, amp) {};
+GainFloat::GainFloat(RelSource& nd, float amp, float hi)
+  : SingleFloat(nd, amp, 1, 1, true, 0, hi) {};
 
 int16_t GainFloat::next(const int32_t delta, const int32_t phi)  {
   const int16_t a = src.next(delta, phi);
@@ -32,17 +34,19 @@ SingleFloat::Value& GainFloat::get_amp() {
 }
 
 
-Single14::Single14(RelSource& nd, const float v)
-  : SingleSource(nd), value(scale2mult_shift14(v)), param(Value(this)), v(v) {};
+Single14::Single14(RelSource& nd, const float v, float scale, float linearity, bool log, float lo, float hi)
+  : SingleSource(nd), value(scale2mult_shift14(v)), param(Value(this, scale, linearity, log, lo, hi)), v(v) {};
 
-Single14::Value::Value(Single14* p) : parent(p) {};
+Single14::Value::Value(Single14* p, float scale, float linearity, bool log, float lo, float hi)
+  : Param(scale, linearity, log, lo, hi), parent(p) {};
 
 void Single14::Value::set(const float v) {
   parent->value = scale2mult_shift14(v);
 }
 
 
-Gain14::Gain14(RelSource& nd, const float amp) : Single14(nd, amp) {};
+Gain14::Gain14(RelSource& nd, const float amp, float hi)
+  : Single14(nd, amp, 1, 1, true, 0, hi) {};
 
 int16_t Gain14::next(const int32_t delta, const int32_t phi) {
   int16_t a = src.next(delta, phi);
@@ -55,13 +59,14 @@ Single14::Value& Gain14::get_amp() {
 }
 
 
-Gain::Gain(RelSource& nd, float amp) : Gain14(nd, amp) {};
+Gain::Gain(RelSource& nd, float amp, float hi) : Gain14(nd, amp, hi) {};
 
 
 // these (float based) may be too slow?
 
 
-FloatFunc::FloatFunc(RelSource& nd, float v) : SingleFloat(nd, v) {};
+FloatFunc::FloatFunc(RelSource& nd, float v, float scale, float linearity, bool log, float lo, float hi)
+  : SingleFloat(nd, v, scale, linearity, log, lo, hi) {};
 
 int16_t FloatFunc::next(const int32_t delta, const int32_t phi) {
   const int16_t sample = src.next(delta, phi);
@@ -74,14 +79,14 @@ int16_t FloatFunc::next(const int32_t delta, const int32_t phi) {
 }
 
 
-Compander::Compander(RelSource& nd, float gamma) : FloatFunc(nd, gamma) {};
+Compander::Compander(RelSource& nd, float gamma) : FloatFunc(nd, gamma, 0.5, 1, false, -10, 10) {};
 
 auto Compander::func(float x) const -> float {
   return powf(x, value);
 }
 
 
-Folder::Folder(RelSource& nd, float k) : FloatFunc(nd, k) {};
+Folder::Folder(RelSource& nd, float k) : FloatFunc(nd, k, 0.5, 1, false, 0, 2) {};
 
 // first half goes from flat to curve
 // second half actually folds
@@ -110,7 +115,8 @@ auto Boxcar::CircBuffer::next(const int16_t cur) const -> int16_t {
   return clip_16(next / static_cast<int32_t>(sums->size()));
 };
 
-Boxcar::Length::Length(Boxcar* p) : parent(p) {}
+Boxcar::Length::Length(Boxcar* p)
+  : Param(1, 1, false, 0, MAX_BOXCAR), parent(p) {}
 
 void Boxcar::Length::set(const float v) {
   size_t l;
@@ -165,7 +171,8 @@ int16_t MergeFloat::next(const int32_t tick, const int32_t phi) {
   return clip_16(acc + 0.5f);  // round to nearest
 }
 
-MergeFloat::Weight::Weight(MergeFloat* m, size_t i) : merge(m), idx(i) {}
+MergeFloat::Weight::Weight(MergeFloat* m, size_t i)
+  : Param(0.5, 1, false, 0, 1), merge(m), idx(i) {}
 
 void MergeFloat::Weight::set(float v) {
   merge->given_weights->at(idx) = v;

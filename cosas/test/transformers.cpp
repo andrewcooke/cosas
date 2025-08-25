@@ -7,7 +7,7 @@
 
 TEST_CASE("Transformers, GainFloat") {
   Constant c = Constant(100);
-  GainFloat g = GainFloat(c, 1);
+  GainFloat g = GainFloat(c, 1, 100);
   CHECK(g.next(123, 0) == 100);
   g.get_amp().set(0.1f);
   CHECK(g.next(123, 0) == 10);
@@ -16,7 +16,7 @@ TEST_CASE("Transformers, GainFloat") {
 
 TEST_CASE("Transformers, Gain14") {
   Constant c = Constant(100);
-  Gain14 g = Gain14(c, 1);
+  Gain14 g = Gain14(c, 1, 100);
   CHECK(g.next(123, 0) == 100);
   g.get_amp().set(0.1f);
   CHECK(g.next(123, 0) == 9);  // almost

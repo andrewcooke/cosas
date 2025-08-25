@@ -22,14 +22,14 @@ class SingleFloat : public SingleSource {
 public:
   class Value final : public Param {
   public:
-    explicit Value(SingleFloat* p);
+    explicit Value(SingleFloat* p, float scale, float linearity, bool log, float lo, float hi);
     void set(float v) override;
   private:
     SingleFloat* parent;
   };
   friend class Value;
 protected:
-  SingleFloat(RelSource& src, float v);
+  SingleFloat(RelSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
   float value;
   Value param;
 };
@@ -37,7 +37,7 @@ protected:
 
 class GainFloat final : public SingleFloat {
 public:
-  GainFloat(RelSource& src, float amp);
+  GainFloat(RelSource& src, float amp, float hi);
   [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Value& get_amp();
 };
@@ -47,14 +47,14 @@ class Single14 : public SingleSource {
 public:
   class Value final : public Param {
   public:
-    explicit Value(Single14* p);
+    explicit Value(Single14* p, float scale, float linearity, bool log, float lo, float hi);
     void set(float v) override;
   private:
     Single14* parent;
   };
   friend class Value;
 protected:
-  Single14(RelSource& src, float v);
+  Single14(RelSource& src, float v, float scale, float linearity, bool log, float lo, float h);
   uint16_t value;
   Value param;
   const float v;
@@ -63,7 +63,7 @@ protected:
 
 class Gain14 : public Single14 {
 public:
-  Gain14(RelSource& src, float amp);
+  Gain14(RelSource& src, float amp, float hi);
   [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Value& get_amp();
 };
@@ -72,7 +72,7 @@ public:
 // forward to Gain14 on assumption this is faster
 class Gain : public Gain14 {
 public:
-  Gain(RelSource& src, float amp);
+  Gain(RelSource& src, float amp, float hi);
 };
 
 
@@ -80,7 +80,7 @@ class FloatFunc : public SingleFloat {
 public:
   [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
 protected:
-  FloatFunc(RelSource& src, float v);
+  FloatFunc(RelSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
   // x is normalised 0-1 and this can (will) use value
   [[nodiscard]] virtual float func(float x) const = 0;
 };

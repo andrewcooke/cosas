@@ -38,13 +38,11 @@ private:
 
   template<typename SourceType, typename... Args> SourceType& add_source(Args&&... args);
   template<typename ParamType, typename... Args> ParamType& add_param(Args&&... args);
-  template<typename InputType, typename... Args> InputType& add_input(Args&&... args);
-  Pane& add_pane(Input& top, Input& left, Input& right) const;
+  template<typename ParamType, typename... Args> ParamType& add_input(Args&&... args);
+  Pane& add_pane(Param& top, Param& left, Param& right) const;
   void swap_panes(size_t i, size_t j) const;
   void rotate_panes(size_t a, size_t b) const;
-  Input& lin_control(Input& in, float c, float lo, float hi);
-  Input& log_control(Input& in, float c, float lo, float hi);
-  std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc(float frq, size_t widx, Input& right);
+  std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc(float frq, size_t widx, Param& right);
   std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc(float frq, size_t widx);
   std::tuple<AbsFreqParam&, RelSource&> add_abs_dex_osc_w_gain(float frq, size_t widx, float amp);
   std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
@@ -52,7 +50,7 @@ private:
   RelSource& add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d);
   Merge& add_balance(RelSource& a, RelSource& b, float bal);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
-  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Input& right);
+  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Param& right);
 
   RelSource& build_dex();
   RelSource& build_poly();
@@ -65,7 +63,6 @@ private:
   std::unique_ptr<Wavelib> wavelib;
   std::unique_ptr<std::vector<std::unique_ptr<RelSource>>> current_sources;
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
-  std::unique_ptr<std::vector<std::unique_ptr<Input>>> current_inputs;
   std::unique_ptr<std::vector<std::unique_ptr<Pane>>> current_panes;
   bool test;
 };

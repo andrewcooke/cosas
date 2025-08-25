@@ -34,7 +34,9 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
 }
 
 
-FrequencyParam::FrequencyParam(BaseOscillator* o) : oscillator(o) {}
+FrequencyParam::FrequencyParam(BaseOscillator* o)
+  : Param(0.5, 0, true,
+    1.0 / (1 << SUBTICK_BITS), 0.5 * SAMPLE_RATE), oscillator(o) {}
 
 void FrequencyParam::set_oscillator(const uint32_t f) const {  // const because it affects chained oscillator, not us
   oscillator->frequency = f;
@@ -93,7 +95,8 @@ RelFreqParam::DetuneParam& RelFreqParam::get_det_param() {
 }
 
 
-RelFreqParam::DetuneParam::DetuneParam(RelFreqParam *f) : rel_freq_param(f) {}
+RelFreqParam::DetuneParam::DetuneParam(RelFreqParam *f)
+  : Param(0.1f, 0, false, 0.5, 2), rel_freq_param(f) {}
 
 void RelFreqParam::DetuneParam::set(float v) {
   rel_freq_param->set_detune(v);
@@ -106,7 +109,8 @@ WavedexMixin::WavedexParam& WavedexMixin::get_dex_param() {
   return wavedex;
 }
 
-WavedexMixin::WavedexParam::WavedexParam(BaseOscillator* o, Wavelib& wl) : oscillator(o), wavelib(wl) {};
+WavedexMixin::WavedexParam::WavedexParam(BaseOscillator* o, Wavelib& wl)
+  : Param(1, 1, false, 0, wl.size()), oscillator(o), wavelib(wl) {};
 
 void WavedexMixin::WavedexParam::set(float val) {
   const size_t n = wavelib.size() - 1;
@@ -134,7 +138,8 @@ RelFreqParam& RelDexOsc::get_freq_param() {
 }
 
 
-PolyMixin::CtrlParam::CtrlParam(PolyMixin& m, std::function<void(float)> d) : mixin(m), delegate(d) {};
+PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> d)
+  : Param(1, 0.5, false, 0, hi), mixin(m), delegate(d) {};
 
 void PolyMixin::CtrlParam::set(float v) {
   delegate(v);
@@ -144,9 +149,9 @@ void PolyMixin::CtrlParam::set(float v) {
 // no except here to get rid of a complex compiler error i did not understand
 PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   : oscillator(o), shape(s), asym(a), offset(off) {
-  shape_param = std::move(std::make_unique<CtrlParam>(*this, [this](float v) noexcept {shape = v;}));
-  asym_param = std::move(std::make_unique<CtrlParam>(*this, [this](float v) noexcept {asym = v;}));
-  offset_param = std::move(std::make_unique<CtrlParam>(*this, [this](float v) noexcept {offset = v;}));
+  shape_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this, [this](float v) noexcept {shape = v;}));
+  asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this, [this](float v) noexcept {asym = v;}));
+  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this, [this](float v) noexcept {offset = v;}));
   update();
 }
 

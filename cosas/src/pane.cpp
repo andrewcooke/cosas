@@ -2,7 +2,7 @@
 #include "cosas/pane.h"
 
 
-Pane::Pane(Input& t, Input& l, Input& r)
+Pane::Pane(Param& t, Param& l, Param& r)
   : top(t), left(l), right(r) {};
 
 

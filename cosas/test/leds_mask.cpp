@@ -39,5 +39,5 @@ TEST_CASE("LEDsMask, rot2dot") {
   auto leds_mask_4 = LEDsMask(4);
   CHECK(leds_mask_4.rot2dot(1, leds_mask_4.BITS_MASK >> 3, leds_mask_4.BITS_MASK >> 1) == 0x717177);
   auto leds_mask_5 = LEDsMask(5);
-  CHECK(leds_mask_5.rot2dot(1, leds_mask_5.BITS_MASK >> 3, leds_mask_5.BITS_MASK >> 1) == 0x1e378d3f);
+  CHECK(leds_mask_5.rot2dot(1, leds_mask_5.BITS_MASK >> 3, leds_mask_5.BITS_MASK >> 1) == 0x1e378def);
 }

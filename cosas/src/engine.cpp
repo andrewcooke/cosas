@@ -15,14 +15,12 @@ Manager::Manager(const bool t)
   : wavelib(std::move(std::make_unique<Wavelib>())),
     current_sources(std::move(std::make_unique<std::vector<std::unique_ptr<RelSource>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
-    current_inputs(std::move(std::make_unique<std::vector<std::unique_ptr<Input>>>())),
     current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())),
     test(t) {};
 
 RelSource& Manager::build(Manager::Engine engine) {
   current_sources->clear();
   current_params->clear();
-  current_inputs->clear();
   current_panes->clear();
 
   switch (engine)
@@ -67,20 +65,13 @@ SourceType& Manager::add_source(Args&&... args) {
 }
 
 template <typename ParamType, typename... Args>
-ParamType& Manager::add_param(Args&&... args) {
-  std::unique_ptr<ParamType> param = std::make_unique<ParamType>(std::forward<Args>(args)...);
-  current_params->push_back(std::move(param));
+ParamType& Manager::add_input(Args&&... args) {
+  std::unique_ptr<ParamType> input = std::make_unique<ParamType>(std::forward<Args>(args)...);
+  current_params->push_back(std::move(input));
   return dynamic_cast<ParamType&>(*current_params->back());
 }
 
-template <typename InputType, typename... Args>
-InputType& Manager::add_input(Args&&... args) {
-  std::unique_ptr<InputType> input = std::make_unique<InputType>(std::forward<Args>(args)...);
-  current_inputs->push_back(std::move(input));
-  return dynamic_cast<InputType&>(*current_inputs->back());
-}
-
-Pane& Manager::add_pane(Input& top, Input& left, Input& right) const {
+Pane& Manager::add_pane(Param& top, Param& left, Param& right) const {
   std::unique_ptr<Pane> pane = std::make_unique<Pane>(top, left, right);
   current_panes->push_back(std::move(pane));
   return *current_panes->back();
@@ -107,29 +98,13 @@ void Manager::rotate_panes(const size_t a, const size_t b) const {
   }
 }
 
-Input& Manager::lin_control(Input& in, float c, float lo, float hi) {
-  return add_input<Change>(
-    add_input<Sigmoid>(
-      add_input<Additive>(in, test ? lo : c, lo, hi),
-      test ? 1 : 0.5));
-}
-
-Input& Manager::log_control(Input& in, float c, float lo, float hi) {
-  return add_input<Change>(
-    add_input<Sigmoid>(
-      add_input<Multiplicative>(in, test ? lo : c, lo, hi),
-      test ? 1 : 0.5));
-}
-
 // panes:
 //   1 - freq/dex/arg
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t widx, Input& right) {
+std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t widx, Param& right) {
   auto& o = add_source<AbsDexOsc>(frq, *wavelib, widx);
   AbsFreqParam& f = o.get_freq_param();
   WavedexMixin::WavedexParam& w = o.get_dex_param();
-  Input& top = log_control(f, frq, 1.0 / (1 << SUBTICK_BITS), 0.5 * SAMPLE_RATE);
-  Input& left = lin_control(w, static_cast<float>(widx), 0, static_cast<float>(wavelib->size() - 1));
-  add_pane(top, left, right);
+  add_pane(f, w, right);
   return {f, o};
 }
 
@@ -144,8 +119,8 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t
 std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc_w_gain(float frq, size_t widx, float amp) {
   auto& b = add_input<Blank>();
   auto [f, o] = add_abs_dex_osc(frq, widx, b);
-  Gain& g = add_source<Gain>(o, amp);
-  b.unblank(&lin_control(g.get_amp(), amp, 0, 1));
+  Gain& g = add_source<Gain>(o, amp, 100);  // todo - no idea if hi ok here
+  b.unblank(&g.get_amp());
   return {f, g};
 }
 
@@ -154,11 +129,7 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc_w_gain(float frq,
 RelSource& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d) {
   auto& o = add_source<RelDexOsc>(*wavelib, widx, root, r, d);
   RelFreqParam& f = o.get_freq_param();
-  Input& top = log_control(f, 1, 1.0f / static_cast<float>(root.get_frequency() << SUBTICK_BITS),
-                           0.5f * SAMPLE_RATE / static_cast<float>(root.get_frequency()));
-  Input& left = lin_control(o.get_dex_param(), static_cast<float>(widx), 0, static_cast<float>(wavelib->size()));
-  Input& right = log_control(f.get_det_param(), 1, 0.9f, 1.1f);
-  add_pane(top, left, right);
+  add_pane(root, o.get_dex_param(), f.get_det_param());
   return o;
 }
 
@@ -168,11 +139,7 @@ RelSource& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, fl
 std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<AbsPolyOsc>(frq, shp, asym, off);
   AbsFreqParam& f = o.get_freq_param();
-  Input& top = lin_control(o.get_off_param(), QUARTER_TABLE_SIZE, 0, HALF_TABLE_SIZE);
-  Input& left = lin_control(o.get_shp_param(), PolyTable::SINE, 0, PolyTable::N_SHAPES);
-  int n2 = PolyTable::N_SHAPES >> 1;
-  Input& right = lin_control(o.get_asym_param(), 0, static_cast<float>(-n2), static_cast<float>(PolyTable::N_SHAPES - n2));
-  add_pane(top, left, right);
+  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
   return {f, o};
 }
 
@@ -186,9 +153,9 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc_w_gain(const flo
   auto& right = add_input<Blank>();
   add_pane(top, left, right);
   auto [f, o] = add_abs_poly_osc(frq, shp, asym, off);
-  top.unblank(&log_control(f, frq, 1.0 / (1 << SUBTICK_BITS), 0.5 * SAMPLE_RATE));
-  Gain& g = add_source<Gain>(o, amp);
-  right.unblank(&lin_control(g.get_amp(), amp, 0, 1));
+  top.unblank(&f);
+  Gain& g = add_source<Gain>(o, amp, 100);  // todo - hi?
+  right.unblank(&g.get_amp());
   return {f, g}; // TODO - currently unused.  why are we returning these?
 }
 
@@ -206,13 +173,11 @@ RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp) {
 
 // panes:
 //   1 - gain/wet/arg
-RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Input& right) {
-  Gain& g = add_source<Gain>(m, amp);
+RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Param& right) {
+  Gain& g = add_source<Gain>(m, amp, 100);  // todo - hi
   FM& fm = add_source<FM>(c, g);
   Merge& b = add_balance(fm, c, bal);
-  Input& top = lin_control(g.get_amp(), amp, 0, 1);
-  Input& left = lin_control(b.get_weight(0), bal, 0, 1);
-  add_pane(top, left, right);
+  add_pane(g.get_amp(), b.get_weight(0), right);
   return b;
 }
 
@@ -268,7 +233,7 @@ RelSource& Manager::build_fm_env() {
   auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0,
                                                       static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   RelSource& am = add_source<AM>(e, fm);
-  dynamic_cast<Blank&>(get_pane(0).right).unblank(&log_control(ef, 1, 1.0 / (1 << SUBTICK_BITS), 0.5f * SAMPLE_RATE));
+  dynamic_cast<Blank&>(get_pane(0).right).unblank(&ef);
   return am;
 }
 
@@ -279,8 +244,7 @@ RelSource& Manager::build_fm_env() {
 RelSource& Manager::build_fm_fb() {
   auto& latch = add_source<Latch>();
   auto& flt = add_source<Boxcar>(latch, DEFAULT_BOXCAR);
-  Input& right = lin_control(flt.get_len(), DEFAULT_BOXCAR, 1, MAX_BOXCAR);
-  auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1, right);
+  auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1, flt.get_len());
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   Merge& mrg = add_balance(flt, m, 0.5);
   RelSource& fm = add_fm(c, mrg, 0.5, 1.0 / (1 << (PHI_FUDGE_BITS - 4)), mrg.get_weight(0));

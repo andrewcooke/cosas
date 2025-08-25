@@ -124,7 +124,7 @@ class PolyMixin {
 public:
   class CtrlParam : public Param {
   public:
-    CtrlParam(PolyMixin& m, std::function<void(float)> d);
+    CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> d);
     void set(float val) override;
   private:
     PolyMixin& mixin;
@@ -151,7 +151,7 @@ private:
 
 class AbsPolyOsc final : public BaseOscillator, public PolyMixin {
 public:
-  AbsPolyOsc(float f, size_t shp, size_t asyn, size_t off);
+  AbsPolyOsc(float f, size_t shp, size_t asym, size_t off);
   AbsFreqParam& get_freq_param();
 private:
   AbsFreqParam freq_param;

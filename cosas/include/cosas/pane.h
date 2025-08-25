@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-#include "cosas/control.h"
+#include "cosas/params.h"
 
 
 // a pane describes what is controlled by the current "view" of the
@@ -18,10 +18,10 @@
 
 class Pane {
 public:
-  Pane(Input& t, Input& l, Input& r);
-  Input& top;
-  Input& left;
-  Input& right;
+  Pane(Param& t, Param& l, Param& r);
+  Param& top;
+  Param& left;
+  Param& right;
 };
 
 
