@@ -2,11 +2,15 @@
 #ifndef COSAS_KNOBS_H
 #define COSAS_KNOBS_H
 
+#include "cosas/params.h"
 
-class KnobHandler;
 
 // these are NOT intended for use in cosas code; they're here only because
 // i wanted to test them.  see param.h for the cosas "side".
+
+
+class KnobHandler;
+
 
 // afair the idea here is that this applies the change when it goes out of
 // scope (and the destructor is called).  that way the UI updates before the
@@ -44,10 +48,22 @@ protected:
   bool log = false;
   float lo = 0;
   float hi = 1;
-  void apply_change();
+  virtual void apply_change() {};
   KnobChange::Highlight ends();
   float clip(float n);
   float sigmoid(uint16_t now, uint16_t prev);
+};
+
+
+class ParamHandler : public KnobHandler {
+
+public:
+  ParamHandler(Param& param);
+  void apply_change() override;
+
+private:
+  Param& param;
+
 };
 
 

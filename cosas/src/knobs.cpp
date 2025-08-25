@@ -4,6 +4,7 @@
 
 #include "cosas/knobs.h"
 
+
 KnobChange::~KnobChange() {
   knob->apply_change();
 }
@@ -21,12 +22,6 @@ KnobChange::Highlight KnobHandler::ends() {
   return highlight;
 }
 
-void KnobHandler::apply_change() {
-  float val = lo + (hi - lo) * normalized;
-  if (log) val = powf(10, val);
-  // TODO - something with val
-}
-
 float KnobHandler::clip(float n) {
   // aiming for [0, 1) here
   return std::max(0.0f, std::min(0.999999f, n));
@@ -39,3 +34,19 @@ float KnobHandler::sigmoid(uint16_t now, uint16_t prev) {
   float y0 =  4.0f * (1.0f - linearity) * powf(x0, 3.0f) + linearity * x0 + 0.5f;
   return clip(normalized + scale * (y1 - y0));
 }
+
+
+ParamHandler::ParamHandler(Param &p)
+  : KnobHandler(p.scale, p.linearity, p.log, p.lo, p.hi), param(p) {
+  float v = p.get();
+  if (p.log) v = log10f(v);
+  v = (v - p.lo) / (p.hi - p.lo);
+  normalized = clip(v);
+}
+
+void ParamHandler::apply_change() {
+  float val = lo + (hi - lo) * normalized;
+  if (log) val = powf(10, val);
+  param.set(val);
+}
+
