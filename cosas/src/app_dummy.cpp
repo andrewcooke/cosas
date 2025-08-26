@@ -25,7 +25,7 @@ uint8_t DummyApp::n_pages() {
   return 3;
 }
 
-KnobHandler DummyApp::get_knob(uint8_t /* page */, Knob /* knob */) {
+KnobHandler& DummyApp::get_knob(uint8_t /* page */, Knob /* knob */) {
   static KnobHandler knob(1, 0, false, 0, 1);
   return knob;
 }
