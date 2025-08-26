@@ -4,7 +4,7 @@
 
 
 uint8_t DummyApp::get_n_sources() {
-  return 3;
+  return 19;
 }
 
 class DummySource : public RelSource {

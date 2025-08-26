@@ -22,6 +22,7 @@ public:
   uint32_t square(bool bottom, uint8_t amplitude);
   uint32_t vbar(bool right, uint8_t amplitude);
   uint32_t rot2dot(size_t off, uint8_t fg, uint8_t bg);
+  uint32_t wiggle19(size_t off, uint8_t fg, uint8_t bg);
   uint32_t rotate(uint32_t mask, size_t n);
   virtual void show(uint32_t mask) = 0;
   const uint8_t BITS;
@@ -32,6 +33,12 @@ private:
   const uint32_t SIDE_MASK;
   const size_t ring_order[N] = {4, 2, 0, 1, 3, 5};
   uint32_t overwrite(uint32_t mask, float centre, float width, uint8_t amplitude);
+  const uint8_t wiggle[19] = {
+    0b101010, 0b001010, 0b001110, 0b000110, 0b000111,
+    0b000011, 0b001011, 0b001001, 0b001101, 0b001100,
+    0b101100, 0b100100, 0b110100, 0b110000, 0b111000,
+    0b011000, 0b011100, 0b010100, 0b010101
+  };
 
 };
 

@@ -161,6 +161,6 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
 
 uint32_t UIState::current_source_mask() {
   // +1 is shifting from 0 to 1 index
-  return leds_mask->rot2dot(source + 1, leds_mask->BITS_MASK >> 3, leds_mask->BITS_MASK >> 1);
+  return leds_mask->wiggle19(source, leds_mask->BITS_MASK >> 1, leds_mask->BITS_MASK >> 3);
 }
 

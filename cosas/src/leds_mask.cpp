@@ -118,3 +118,14 @@ uint32_t BaseLEDsMask::rot2dot(size_t off, uint8_t fg, uint8_t bg) {
 uint32_t BaseLEDsMask::rotate(uint32_t mask, size_t n) {
   return ((mask << (n * BITS)) & FULL_MASK) | (mask >> ((N - n) * BITS));
 }
+
+uint32_t BaseLEDsMask::wiggle19(size_t off, uint8_t fg, uint8_t bg) {
+  uint32_t mask = 0;
+  uint8_t w = wiggle[off];
+  for (size_t i = 0; i < N; ++i) {
+    mask <<= BITS;
+    mask |= ((w & 1) ? fg : bg) & BITS_MASK;
+    w >>= 1;
+  }
+  return reverse(mask);
+}
