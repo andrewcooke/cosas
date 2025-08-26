@@ -10,16 +10,19 @@
 #include "cosas/source.h"
 
 
+// this assumes that creating a source may be expensive but accessing
+// a pane for teh current source is cheap  so source is internal state,
+// but pane is not.
+
 class App {
 
 public:
 
   virtual ~App() = default;
-  virtual uint8_t get_n_sources() = 0;
+  virtual uint8_t n_sources() = 0;
   virtual RelSource& get_source(uint8_t source) = 0;
-  virtual uint8_t get_n_pages(uint8_t source) = 0;
+  virtual uint8_t n_pages() = 0;
   virtual KnobHandler get_knob(uint8_t page, Knob knob) = 0;
-  virtual void set_source(uint8_t source) = 0;
 
 };
 

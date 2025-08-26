@@ -4,20 +4,21 @@
 
 
 #include "cosas/app.h"
+#include "cosas/engine.h"
 
 
 class FomeApp : public App {
 
 public:
-  uint8_t get_n_sources() override;
-  RelSource& get_source(uint8_t source) override;
-  uint8_t get_n_pages(uint8_t source) override;
+  FomeApp();
+  uint8_t n_sources() override;
+  RelSource& get_source(uint8_t s) override;
+  uint8_t n_pages() override;
   KnobHandler get_knob(uint8_t page, Knob knob) override;
-  void set_source(uint8_t /* source */) override {};
 
 private:
-  int source;
-
+  Manager manager;
+  RelSource& source;
 };
 
 

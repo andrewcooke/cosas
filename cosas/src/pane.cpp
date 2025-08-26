@@ -2,10 +2,14 @@
 #include "cosas/pane.h"
 
 
-Pane::Pane(Param& t, Param& l, Param& r)
-  : top(t), left(l), right(r) {};
+Pane::Pane(Param& main, Param& x, Param& y)
+  : main(main), x(x), y(y) {};
 
-
-void PaneSet::append(std::unique_ptr<Pane> p) {
-  panes.push_back(std::move(p));
+Param &Pane::get_param(Knob knob) {
+  switch (knob) {
+  default:
+  case Main: return main;
+  case X: return x;
+  case Y: return y;
+  }
 }

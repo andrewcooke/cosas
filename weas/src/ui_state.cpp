@@ -9,7 +9,8 @@
 UIState::UIState(App& app, Codec::SwitchPosition initial)
   : CtrlChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
   handle_ctrl_change(Codec::Switch, initial, initial);
-  app.set_source(source);
+  // TODO - here too
+  app.get_source(source);
 
 }
 
@@ -95,7 +96,7 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
-      page = (page + 1) % app.get_n_pages(source);
+      page = (page + 1) % app.n_pages();
       buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
       transition_to(saved_adjust_mask, false);
       state = ADJUST;
@@ -149,8 +150,9 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
     break;
   case (Codec::Main): {
     KnobChange change = source_knob.handle_knob_change(now, prev);
-    source = static_cast<uint>(app.get_n_sources() * change.normalized);
-    app.set_source(source);
+    source = static_cast<uint>(app.n_sources() * change.normalized);
+    // TODO - use the source
+    app.get_source(source);
     buffer.queue(current_source_mask(), false, false, 0);
     break;
   }

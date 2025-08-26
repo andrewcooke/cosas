@@ -3,7 +3,7 @@
 #include "cosas/app_dummy.h"
 
 
-uint8_t DummyApp::get_n_sources() {
+uint8_t DummyApp::n_sources() {
   return 19;
 }
 
@@ -21,7 +21,7 @@ RelSource& DummyApp::get_source(uint8_t /* source */) {
   return dummy_source;
 }
 
-uint8_t DummyApp::get_n_pages(uint8_t /* source */) {
+uint8_t DummyApp::n_pages() {
   return 3;
 }
 

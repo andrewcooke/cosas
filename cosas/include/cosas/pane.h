@@ -2,35 +2,20 @@
 #ifndef COSAS_PANE_H
 #define COSAS_PANE_H
 
-#include <vector>
-#include <memory>
 
 #include "cosas/params.h"
+#include "cosas/common.h"
 
 
-// a pane describes what is controlled by the current "view" of the
-// ui.  the interface between each ui component and the associated
-// software compoonent is managed via a control.  the control does the
-// mapping from float 0-1 to whatever is necessary (log, linear,
-// range, knob lock etc).
-
-// i guess this should also include output...
+// the collection of knobs/params currently on display
 
 class Pane {
 public:
-  Pane(Param& t, Param& l, Param& r);
-  Param& top;
-  Param& left;
-  Param& right;
-};
-
-
-class PaneSet {
-public:
-  PaneSet() = default;
-  void append(std::unique_ptr<Pane> p);
-private:
-  std::vector<std::unique_ptr<Pane>> panes;
+  Pane(Param& main, Param& x, Param& y);
+  Param& get_param(Knob knob);
+  Param& main;
+  Param& x;
+  Param& y;
 };
 
 

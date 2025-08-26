@@ -44,7 +44,7 @@ RelSource& Manager::build(Manager::Engine engine) {
   }
 }
 
-const Pane& Manager::get_pane(size_t n) const {
+Pane& Manager::get_pane(size_t n) const {
   return *current_panes->at(n);
 }
 
@@ -233,7 +233,7 @@ RelSource& Manager::build_fm_env() {
   auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0,
                                                       static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   RelSource& am = add_source<AM>(e, fm);
-  dynamic_cast<Blank&>(get_pane(0).right).unblank(&ef);
+  dynamic_cast<Blank&>(get_pane(0).y).unblank(&ef);
   return am;
 }
 

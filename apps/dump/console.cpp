@@ -10,7 +10,7 @@ void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
   RelSource& fm = m.build(e);
   const auto p = m.get_pane(pane);
   for (size_t i = 0; i < n; i++) {
-    p.top.set(i / static_cast<float>(n));
+    p.main.set(i / static_cast<float>(n));
     const int16_t amp = fm.next(1, 0);
     std::cout << i << " " << amp << std::endl;
   }
@@ -21,7 +21,7 @@ void dump_w_gain(Manager::Engine e, size_t n) {
   RelSource& fm = m.build(e);
   auto p = m.get_pane(m.n_panes()-1);
   for (size_t i = 0; i < n; i++) {
-    p.top.set(static_cast<float>(i) / static_cast<float>(n));
+    p.main.set(static_cast<float>(i) / static_cast<float>(n));
     const int16_t amp = fm.next(1, 0);
     std::cout << i << " " << amp << std::endl;
   }
@@ -32,7 +32,7 @@ void dump_w_wdex(Manager::Engine e, size_t n) {
   RelSource& fm = m.build(e);
   auto p = m.get_pane(0);
   for (size_t i = 0; i < n; i++) {
-    p.left.set(m.n_dex() * i / static_cast<float>(n));
+    p.x.set(m.n_dex() * i / static_cast<float>(n));
     const int16_t amp = fm.next(1, 0);
     std::cout << i << " " << amp << std::endl;
   }

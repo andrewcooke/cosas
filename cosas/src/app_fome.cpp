@@ -3,29 +3,21 @@
 #include "cosas/app_fome.h"
 
 
-uint8_t FomeApp::get_n_sources() {
-  return 3;
+FomeApp::FomeApp() : manager(), source(manager.build(static_cast<Manager::Engine>(0))) {};
+
+uint8_t FomeApp::n_sources() {
+  return Manager::N_ENGINE;
 }
 
-class FomeSource : public RelSource {
-
-public:
-  int16_t next(int32_t /* delta */, int32_t /* phi */) {
-    return 0;
-  }
-
-};
-
-RelSource& FomeApp::get_source(uint8_t /* source */) {
-  static FomeSource dummy_source;
-  return dummy_source;
+RelSource& FomeApp::get_source(uint8_t s) {
+  source = manager.build(static_cast<Manager::Engine>(s));
+  return source;
 }
 
-uint8_t FomeApp::get_n_pages(uint8_t /* source */) {
-  return 3;
+uint8_t FomeApp::n_pages() {
+  return manager.n_panes();
 }
 
-KnobHandler FomeApp::get_knob(uint8_t /* page */, Knob /* knob */) {
-  static KnobHandler knob(1, 0, false, 0, 1);
-  return knob;
+KnobHandler FomeApp::get_knob(uint8_t page, Knob knob) {
+  return ParamHandler(manager.get_pane(page).get_param(knob));
 }

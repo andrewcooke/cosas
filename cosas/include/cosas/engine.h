@@ -26,11 +26,12 @@ public:
     FM_FB,
     CHORD,
   };
+  static constexpr size_t N_ENGINE = CHORD + 1;
 
   Manager();
   explicit Manager(bool t);
   RelSource& build(Engine);
-  [[nodiscard]] const Pane& get_pane(size_t n) const;
+  [[nodiscard]] Pane& get_pane(size_t n) const;
   [[nodiscard]] size_t n_panes() const;
   [[nodiscard]] size_t n_dex() const;
 
