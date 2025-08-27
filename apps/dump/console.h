@@ -2,7 +2,7 @@
 #ifndef COSAS_CONSOLE_H
 #define COSAS_CONSOLE_H
 
-#include "cosas/old_engine.h"
+#include "cosas/engine_old.h"
 #include "cosas/source.h"
 
 void dump_w_top(OldManager::OldEngine e, size_t n, size_t p);
