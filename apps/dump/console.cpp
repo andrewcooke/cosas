@@ -5,8 +5,8 @@
 #include "console.h"
 
 
-void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
-  auto m = Manager(true);
+void dump_w_top(OldManager::OldEngine e, size_t n, size_t pane) {
+  auto m = OldManager(true);
   RelSource& fm = m.build(e);
   const auto p = m.get_pane(pane);
   for (size_t i = 0; i < n; i++) {
@@ -16,8 +16,8 @@ void dump_w_top(Manager::Engine e, size_t n, size_t pane) {
   }
 }
 
-void dump_w_gain(Manager::Engine e, size_t n) {
-  auto m = Manager(true);
+void dump_w_gain(OldManager::OldEngine e, size_t n) {
+  auto m = OldManager(true);
   RelSource& fm = m.build(e);
   auto p = m.get_pane(m.n_panes()-1);
   for (size_t i = 0; i < n; i++) {
@@ -27,8 +27,8 @@ void dump_w_gain(Manager::Engine e, size_t n) {
   }
 }
 
-void dump_w_wdex(Manager::Engine e, size_t n) {
-  auto m = Manager(true);
+void dump_w_wdex(OldManager::OldEngine e, size_t n) {
+  auto m = OldManager(true);
   RelSource& fm = m.build(e);
   auto p = m.get_pane(0);
   for (size_t i = 0; i < n; i++) {
@@ -52,8 +52,8 @@ void dump_dex(float f, Wavelib& w, size_t idx) {
   }
 }
 
-void dump(Manager::Engine e, size_t n) {
-  auto m = Manager();
+void dump(OldManager::OldEngine e, size_t n) {
+  auto m = OldManager();
   RelSource& fm = m.build(e);
   for (size_t i = 0; i < n; i++) {
     int16_t amp = fm.next(1, 0);

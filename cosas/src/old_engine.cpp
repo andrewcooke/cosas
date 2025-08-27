@@ -3,88 +3,87 @@
 #include <stdexcept>
 
 #include "cosas/modulators.h"
-#include "cosas/engine.h"
-
+#include "cosas/old_engine.h"
 
 constexpr int DEFAULT_BOXCAR = 1000;
 
 
-Manager::Manager() : Manager(false) {};
+OldManager::OldManager() : OldManager(false) {};
 
-Manager::Manager(const bool t)
+OldManager::OldManager(const bool t)
   : wavelib(std::move(std::make_unique<Wavelib>())),
     current_sources(std::move(std::make_unique<std::vector<std::unique_ptr<RelSource>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
     current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())),
     test(t) {};
 
-RelSource& Manager::build(Manager::Engine engine) {
+RelSource& OldManager::build(OldManager::OldEngine engine) {
   current_sources->clear();
   current_params->clear();
   current_panes->clear();
 
   switch (engine)
   {
-  case Manager::Engine::DEX:
+  case OldManager::OldEngine::DEX:
     return build_dex();
-  case Manager::Engine::POLY:
+  case OldManager::OldEngine::POLY:
     return build_poly();
-  case Manager::Engine::FM_SIMPLE:
+  case OldManager::OldEngine::FM_SIMPLE:
     return build_fm_simple();
-  case Manager::Engine::FM_LFO:
+  case OldManager::OldEngine::FM_LFO:
     return build_fm_lfo();
-  case Manager::Engine::FM_ENV:
+  case OldManager::OldEngine::FM_ENV:
     return build_fm_env();
-  case Manager::Engine::FM_FB:
+  case OldManager::OldEngine::FM_FB:
     return build_fm_fb();
-  case Manager::Engine::CHORD:
+  case OldManager::OldEngine::CHORD:
     return build_chord();
   default:
     throw std::domain_error("missing case in Manager::build?");
   }
 }
 
-Pane& Manager::get_pane(size_t n) const {
+Pane& OldManager::get_pane(size_t n) const {
   return *current_panes->at(n);
 }
 
-size_t Manager::n_panes() const {
+size_t OldManager::n_panes() const {
   return current_panes->size();
 }
 
-size_t Manager::n_dex() const {
+size_t OldManager::n_dex() const {
   return wavelib->size();
 }
 
 
 template <typename SourceType, typename... Args>
-SourceType& Manager::add_source(Args&&... args) {
+SourceType& OldManager::add_source(Args&&... args) {
   std::unique_ptr<SourceType> source = std::make_unique<SourceType>(std::forward<Args>(args)...);
   current_sources->push_back(std::move(source));
   return dynamic_cast<SourceType&>(*current_sources->back());
 }
 
 template <typename ParamType, typename... Args>
-ParamType& Manager::add_input(Args&&... args) {
+ParamType& OldManager::add_input(Args&&... args) {
   std::unique_ptr<ParamType> input = std::make_unique<ParamType>(std::forward<Args>(args)...);
   current_params->push_back(std::move(input));
   return dynamic_cast<ParamType&>(*current_params->back());
 }
 
-Pane& Manager::add_pane(Param& top, Param& left, Param& right) const {
+Pane& OldManager::add_pane(Param& top, Param& left, Param& right) const {
   std::unique_ptr<Pane> pane = std::make_unique<Pane>(top, left, right);
   current_panes->push_back(std::move(pane));
   return *current_panes->back();
 }
 
-void Manager::swap_panes(size_t i, size_t j) const {
+void OldManager::swap_panes(size_t i, size_t j) const {
   std::unique_ptr<Pane> tmp = std::move(current_panes->at(i));
   current_panes->at(i) = std::move(current_panes->at(j));
   current_panes->at(j) = std::move(tmp);
 }
 
 // a is the one that jumps furthest
-void Manager::rotate_panes(const size_t a, const size_t b) const {
+void OldManager::rotate_panes(const size_t a, const size_t b) const {
   // ReSharper disable once CppDFAConstantConditions
   if (a < b) {
     // ReSharper disable once CppDFAUnreachableCode
@@ -100,7 +99,7 @@ void Manager::rotate_panes(const size_t a, const size_t b) const {
 
 // panes:
 //   1 - freq/dex/arg
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t widx, Param& right) {
+std::tuple<AbsFreqParam&, RelSource&> OldManager::add_abs_dex_osc(float frq, size_t widx, Param& right) {
   auto& o = add_source<AbsDexOsc>(frq, *wavelib, widx);
   AbsFreqParam& f = o.get_freq_param();
   WavedexMixin::WavedexParam& w = o.get_dex_param();
@@ -110,13 +109,13 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t
 
 // panes:
 //   1 - freq/dex/blk
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc(float frq, size_t widx) {
+std::tuple<AbsFreqParam&, RelSource&> OldManager::add_abs_dex_osc(float frq, size_t widx) {
   return add_abs_dex_osc(frq, widx, add_input<Blank>());
 }
 
 // panes:
 //   1 - freq/dex/gain
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc_w_gain(float frq, size_t widx, float amp) {
+std::tuple<AbsFreqParam&, RelSource&> OldManager::add_abs_dex_osc_w_gain(float frq, size_t widx, float amp) {
   auto& b = add_input<Blank>();
   auto [f, o] = add_abs_dex_osc(frq, widx, b);
   Gain& g = add_source<Gain>(o, amp, 100);  // todo - no idea if hi ok here
@@ -126,7 +125,7 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_dex_osc_w_gain(float frq,
 
 // panes:
 //   1 - freq/dex/det
-RelSource& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d) {
+RelSource& OldManager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, float d) {
   auto& o = add_source<RelDexOsc>(*wavelib, widx, root, r, d);
   RelFreqParam& f = o.get_freq_param();
   add_pane(root, o.get_dex_param(), f.get_det_param());
@@ -136,7 +135,7 @@ RelSource& Manager::add_rel_dex_osc(AbsFreqParam& root, size_t widx, float r, fl
 // panes:
 //   1 - off/shp/asym
 //   (freq not mapped)
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
+std::tuple<AbsFreqParam&, RelSource&> OldManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<AbsPolyOsc>(frq, shp, asym, off);
   AbsFreqParam& f = o.get_freq_param();
   add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
@@ -146,7 +145,7 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc(float frq, size_
 // panes:
 //   1 - freq/blk/gain
 //   2 - off/shp/asym
-std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
+std::tuple<AbsFreqParam&, RelSource&> OldManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
                                                                   const size_t off, float amp) {
   auto& top = add_input<Blank>();
   auto& left = add_input<Blank>();
@@ -159,7 +158,7 @@ std::tuple<AbsFreqParam&, RelSource&> Manager::add_abs_poly_osc_w_gain(const flo
   return {f, g}; // TODO - currently unused.  why are we returning these?
 }
 
-Merge& Manager::add_balance(RelSource& a, RelSource& b, float bal) {
+Merge& OldManager::add_balance(RelSource& a, RelSource& b, float bal) {
   auto& m = add_source<Merge>(a, bal);
   m.add_source(b, 1);
   return m;
@@ -167,13 +166,13 @@ Merge& Manager::add_balance(RelSource& a, RelSource& b, float bal) {
 
 // panes:
 //   1 - gain/wet/blk
-RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp) {
+RelSource& OldManager::add_fm(RelSource& c, RelSource& m, float bal, float amp) {
   return add_fm(c, m, bal, amp, add_input<Blank>());
 }
 
 // panes:
 //   1 - gain/wet/arg
-RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Param& right) {
+RelSource& OldManager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Param& right) {
   Gain& g = add_source<Gain>(m, amp, 100);  // todo - hi
   FM& fm = add_source<FM>(c, g);
   Merge& b = add_balance(fm, c, bal);
@@ -183,7 +182,7 @@ RelSource& Manager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Par
 
 // panes:
 //   1 - freq/dex/blk
-RelSource& Manager::build_dex() {
+RelSource& OldManager::build_dex() {
   auto [f, o] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   return o;
 }
@@ -191,7 +190,7 @@ RelSource& Manager::build_dex() {
 // panes:
 //   1 - freq/blank/blk
 //   2 - off/shp/asym
-RelSource& Manager::build_poly() {
+RelSource& OldManager::build_poly() {
   auto [f, o] = add_abs_poly_osc(10, PolyTable::LINEAR - 1, 0,
                                                    static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   return o;
@@ -201,7 +200,7 @@ RelSource& Manager::build_poly() {
 //   1 - freq/dex/blk
 //   2 - freq/dex/det
 //   3 - gain/wet/blk
-RelSource& Manager::build_fm_simple() {
+RelSource& OldManager::build_fm_simple() {
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   // i don't understand this 3.  is it subtick_bits?
@@ -214,7 +213,7 @@ RelSource& Manager::build_fm_simple() {
 //   2 - freq/dex/det
 //   3 - freq/dex/blk
 //   4 - gain/wet/blk
-RelSource& Manager::build_fm_lfo() {
+RelSource& OldManager::build_fm_lfo() {
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1);
   RelSource& m = add_rel_dex_osc(cf, wavelib->sine_gamma_1, 1, 1);
   auto [lf, l] = add_abs_dex_osc_w_gain(1, wavelib->sine_gamma_1, 1);
@@ -228,7 +227,7 @@ RelSource& Manager::build_fm_lfo() {
 //   2 - freq/dex/det
 //   3 - gain/wet/blk
 //   4 - off/shp/asym
-RelSource& Manager::build_fm_env() {
+RelSource& OldManager::build_fm_env() {
   RelSource& fm = build_fm_simple();
   auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0,
                                                       static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
@@ -241,7 +240,7 @@ RelSource& Manager::build_fm_env() {
 //   1 - freq/dex/len
 //   2 - freq/dex/det
 //   3 - gain/wet/fb
-RelSource& Manager::build_fm_fb() {
+RelSource& OldManager::build_fm_fb() {
   auto& latch = add_source<Latch>();
   auto& flt = add_source<Boxcar>(latch, DEFAULT_BOXCAR);
   auto [cf, c] = add_abs_dex_osc(440, wavelib->sine_gamma_1, flt.get_len());
@@ -258,7 +257,7 @@ RelSource& Manager::build_fm_fb() {
 //   3 - freq/dex/det
 //   4 - freq/dex/det
 //   5 - freq/dex/det
-RelSource& Manager::build_chord() {
+RelSource& OldManager::build_chord() {
   auto& b = add_input<Blank>();
   auto [f0, o0] = add_abs_dex_osc(440, wavelib->sine_gamma_1, b);
   RelSource& o1 = add_rel_dex_osc(f0, wavelib->sine_gamma_1, 5 / 4.0f, 1);

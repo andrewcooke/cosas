@@ -2,9 +2,8 @@
 #include <iostream>
 
 #include "cosas/constants.h"
+#include "cosas/old_engine.h"
 #include "cosas/oscillator.h"
-#include "cosas/engine.h"
-
 
 BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), abs_source(t) {};
 

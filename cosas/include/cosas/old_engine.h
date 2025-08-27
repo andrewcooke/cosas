@@ -13,11 +13,14 @@
 #include "cosas/pane.h"
 
 
-class Manager {
+// initial manager/engines that used too much memory
+
+
+class OldManager {
 
 public:
 
-  enum Engine {
+  enum OldEngine {
     DEX,
     POLY,
     FM_SIMPLE,
@@ -28,9 +31,9 @@ public:
   };
   static constexpr size_t N_ENGINE = CHORD + 1;
 
-  Manager();
-  explicit Manager(bool t);
-  RelSource& build(Engine);
+  OldManager();
+  explicit OldManager(bool t);
+  RelSource& build(OldEngine);
   [[nodiscard]] Pane& get_pane(size_t n) const;
   [[nodiscard]] size_t n_panes() const;
   [[nodiscard]] size_t n_dex() const;
