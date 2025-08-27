@@ -38,6 +38,7 @@ public:
   : scale(s), linearity(ln), log(lg), lo(lo), hi(hi) {};
   KnobHandler() : KnobHandler(1, 1, false, 0, 1) {};
   KnobChange handle_knob_change(uint16_t now, uint16_t prev);
+  virtual ~KnobHandler() = default;
 
 protected:
   // processing on input
@@ -55,10 +56,10 @@ protected:
 };
 
 
-class ParamHandler : public KnobHandler {
+class ParamHandler final : public KnobHandler {
 
 public:
-  ParamHandler(Param& param);
+  explicit ParamHandler(Param& param);
   void apply_change() override;
 
 private:
