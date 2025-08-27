@@ -3,14 +3,14 @@
 #include "cosas/app_fome.h"
 
 
-FomeApp::FomeApp() : manager(), source(manager.build(static_cast<OldManager::OldEngine>(0))) {};
+FomeApp::FomeApp() : manager(), source(manager.build(static_cast<SmallManager::SmallEngine>(0))) {};
 
 uint8_t FomeApp::n_sources() {
-  return OldManager::N_ENGINE;
+  return SmallManager::N_ENGINE;
 }
 
 RelSource& FomeApp::get_source(uint8_t s) {
-  source = manager.build(static_cast<OldManager::OldEngine>(s));
+  source = manager.build(static_cast<SmallManager::SmallEngine>(s));
   knobs = std::vector<std::array<std::unique_ptr<ParamHandler>, N_KNOBS>>();
   for (size_t i = 0; i < n_pages(); i++) {
     Pane& pane = manager.get_pane(i);

@@ -37,7 +37,7 @@ protected:
     return dynamic_cast<ParamType&>(*current_params->back());
   }
 
-  Pane& add_pane(Param& top, Param& left, Param& right) const;
+  Pane& add_pane(Param& main, Param& x, Param& y) const;
   void swap_panes(size_t i, size_t j) const;
   void rotate_panes(size_t a, size_t b) const;
   std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);

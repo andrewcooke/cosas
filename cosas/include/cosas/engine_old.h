@@ -4,15 +4,12 @@
 
 
 #include <tuple>
-#include <vector>
 #include <memory>
 
 #include "cosas/engine_base.h"
-#include "cosas/transformers.h"
 #include "cosas/wavelib.h"
 #include "cosas/oscillator.h"
 #include "cosas/params.h"
-#include "cosas/pane.h"
 
 
 // initial manager/engines that used too much memory

@@ -18,8 +18,8 @@ size_t BaseManager::n_panes() const {
   return current_panes->size();
 }
 
-Pane& BaseManager::add_pane(Param& top, Param& left, Param& right) const {
-  std::unique_ptr<Pane> pane = std::make_unique<Pane>(top, left, right);
+Pane& BaseManager::add_pane(Param& main, Param& x, Param& y) const {
+  std::unique_ptr<Pane> pane = std::make_unique<Pane>(main, x, y);
   current_panes->push_back(std::move(pane));
   return *current_panes->back();
 }

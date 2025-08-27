@@ -2,8 +2,9 @@
 #ifndef COSAS_APP_FOME_H
 #define COSAS_APP_FOME_H
 
+
 #include "cosas/app.h"
-#include "cosas/engine_old.h"
+#include "cosas/engine_small.h"
 
 class FomeApp : public App {
 
@@ -16,7 +17,7 @@ public:
 
 private:
   std::vector<std::array<std::unique_ptr<ParamHandler>, N_KNOBS>> knobs;
-  OldManager manager;
+  SmallManager manager;
   RelSource& source;
 };
 

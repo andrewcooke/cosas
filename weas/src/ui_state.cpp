@@ -21,7 +21,7 @@ void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
     prev = knob_cleaner.get(knob, Prev);
   } else return;
   if (state != prev_state) {
-    Debug::log(prev_state, "->", state);
+    // Debug::log(prev_state, "->", state);
     prev_state = state;
   }
   switch (state) {
