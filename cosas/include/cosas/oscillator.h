@@ -10,6 +10,30 @@
 #include "cosas/wavelib.h"
 
 
+// there is a lot of support structure here that ends up providing two
+// types of oscillator, each in two different forms (absolute and relative)
+
+// the "poly" oscillator takes three parameters (shape, asymmetry and offset)
+// and generates a single waveform table (per oscillator) at run time.
+// shape chooses the shape of the "first part" of the waveform; the "second
+// part" uses shape+asym; offset changes the relative size of first and
+// second parts.  this is very flexible, with some shapes that could be
+// useful for envelopes, and uses relatively little memory, but could be slow.
+
+// the "wavedex" oscillator uses pre-calculated tables of more traditional
+// waveforms.  it has a single parameter that selects between tables.
+// compared to "poly", it is less flexible, and uses more memory (but the
+// tables are shared amongst all oscillators), but is faster in use and
+// has a more compact interface.
+
+// the original manager/engines used both types of oscillator.
+
+// for the smallest memory footprint we should use poly.  we could reduce the
+// number of parameters by slaving relative oscillators to their absolute
+// counterparts.  we should not support persistent engines across changes
+// (at least, not by keeping the old engine present - perhaps we could
+// save parameters).
+
 // looks up the waveform in a wavetable, given the frequency
 class BaseOscillator : public RelSource {
 public:
