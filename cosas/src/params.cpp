@@ -2,7 +2,7 @@
 #include "cosas/params.h"
 
 
-Blank::Blank() : Param(0, 0, false, 0, 0), delegate(nullptr) {};
+Blank::Blank() : delegate(nullptr) {};
 
 void Blank::set(float value) {
   if (delegate != nullptr) {

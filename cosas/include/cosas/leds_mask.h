@@ -8,6 +8,7 @@
 
 
 // a compact description of leds that we can build on for animation
+// TODO - should most of these be static?!
 
 class BaseLEDsMask {
 
@@ -18,6 +19,7 @@ public:
   uint32_t reverse(uint32_t mask);
   uint32_t vinterp(size_t off, uint32_t a, uint32_t b);
   uint32_t hinterp(size_t off, uint32_t a, uint32_t b);
+  uint32_t constant(uint8_t fg);
   uint32_t ring(float normalized, bool highlight);
   uint32_t square(bool bottom, uint8_t amplitude);
   uint32_t vbar(bool right, uint8_t amplitude);

@@ -37,6 +37,15 @@ uint32_t BaseLEDsMask::hinterp(size_t off, uint32_t a, uint32_t b) {
   }
 }
 
+uint32_t BaseLEDsMask::constant(uint8_t fg) {
+  uint32_t mask = 0;
+  for (size_t i = 0; i < N; i++) {
+    mask <<= BITS;
+    mask |= (fg & BITS_MASK);
+  }
+  return mask;
+}
+
 uint32_t BaseLEDsMask::ring(float normalized, bool highlight) {
   uint32_t mask = 0;
   normalized *= N;

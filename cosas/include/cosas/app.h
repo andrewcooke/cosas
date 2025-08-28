@@ -20,7 +20,7 @@ public:
 
   virtual ~App() = default;
   virtual uint8_t n_sources() = 0;
-  virtual RelSource& get_source(uint8_t source) = 0;
+  virtual RelSource* get_source(uint8_t source) = 0;
   virtual uint8_t n_pages() = 0;
   virtual Param& get_param(uint8_t page, Knob knob) = 0;
 

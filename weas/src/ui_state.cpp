@@ -8,10 +8,8 @@
 
 UIState::UIState(App& app, Codec::SwitchPosition initial)
   : CtrlChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
+  update_source();
   handle_ctrl_change(Codec::Switch, initial, initial);
-  // TODO - here too
-  app.get_source(source);
-
 }
 
 
@@ -20,7 +18,7 @@ void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
     now = knob_damper.get(knob, Now);
     prev = knob_damper.get(knob, Prev);
     if (state != prev_state) {
-      // Debug::log(prev_state, "->", state);
+      Debug::log(prev_state, "->", state);
       prev_state = state;
     }
     switch (state) {
@@ -47,6 +45,7 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
     switch (now) {
     case (Codec::Up):
       saved_adjust_mask = buffer.get_mask();
+      saved_source_idx = source_idx;
       transition_leds_to(current_source_mask(), false);
       state = SOURCE;
       break;
@@ -64,9 +63,13 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y): {
-    KnobChange change = current_page_knobs[knob]->handle_knob_change(now, prev);
-    uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
-    buffer.queue(ring, false, false, 0);
+    if (current_page_knobs[knob]->is_valid()) {
+      KnobChange change = current_page_knobs[knob]->handle_knob_change(now, prev);
+      uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
+      buffer.queue(ring, false, false, 0);
+    } else {
+      buffer.queue(INVALID_KNOB, false, false, 0);
+    }
     break;
   }
   default:
@@ -100,9 +103,7 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
       page = (page + 1) % app.n_pages();
       buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
       transition_leds_to(saved_adjust_mask, false);
-      for (uint i = 0; i < N_KNOBS; i++) {
-        current_page_knobs[i] = std::make_unique<ParamHandler>(app.get_param(page, static_cast<Knob>(i)));
-      }
+      update_page();
       state = ADJUST;
       break;
     default:
@@ -116,6 +117,19 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
     break;
   default:
     break;
+  }
+}
+
+void UIState::update_source() {
+  // TODO - connect the source
+  source = app.get_source(source_idx);
+  page = 0;
+  update_page();
+}
+
+void UIState::update_page() {
+  for (uint i = 0; i < N_KNOBS; i++) {
+    current_page_knobs[i] = std::make_unique<ParamHandler>(app.get_param(page, static_cast<Knob>(i)));
   }
 }
 
@@ -146,6 +160,10 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
     case (Codec::Middle):
       transition_leds_to(saved_adjust_mask, true);
       state = ADJUST;
+      if (source_idx != saved_source_idx) {
+        // we have selected a new source
+        update_source();
+      }
       break;
     default:
       break;
@@ -153,9 +171,7 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
     break;
   case (Codec::Main): {
     KnobChange change = source_knob.handle_knob_change(now, prev);
-    source = static_cast<uint>(app.n_sources() * change.normalized);
-    // TODO - use the source
-    app.get_source(source);
+    source_idx = static_cast<uint>(app.n_sources() * change.normalized);
     buffer.queue(current_source_mask(), false, false, 0);
     break;
   }
@@ -166,6 +182,6 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
 
 uint32_t UIState::current_source_mask() {
   // +1 is shifting from 0 to 1 index
-  return leds_mask->wiggle19(source, leds_mask->BITS_MASK >> 1, leds_mask->BITS_MASK >> 3);
+  return leds_mask->wiggle19(source_idx, leds_mask->BITS_MASK >> 1, leds_mask->BITS_MASK >> 3);
 }
 

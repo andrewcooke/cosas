@@ -36,15 +36,17 @@ public:
   friend class KnobChange;
   KnobHandler(float s, float ln, bool lg, float lo, float hi)
   : scale(s), linearity(ln), log(lg), lo(lo), hi(hi) {};
-  KnobHandler() : KnobHandler(1, 1, false, 0, 1) {};
+  KnobHandler() : valid(false) {};
   KnobChange handle_knob_change(uint16_t now, uint16_t prev);
   virtual ~KnobHandler() = default;
+  bool is_valid();
 
 protected:
+  bool valid = true;
   // processing on input
   float normalized = 0.5;
   float scale = 1;
-  float linearity;  // 0 flat, 1 linear
+  float linearity = 1;  // 0 flat, 1 linear
   // processing on output
   bool log = false;
   float lo = 0;

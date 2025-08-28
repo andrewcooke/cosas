@@ -25,9 +25,9 @@ public:
 
 };
 
-RelSource& DummyApp::get_source(uint8_t /* source */) {
+RelSource* DummyApp::get_source(uint8_t /* source */) {
   static DummySource dummy_source;
-  return dummy_source;
+  return &dummy_source;
 }
 
 uint8_t DummyApp::n_pages() {

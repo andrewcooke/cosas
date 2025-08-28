@@ -22,6 +22,10 @@ KnobChange::Highlight KnobHandler::ends() {
   return highlight;
 }
 
+bool KnobHandler::is_valid() {
+  return valid;
+}
+
 float KnobHandler::clip(float n) {
   // aiming for [0, 1) here
   return std::max(0.0f, std::min(0.999999f, n));
@@ -38,6 +42,7 @@ float KnobHandler::sigmoid(uint16_t now, uint16_t prev) {
 
 ParamHandler::ParamHandler(Param &p)
   : KnobHandler(p.scale, p.linearity, p.log, p.lo, p.hi), param(p) {
+  valid = p.valid;
   float v = p.get();
   if (p.log) v = log10f(v);
   v = (v - p.lo) / (p.hi - p.lo);
@@ -45,8 +50,10 @@ ParamHandler::ParamHandler(Param &p)
 }
 
 void ParamHandler::apply_change() {
-  float val = lo + (hi - lo) * normalized;
-  if (log) val = powf(10, val);
-  param.set(val);
+  if (valid) {
+    float val = lo + (hi - lo) * normalized;
+    if (log) val = powf(10, val);
+    param.set(val);
+  }
 }
 

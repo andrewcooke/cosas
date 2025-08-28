@@ -4,16 +4,16 @@
 
 
 FomeApp::FomeApp()
-  : source_idx(0), source(manager.build(static_cast<SmallManager::SmallEngine>(source_idx))) {};
+  : source_idx(0), source(&manager.build(static_cast<SmallManager::SmallEngine>(source_idx))) {};
 
 uint8_t FomeApp::n_sources() {
   return SmallManager::N_ENGINE;
 }
 
-RelSource& FomeApp::get_source(uint8_t s) {
+RelSource* FomeApp::get_source(uint8_t s) {
   if (s != source_idx) {
     source_idx = s;
-    source = manager.build(static_cast<SmallManager::SmallEngine>(s));
+    source = &manager.build(static_cast<SmallManager::SmallEngine>(s));
   }
   return source;
 }
