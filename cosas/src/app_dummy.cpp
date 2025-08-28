@@ -3,6 +3,15 @@
 #include "cosas/app_dummy.h"
 
 
+class DummyParam : public Param {
+public:
+  DummyParam(float scale, float linearity, bool log, float lo, float hi)
+    : Param(scale, linearity, log, lo, hi) {};
+  void set(float /* v */) override {};
+  float get() override {return 0.5;}
+};
+
+
 uint8_t DummyApp::n_sources() {
   return 19;
 }
@@ -25,7 +34,7 @@ uint8_t DummyApp::n_pages() {
   return 3;
 }
 
-KnobHandler& DummyApp::get_knob(uint8_t /* page */, Knob /* knob */) {
-  static KnobHandler knob(1, 0, false, 0, 1);
-  return knob;
+Param& DummyApp::get_param(uint8_t /* page */, Knob /* knob */) {
+  static DummyParam param = DummyParam(1, 0, false, 0, 1);
+  return param;
 }

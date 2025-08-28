@@ -16,28 +16,28 @@ UIState::UIState(App& app, Codec::SwitchPosition initial)
 
 
 void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  if (knob_cleaner.append(knob, now, prev)) {
-    now = knob_cleaner.get(knob, Now);
-    prev = knob_cleaner.get(knob, Prev);
-  } else return;
-  if (state != prev_state) {
-    // Debug::log(prev_state, "->", state);
-    prev_state = state;
-  }
-  switch (state) {
-  case (ADJUST):
-    state_adjust(knob, now, prev);
-    break;
-  case (NEXT_PAGE):
-    state_next_page(knob, now, prev);
-    break;
-  case (FREEWHEEL):
-    state_freewheel(knob, now, prev);
-    break;
-  case (SOURCE):
-    state_source(knob, now, prev);
-  default:
-    break;
+  if (knob_damper.append(knob, now, prev)) {
+    now = knob_damper.get(knob, Now);
+    prev = knob_damper.get(knob, Prev);
+    if (state != prev_state) {
+      // Debug::log(prev_state, "->", state);
+      prev_state = state;
+    }
+    switch (state) {
+    case (ADJUST):
+      state_adjust(knob, now, prev);
+      break;
+    case (NEXT_PAGE):
+      state_next_page(knob, now, prev);
+      break;
+    case (FREEWHEEL):
+      state_freewheel(knob, now, prev);
+      break;
+    case (SOURCE):
+      state_source(knob, now, prev);
+    default:
+      break;
+    }
   }
 }
 
@@ -47,12 +47,12 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
     switch (now) {
     case (Codec::Up):
       saved_adjust_mask = buffer.get_mask();
-      transition_to(current_source_mask(), false);
+      transition_leds_to(current_source_mask(), false);
       state = SOURCE;
       break;
     case (Codec::Down): {
       saved_adjust_mask = buffer.get_mask();
-      transition_to(current_page_mask(), true);
+      transition_leds_to(current_page_mask(), true);
       state = NEXT_PAGE;
       break;
     }
@@ -64,7 +64,7 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y): {
-    KnobChange change = knobs[knob]->handle_knob_change(now, prev);
+    KnobChange change = current_page_knobs[knob]->handle_knob_change(now, prev);
     uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
     buffer.queue(ring, false, false, 0);
     break;
@@ -74,7 +74,7 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   }
 }
 
-void UIState::transition_to(uint32_t mask, bool down) {
+void UIState::transition_leds_to(uint32_t mask, bool down) {
   uint32_t start = buffer.get_mask();
   if (down) {
     buffer.queue(leds_mask->vinterp(1, start, mask), false, true, 0);
@@ -96,9 +96,13 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
+      // changing page!
       page = (page + 1) % app.n_pages();
       buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
-      transition_to(saved_adjust_mask, false);
+      transition_leds_to(saved_adjust_mask, false);
+      for (uint i = 0; i < N_KNOBS; i++) {
+        current_page_knobs[i] = std::make_unique<ParamHandler>(app.get_param(page, static_cast<Knob>(i)));
+      }
       state = ADJUST;
       break;
     default:
@@ -108,7 +112,6 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
   case (Codec::Main):
   case (Codec::X):
   case (Codec::Y):
-    // TODO - may need to accumulate and threshold?
     state = FREEWHEEL;
     break;
   default:
@@ -121,7 +124,7 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle): {
-      transition_to(saved_adjust_mask, false);
+      transition_leds_to(saved_adjust_mask, false);
       state = ADJUST;
       break;
     }
@@ -141,7 +144,7 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::Switch):
     switch (now) {
     case (Codec::Middle):
-      transition_to(saved_adjust_mask, true);
+      transition_leds_to(saved_adjust_mask, true);
       state = ADJUST;
       break;
     default:

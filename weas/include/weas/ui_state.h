@@ -28,11 +28,11 @@ private:
   State prev_state = SOURCE;
   uint page = 0;
   uint source = 0;
-  std::array<std::unique_ptr<KnobHandler>, Codec::N_CTRLS - 1> knobs = {
+  std::array<std::unique_ptr<KnobHandler>, Codec::N_CTRLS - 1> current_page_knobs = {
     std::make_unique<KnobHandler>(0.5, 0, true, 0, 3),
     std::make_unique<KnobHandler>(0.5, 1, false, 0, 1),
     std::make_unique<KnobHandler>()};
-  CtrlDamper knob_cleaner = CtrlDamper(1, 32);
+  CtrlDamper knob_damper = CtrlDamper(1, 32);
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(uint8_t knob, uint16_t now, uint16_t prev);
@@ -42,7 +42,7 @@ private:
 
   uint32_t current_page_mask();
   uint32_t current_source_mask();
-  void transition_to(uint32_t mask, bool down);
+  void transition_leds_to(uint32_t mask, bool down);
   uint32_t saved_adjust_mask = 0;
 
 };

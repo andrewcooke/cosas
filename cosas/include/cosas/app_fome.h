@@ -13,11 +13,11 @@ public:
   uint8_t n_sources() override;
   RelSource& get_source(uint8_t s) override;
   uint8_t n_pages() override;
-  KnobHandler& get_knob(uint8_t page, Knob knob) override;
+  Param& get_param(uint8_t page, Knob knob) override;
 
 private:
-  std::vector<std::array<std::unique_ptr<ParamHandler>, N_KNOBS>> knobs;
   SmallManager manager;
+  uint8_t source_idx;
   RelSource& source;
 };
 
