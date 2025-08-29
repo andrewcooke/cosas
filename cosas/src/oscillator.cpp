@@ -1,9 +1,11 @@
 
 #include <iostream>
 
+#include "cosas/debug.h"
 #include "cosas/constants.h"
 #include "cosas/engine_old.h"
 #include "cosas/oscillator.h"
+
 
 BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), abs_source(t) {};
 
@@ -158,12 +160,11 @@ RelFreqParam& RelDexOsc::get_freq_param() {
 }
 
 
-PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> s, std::function<float()> g)
+PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<bool(float)> s, std::function<float()> g)
   : Param(1, 0.5, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
 
 void PolyMixin::CtrlParam::set(float v) {
-  delegate_set(v);
-  mixin.update();
+  if (delegate_set(v)) mixin.update();
 }
 
 float PolyMixin::CtrlParam::get() {
@@ -173,11 +174,14 @@ float PolyMixin::CtrlParam::get() {
 PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   : oscillator(o), shape(s), asym(a), offset(off) {
   shape_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
-    [this](float v) noexcept {shape = v;}, [this]() noexcept -> float {return shape;}));
+    [this](float v) noexcept -> bool {size_t s = shape; shape = static_cast<size_t>(v); return s != shape;},
+    [this]() noexcept -> float {return shape;}));
   asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
-    [this](float v) noexcept {asym = v;}, [this]() noexcept -> float {return asym;}));
+    [this](float v) noexcept -> bool {size_t a = asym; asym = static_cast<size_t>(v); return  a != asym;},
+    [this]() noexcept -> float {return asym;}));
   offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this,
-    [this](float v) noexcept {offset = v;}, [this]() noexcept -> float {return offset;}));
+    [this](float v) noexcept -> bool {size_t o = offset; offset = static_cast<size_t>(v); return o != offset;},
+    [this]() noexcept -> float {return offset;}));
   update();
 }
 
@@ -194,9 +198,11 @@ Param& PolyMixin::get_off_param() const {
 }
 
 void PolyMixin::update() {
+  BaseDebug::log("start update for", shape, asym, offset);
   std::unique_ptr<Wavetable> save = std::move(wtable);  // save while we modify
   wtable = std::move(std::make_unique<PolyTable>(shape, asym, offset));
   oscillator->abs_source = wtable.get();  // now old value can disappear
+  BaseDebug::log("update done");
 }
 
 

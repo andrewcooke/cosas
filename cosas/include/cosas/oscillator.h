@@ -154,12 +154,12 @@ class PolyMixin {
 public:
   class CtrlParam : public Param {
   public:
-    CtrlParam(size_t hi, PolyMixin& m, std::function<void(float)> s, std::function<float()> g);
+    CtrlParam(size_t hi, PolyMixin& m, std::function<bool(float)> s, std::function<float()> g);
     void set(float val) override;
     float get() override;
   private:
     PolyMixin& mixin;
-    std::function<void(float)> delegate_set;
+    std::function<bool(float)> delegate_set;
     std::function<float()> delegate_get;
   };
   PolyMixin(BaseOscillator* o, size_t shp, size_t asym, size_t off);
@@ -174,9 +174,9 @@ private:
   std::unique_ptr<CtrlParam> asym_param;
   std::unique_ptr<CtrlParam> offset_param;
   BaseOscillator* oscillator;
-  float shape;
-  float asym;
-  float offset;
+  size_t shape;
+  size_t asym;
+  size_t offset;
   std::unique_ptr<Wavetable> wtable;
 };
 
