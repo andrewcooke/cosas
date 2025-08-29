@@ -6,8 +6,9 @@
 #include "weas/debug.h"
 
 
-UIState::UIState(App& app, Codec::SwitchPosition initial)
-  : CtrlChanges(), app(app), buffer(LEDsBuffer::get()), leds_mask(buffer.leds_mask.get()) {
+UIState::UIState(App& app, FIFO& fifo,  Codec::SwitchPosition initial)
+  : CtrlChanges(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
+    leds_mask(buffer.leds_mask.get()) {
   update_source();
   handle_ctrl_change(Codec::Switch, initial, initial);
 }
@@ -66,6 +67,7 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
   case (Codec::X):
   case (Codec::Y): {
     if (current_page_knobs[knob]->is_valid()) {
+      auto stalled = Stalled(fifo);
       KnobChange change = current_page_knobs[knob]->handle_knob_change(now, prev);
       uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
       buffer.queue(ring, false, false, 0);

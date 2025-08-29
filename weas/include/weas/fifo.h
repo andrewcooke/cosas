@@ -2,6 +2,7 @@
 #ifndef WEAS_FIFO_H
 #define WEAS_FIFO_H
 
+#include "../../../../../../usr/include/c++/14/atomic"
 
 #include <queue>
 
@@ -10,15 +11,29 @@
 #include "weas/codec.h"
 
 
+class FIFO;
+
+class Stalled {
+public:
+  explicit Stalled(FIFO& fifo);
+  ~Stalled();
+  Stalled(const Stalled&) = delete;
+  Stalled& operator=(const Stalled&) = delete;
+private:
+  FIFO& fifo;
+};
+
+
 // responsible for launching code on core1 and connecting fifos
 // that send knob change events.
 
 // this is the basis for a UI using the knobs.
 
-
 class FIFO final : public CtrlChanges, public ConnectedChanges {
 
 public:
+
+  friend class Stalled;
 
   // topmost bits
   static constexpr uint32_t OVERFLOW = 0x1 << 31;
@@ -37,7 +52,6 @@ public:
   void set_connected_changes(ConnectedChanges* c) {connected_changes = c;};
   void handle_connected_change(uint8_t socket_in, bool connected) override;
   void start(Codec& cc);
-  // void stop();
 
 private:
 
@@ -48,6 +62,7 @@ private:
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
+  std::atomic<bool> stalled = false;
 };
 
 

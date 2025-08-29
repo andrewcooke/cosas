@@ -12,8 +12,10 @@ FIFO& FIFO::get() {
 
 // TODO - in memory?
 void FIFO::handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) {
-  uint32_t packed = CTRL | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
-  push(packed);
+  if (!stalled || ctrl == Codec::Switch) {
+    uint32_t packed = CTRL | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
+    push(packed);
+  }
 }
 
 void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
@@ -76,3 +78,14 @@ void FIFO::start(Codec& cc) {
   cc.set_ctrl_changes(this);
   cc.select_ctrl_changes(true);
 }
+
+
+ Stalled::Stalled(FIFO &fifo) : fifo(fifo) {
+  fifo.stalled = true;
+}
+
+ Stalled::~Stalled() {
+  fifo.stalled = false;
+}
+
+

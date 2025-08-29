@@ -9,18 +9,20 @@
 
 #include "weas/codec.h"
 #include "weas/leds_buffer.h"
+#include "weas/fifo.h"
 
 
 class UIState final : public CtrlChanges {
 
 public:
 
-  UIState(App& app, Codec::SwitchPosition initial);
+  UIState(App& app, FIFO& fifo, Codec::SwitchPosition initial);
   void handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) override;
 
 private:
 
   App& app;
+  FIFO& fifo;
   LEDsBuffer& buffer;
   BaseLEDsMask* leds_mask;
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SOURCE};
