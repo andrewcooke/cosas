@@ -26,20 +26,21 @@ void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
 }
 
 void FIFO::push(uint32_t msg) {
-  // if (!(total_write & DUMP_MASK)) Debug::log("write", overflow_write, "/", total_write);
-  total_write++;
+  static uint write = 0, dropped_write = 0;
+  // if (!(write & DUMP_MASK)) Debug::log("write", dropped_write, "/", write);
+  write++;
   while (!overflow.empty()) {
     uint32_t pending = overflow.front();
     if (multicore_fifo_push_timeout_us(pending, TIMEOUT_US)) {
       overflow.pop();
     } else {
-      overflow_write++;
+      dropped_write++;
       overflow.push(OVERFLOW | msg);
       return;
     }
   }
   if (!multicore_fifo_push_timeout_us(msg, TIMEOUT_US)) {
-    overflow_write++;
+    dropped_write++;
     overflow.push(OVERFLOW | msg);
   }
 }
@@ -47,16 +48,16 @@ void FIFO::push(uint32_t msg) {
 // TODO - in memory?
 void FIFO::core1_marshaller() {
   auto& fifo = get();
-  uint total_read = 0, overflow_read = 0;
+  uint read = 0, read_dropped = 0;
   while (true) {
-    // if (!(total_read & DUMP_MASK)) Debug::log("read", overflow_read, "/", total_read);
-    total_read++;
+    // if (!(read & DUMP_MASK)) Debug::log("read", read_dropped, "/", read);
+    read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     switch (packed & TAG_MASK) {
     case CTRL: {
       uint8_t ctrl = (packed >> 24) & 0x3;
       if ((packed & OVERFLOW) && (ctrl != Codec::Switch)) {
-        overflow_read++;
+        read_dropped++;
         break;  // discard to clear backlog
       }
       uint16_t now = packed & 0xfff;

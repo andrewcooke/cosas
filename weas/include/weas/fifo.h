@@ -48,8 +48,6 @@ private:
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;
-  uint total_write = 0;
-  uint overflow_write = 0;
 };
 
 

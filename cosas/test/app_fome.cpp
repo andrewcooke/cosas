@@ -6,14 +6,18 @@
 
 TEST_CASE("FomeApp, memory") {
   FomeApp app;
-  CHECK(app.n_sources() == 7);
-  RelSource& src = app.get_source(0);
-  CHECK(src.next(1, 0) == 2052);
-  CHECK(app.n_pages() == 1);
-  KnobHandler& k = app.get_knob(0, Main);
+  CHECK(app.n_sources() == 1);
+  RelSource* src = app.get_source(0);
+  CHECK(src->next(1, 0) == 0);
+  CHECK(app.n_pages() == 2);
+  ParamHandler k = ParamHandler(app.get_param(0, Main));
   {
     KnobChange change = k.handle_knob_change(1000, 0);
     // change applied at end of scope
   }
-  CHECK(src.next(1, 0) == 4097);
+  CHECK(src->next(500, 0) == 0);
+  CHECK(src->next(500, 0) == 7);
+  CHECK(src->next(500, 0) == 33);
+  CHECK(src->next(500, 0) == 101);
+  CHECK(src->next(500, 0) == 238);
 }

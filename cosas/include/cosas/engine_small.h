@@ -3,14 +3,7 @@
 #define COSAS_ENGINE_SMALL_H
 
 
-
-#include <tuple>
-#include <memory>
-
 #include "cosas/engine_base.h"
-#include "cosas/wavelib.h"
-#include "cosas/oscillator.h"
-#include "cosas/params.h"
 
 
 
