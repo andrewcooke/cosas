@@ -6,53 +6,48 @@
 #include "weas/debug.h"
 
 
-UIState::UIState(App& app, FIFO& fifo,  Codec::SwitchPosition initial)
-  : CtrlChanges(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
+UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
+  : CtrlHandler(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
     leds_mask(buffer.leds_mask.get()) {
   update_source();
-  handle_ctrl_change(Codec::Switch, initial, initial);
+  handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, initial, initial));
 }
 
 
-void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
+void UIState::handle_ctrl_change(CtrlEvent event) {
   // static uint processed = 0;
-  if (knob_damper.append(knob, now, prev)) {
+  if (knob_damper.append(event)) {
     // if (!(processed++ & ((1 << 4) - 1))) Debug::log("processed", processed);
-    now = knob_damper.get(knob, Now);
-    prev = knob_damper.get(knob, Prev);
-    if (state != prev_state) {
-      // Debug::log(prev_state, "->", state);
-      prev_state = state;
-    }
+    event = knob_damper.get();
     switch (state) {
     case (ADJUST):
-      state_adjust(knob, now, prev);
+      state_adjust(event);
       break;
     case (NEXT_PAGE):
-      state_next_page(knob, now, prev);
+      state_next_page(event);
       break;
     case (FREEWHEEL):
-      state_freewheel(knob, now, prev);
+      state_freewheel(event);
       break;
     case (SOURCE):
-      state_source(knob, now, prev);
+      state_source(event);
     default:
       break;
     }
   }
 }
 
-void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
-  switch (knob) {
-  case (Codec::Switch): {
-    switch (now) {
-    case (Codec::Up):
+void UIState::state_adjust(CtrlEvent event) {
+  switch (event.ctrl) {
+  case (CtrlEvent::Switch): {
+    switch (event.now) {
+    case (CtrlEvent::Up):
       saved_adjust_mask = buffer.get_mask();
       saved_source_idx = source_idx;
       transition_leds_to(current_source_mask(), false);
       state = SOURCE;
       break;
-    case (Codec::Down): {
+    case (CtrlEvent::Down): {
       saved_adjust_mask = buffer.get_mask();
       transition_leds_to(current_page_mask(), true);
       state = NEXT_PAGE;
@@ -63,12 +58,12 @@ void UIState::state_adjust(uint8_t knob, uint16_t now, uint16_t prev) {
     }
     break;
   }
-  case (Codec::Main):
-  case (Codec::X):
-  case (Codec::Y): {
-    if (current_page_knobs[knob]->is_valid()) {
+  case (CtrlEvent::Main):
+  case (CtrlEvent::X):
+  case (CtrlEvent::Y): {
+    if (current_page_knobs[event.ctrl]->is_valid()) {
       auto stalled = Stalled(fifo);
-      KnobChange change = current_page_knobs[knob]->handle_knob_change(now, prev);
+      KnobChange change = current_page_knobs[event.ctrl]->handle_knob_change(event.now, event.prev);
       uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
       buffer.queue(ring, false, false, 0);
     } else {
@@ -94,15 +89,15 @@ void UIState::transition_leds_to(uint32_t mask, bool down) {
 }
 
 uint32_t UIState::current_page_mask() {
-  // +1 is shifting from 0 to 1 index
+  // +1 is shifting from 0 to 1 indx
   return leds_mask->rot2dot(page + 1, leds_mask->BITS_MASK, leds_mask->BITS_MASK >> 2);
 }
 
-void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
-  switch (knob) {
-  case (Codec::Switch):
-    switch (now) {
-    case (Codec::Middle):
+void UIState::state_next_page(CtrlEvent event) {
+  switch (event.ctrl) {
+  case (CtrlEvent::Switch):
+    switch (event.now) {
+    case (CtrlEvent::Middle):
       // changing page!
       page = (page + 1) % app.n_pages();
       buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
@@ -114,9 +109,9 @@ void UIState::state_next_page(uint8_t knob, uint16_t now, uint16_t) {
       break;
     }
     break;
-  case (Codec::Main):
-  case (Codec::X):
-  case (Codec::Y):
+  case (CtrlEvent::Main):
+  case (CtrlEvent::X):
+  case (CtrlEvent::Y):
     state = FREEWHEEL;
     break;
   default:
@@ -137,11 +132,11 @@ void UIState::update_page() {
   }
 }
 
-void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
-  switch (knob) {
-  case (Codec::Switch):
-    switch (now) {
-    case (Codec::Middle): {
+void UIState::state_freewheel(CtrlEvent event) {
+  switch (event.ctrl) {
+  case (CtrlEvent::Switch):
+    switch (event.now) {
+    case (CtrlEvent::Middle): {
       transition_leds_to(saved_adjust_mask, false);
       state = ADJUST;
       break;
@@ -149,19 +144,19 @@ void UIState::state_freewheel(uint8_t knob, uint16_t now, uint16_t /* prev */) {
     default:
       break;
     }
-  case (Codec::Main):
-  case (Codec::X):
-  case (Codec::Y):
+  case (CtrlEvent::Main):
+  case (CtrlEvent::X):
+  case (CtrlEvent::Y):
   default:
     break;
   }
 }
 
-void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
-  switch (knob) {
-  case (Codec::Switch):
-    switch (now) {
-    case (Codec::Middle):
+void UIState::state_source(CtrlEvent event) {
+  switch (event.ctrl) {
+  case (CtrlEvent::Switch):
+    switch (event.now) {
+    case (CtrlEvent::Middle):
       transition_leds_to(saved_adjust_mask, true);
       state = ADJUST;
       if (source_idx != saved_source_idx) {
@@ -173,8 +168,8 @@ void UIState::state_source(uint8_t knob, uint16_t now, uint16_t prev) {
       break;
     }
     break;
-  case (Codec::Main): {
-    KnobChange change = source_knob.handle_knob_change(now, prev);
+  case (CtrlEvent::Main): {
+    KnobChange change = source_knob.handle_knob_change(event.now, event.prev);
     source_idx = static_cast<uint>(app.n_sources() * change.normalized);
     buffer.queue(current_source_mask(), false, false, 0);
     break;

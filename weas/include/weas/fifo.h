@@ -2,8 +2,8 @@
 #ifndef WEAS_FIFO_H
 #define WEAS_FIFO_H
 
-#include "../../../../../../usr/include/c++/14/atomic"
 
+#include <atomic>
 #include <queue>
 
 #include "cosas/filter.h"
@@ -29,36 +29,30 @@ private:
 
 // this is the basis for a UI using the knobs.
 
-class FIFO final : public CtrlChanges, public ConnectedChanges {
+class FIFO final : public CtrlHandler /*, public ConnectedHandler */ {
 
 public:
 
   friend class Stalled;
 
-  // topmost bits
-  static constexpr uint32_t OVERFLOW = 0x1 << 31;
-  static constexpr uint32_t CTRL = 0x0 << 30;
-  static constexpr uint32_t CONNECTED = 0x1 << 30;
-  static constexpr uint32_t TAG_MASK = CTRL | CONNECTED;
   static constexpr uint DUMP_MASK = (1 << 10) - 1;
-  // then quite a bit of space before the payload
 
   FIFO(const FIFO&) = delete;
   FIFO& operator=(const FIFO&) = delete;
   static FIFO& get();
 
-  void set_ctrl_changes(CtrlChanges* k) {ctrl_changes = k;};
-  void handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) override;
-  void set_connected_changes(ConnectedChanges* c) {connected_changes = c;};
-  void handle_connected_change(uint8_t socket_in, bool connected) override;
+  void set_ctrl_changes(CtrlHandler* k) {ctrl_changes = k;};
+  void handle_ctrl_change(CtrlEvent event) override;
+  // void set_connected_changes(ConnectedHandler* c) {connected_changes = c;};
+  // void handle_connected_change(uint8_t socket_in, bool connected) override;
   void start(Codec& cc);
 
 private:
 
   FIFO() = default;
-  CtrlChanges* ctrl_changes = nullptr;
-  ConnectedChanges* connected_changes = nullptr;
-  void push(uint32_t msg);
+  CtrlHandler* ctrl_changes = nullptr;
+  // ConnectedHandler* connected_changes = nullptr;
+  void push(CtrlEvent);
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
   std::queue<uint32_t> overflow;

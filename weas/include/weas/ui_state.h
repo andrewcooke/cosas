@@ -12,12 +12,12 @@
 #include "weas/fifo.h"
 
 
-class UIState final : public CtrlChanges {
+class UIState final : public CtrlHandler {
 
 public:
 
-  UIState(App& app, FIFO& fifo, Codec::SwitchPosition initial);
-  void handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) override;
+  UIState(App& app, FIFO& fifo, CtrlEvent::SwitchPosition initial);
+  void handle_ctrl_change(CtrlEvent event) override;
 
 private:
 
@@ -27,23 +27,22 @@ private:
   BaseLEDsMask* leds_mask;
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SOURCE};
   State state = SOURCE;  // start in meta so when we transition knobs are set
-  State prev_state = SOURCE;
   uint32_t INVALID_KNOB = leds_mask->constant(0x08);
   uint page = 0;
   uint source_idx = 0;
   uint saved_source_idx = 0;  // used to check if we changed source
   RelSource* source = nullptr;
-  std::array<std::unique_ptr<KnobHandler>, Codec::N_CTRLS - 1> current_page_knobs = {
+  std::array<std::unique_ptr<KnobHandler>, CtrlEvent::N_CTRLS - 1> current_page_knobs = {
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
   CtrlDamper knob_damper = CtrlDamper(1, 64);
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
-  void state_adjust(uint8_t knob, uint16_t now, uint16_t prev);
-  void state_next_page(uint8_t knob, uint16_t now, uint16_t prev);
-  void state_freewheel(uint8_t knob, uint16_t now, uint16_t prev);
-  void state_source(uint8_t knob, uint16_t now, uint16_t prev);
+  void state_adjust(CtrlEvent event);
+  void state_next_page(CtrlEvent event);
+  void state_freewheel(CtrlEvent event);
+  void state_source(CtrlEvent event);
 
   uint32_t current_page_mask();
   uint32_t current_source_mask();

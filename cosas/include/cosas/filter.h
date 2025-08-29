@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "cosas/common.h"
+#include "cosas/ctrl.h"
 
 
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
@@ -91,14 +92,14 @@ class CtrlDamper {
 public:
   CtrlDamper(uint8_t lo, uint8_t hi);
   static constexpr uint16_t SKIP = 0xffff;
-  uint16_t get(uint8_t knob, When when);
-  bool append(uint8_t ctrl, uint16_t now, uint16_t prev);
+  CtrlEvent get();
+  bool append(CtrlEvent event);
 
 private:
   uint8_t active = N_KNOBS;
   uint8_t thresh_lo;
   uint8_t thresh_hi;
-  uint16_t latest[N_WHEN][N_KNOBS+1];
+  CtrlEvent latest = CtrlEvent(CtrlEvent::Switch, 0, 0);  // anything
   MovingAverage<uint32_t, 5> average[N_WHEN][N_KNOBS];
 
 };

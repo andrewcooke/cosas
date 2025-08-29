@@ -13,28 +13,10 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
+#include "cosas/ctrl.h"
 #include "cosas/common.h"
-#include "weas.h"
 
-
-// useful interfaces
-
-class CtrlChanges {
-
-public:
-  virtual void handle_ctrl_change(uint8_t /* ctrl */, uint16_t /* now */, uint16_t /* prev */) {};
-  virtual ~CtrlChanges() = default;
-
-};
-
-
-class ConnectedChanges {
-
-public:
-  virtual void handle_connected_change(uint8_t /* socket_in */, bool /* connected */) {};
-  virtual ~ConnectedChanges() = default;
-
-};
+#include "weas/weas.h"
 
 
 // the interface to the DAC and ADC - hardware logic largely from ComputerCard.h
@@ -61,9 +43,6 @@ class Codec {
 
 public:
 
-  enum Ctrl { Main, X, Y, Switch };
-  enum SwitchPosition { Up, Middle, Down };  // order matches leds_direct.h2
-  static constexpr uint N_CTRLS = Switch + 1;
   enum SocketIn { Audio1, Audio2, CV1, CV2, Pulse1, Pulse2 };
   static constexpr uint N_SOCKET_IN = Pulse2 + 1;
   enum ADCBitFlag {  // we could include ctrls too...?
@@ -84,7 +63,7 @@ public:
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
   void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
-  void set_ctrl_changes(CtrlChanges* k) { ctrl_changes = k; }
+  void set_ctrl_changes(CtrlHandler* k) { ctrl_changes = k; }
   void select_ctrl_changes(bool on) {track_ctrl_changes = on; }
   void set_adc_correction_and_scale(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
   void select_adc_correction(uint bits) {adc_correct_mask = bits; };
@@ -96,13 +75,13 @@ public:
   void set_ctrl_alpha(uint a) {ctrl_alpha = std::min(6u, std::max(1u, a)); }
   void set_ctrl_sample_rate(uint bits) {ctrl_sample_mask = ((1u << bits) - 1) << 2; }
 
-  [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(Ctrl k) { return ctrls[Now][k]; }
-  [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(uint k) { return read_ctrl(static_cast<Ctrl>(k)); }
-  [[nodiscard]] SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<SwitchPosition>(ctrls[Now][Switch]); }
-  [[nodiscard]] bool __not_in_flash_func(ctrl_changed)(Ctrl k) { return ctrls[Prev][k] != ctrls[Now][k]; }
-  [[nodiscard]] bool __not_in_flash_func(ctrl_changed)(uint k) { return ctrl_changed(static_cast<Ctrl>(k)); }
+  [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(CtrlEvent::Ctrl k) { return ctrls[Now][k]; }
+  [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(uint k) { return read_ctrl(static_cast<CtrlEvent::Ctrl>(k)); }
+  [[nodiscard]] CtrlEvent::SwitchPosition __not_in_flash_func(read_switch)() { return static_cast<CtrlEvent::SwitchPosition>(ctrls[Now][CtrlEvent::Switch]); }
+  [[nodiscard]] bool __not_in_flash_func(ctrl_changed)(CtrlEvent::Ctrl k) { return ctrls[Prev][k] != ctrls[Now][k]; }
+  [[nodiscard]] bool __not_in_flash_func(ctrl_changed)(uint k) { return ctrl_changed(static_cast<CtrlEvent::Ctrl>(k)); }
 
-  void set_connected_changes(CtrlChanges* k) { ctrl_changes = k; }
+  void set_connected_changes(CtrlHandler* k) { ctrl_changes = k; }
   void select_connected_changes(bool on) {track_connected_changes = on; }
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
@@ -171,7 +150,7 @@ protected:
 
   std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
 
-  CtrlChanges* ctrl_changes = nullptr;
+  CtrlHandler* ctrl_changes = nullptr;
   bool track_ctrl_changes = false;
   uint ctrl_alpha = 1;
   // smoothing by default is 60hz when sampling at 48khz.  48000/60 = 800 or 9-10 bits
@@ -190,7 +169,7 @@ protected:
 
   uint32_t cv_out[N_CHANNELS] = {262144u, 262144u};  // TODO - again, hardcoding length
   uint16_t audio_out[N_CHANNELS] = {};
-  volatile int16_t ctrls[N_WHEN][N_CTRLS] = {};
+  volatile int16_t ctrls[N_WHEN][CtrlEvent::N_CTRLS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
   volatile int16_t cv[N_CHANNELS] = {};
@@ -198,7 +177,7 @@ protected:
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
-  ConnectedChanges* connected_changes = nullptr;
+  ConnectedHandler* connected_changes = nullptr;
   bool track_connected_changes = false;
   bool use_norm_probe = false;
   volatile uint32_t probe_in[N_SOCKET_IN] = {};
@@ -245,7 +224,7 @@ private:
   uint32_t probe_out = 0;
   static constexpr uint EXTRA = 5;  // extra "fractional" bits for filter
   uint16_t adc_buffer[N_PHASES][4 * OVERSAMPLES] = {};
-  volatile uint32_t smooth_ctrls[N_CTRLS] = {};
+  volatile uint32_t smooth_ctrls[CtrlEvent::N_CTRLS] = {};
   volatile uint32_t smooth_cv[N_CHANNELS] = {};
   int32_t cv_error[N_CHANNELS] = {};
 
@@ -448,8 +427,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     // with default (1) at 60hz
     ctrls[Prev][ctrl] = ctrls[Now][ctrl];
     uint32_t ctrl_now = smooth_ctrls[ctrl] >> EXTRA;
-    if (ctrl == Switch) {
-      ctrls[Now][Switch] = 2 - (ctrl_now > 1000) - (ctrl_now > 3000);
+    if (ctrl == CtrlEvent::Switch) {
+      ctrls[Now][CtrlEvent::Switch] = 2 - (ctrl_now > 1000) - (ctrl_now > 3000);
     } else {
       ctrls[Now][ctrl] = ctrl_now & adc_mask[Knobs];
     }
@@ -494,7 +473,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
 
   if (!starting) {
     if (sample_ctrls && track_ctrl_changes && ctrl_changed(ctrl) && ctrl_changes) {
-      ctrl_changes->handle_ctrl_change(ctrl, ctrls[Now][ctrl], ctrls[Prev][ctrl]);
+      ctrl_changes->handle_ctrl_change(CtrlEvent(ctrl, ctrls[Now][ctrl], ctrls[Prev][ctrl]));
     }
     if (use_norm_probe && track_connected_changes && connected_changes) {
       for (uint skt = 0; skt < N_SOCKET_IN; skt++) {

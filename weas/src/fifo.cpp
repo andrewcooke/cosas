@@ -11,19 +11,17 @@ FIFO& FIFO::get() {
 }
 
 // TODO - in memory?
-void FIFO::handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) {
-  if (!stalled || ctrl == Codec::Switch) {
-    uint32_t packed = CTRL | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
-    push(packed);
-  }
+void FIFO::handle_ctrl_change(CtrlEvent event) {
+  if (!stalled || event.ctrl == CtrlEvent::Switch) push(event);
 }
 
-void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
-  uint32_t packed = CONNECTED | ((socket_in & 0x7) << 1) | changed;
-  push(packed);
-}
+// void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
+//   uint32_t packed = CONNECTED | ((socket_in & 0x7) << 1) | changed;
+//   push(packed);
+// }
 
-void FIFO::push(uint32_t msg) {
+void FIFO::push(CtrlEvent event) {
+  uint32_t msg = event.pack();
   static uint write = 0, dropped_write = 0;
   // if (!(write & DUMP_MASK)) Debug::log("write", dropped_write, "/", write);
   write++;
@@ -33,13 +31,13 @@ void FIFO::push(uint32_t msg) {
       overflow.pop();
     } else {
       dropped_write++;
-      overflow.push(OVERFLOW | msg);
+      overflow.push(Header::Overflow | msg);
       return;
     }
   }
   if (!multicore_fifo_push_timeout_us(msg, TIMEOUT_US)) {
     dropped_write++;
-    overflow.push(OVERFLOW | msg);
+    overflow.push(Header::Overflow | msg);
   }
 }
 
@@ -51,25 +49,17 @@ void FIFO::core1_marshaller() {
     // if (!(read & DUMP_MASK)) Debug::log("read", read_dropped, "/", read);
     read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
-    switch (packed & TAG_MASK) {
-    case CTRL: {
-      uint8_t ctrl = (packed >> 24) & 0x3;
-      if ((packed & OVERFLOW) && (ctrl != Codec::Switch)) {
-        read_dropped++;
-        break;  // discard to clear backlog
-      }
-      uint16_t now = packed & 0xfff;
-      uint16_t prev = (packed >> 12) & 0xfff;
-      fifo.ctrl_changes->handle_ctrl_change(ctrl, now, prev);
-      break;
+    CtrlEvent event = CtrlEvent::unpack(packed);
+    if (packed & Overflow && event.ctrl != CtrlEvent::Switch) {
+      read_dropped++;
+    } else {
+      fifo.ctrl_changes->handle_ctrl_change(event);
     }
-    case CONNECTED: {
-      bool connected = packed & 0x1;
-      uint8_t socket_in = (packed >> 1) & 0x7;
-      fifo.handle_connected_change(socket_in, connected);
-    }
-    default: break;
-    }
+    // case CONNECTED: {
+    //   bool connected = packed & 0x1;
+    //   uint8_t socket_in = (packed >> 1) & 0x7;
+    //   fifo.handle_connected_change(socket_in, connected);
+    // }
   }
 }
 
