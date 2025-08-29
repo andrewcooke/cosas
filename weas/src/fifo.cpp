@@ -10,10 +10,6 @@ FIFO& FIFO::get() {
   return instance;
 }
 
-FIFO::FIFO() {
-  // TODO - pico specific things to set up FIFO?
-}
-
 // TODO - in memory?
 void FIFO::handle_ctrl_change(uint8_t ctrl, uint16_t now, uint16_t prev) {
   uint32_t packed = CTRL | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));

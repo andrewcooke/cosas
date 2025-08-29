@@ -14,7 +14,7 @@ UIState::UIState(App& app, Codec::SwitchPosition initial)
 
 
 void UIState::handle_ctrl_change(uint8_t knob, uint16_t now, uint16_t prev) {
-  static uint processed = 0;
+  // static uint processed = 0;
   if (knob_damper.append(knob, now, prev)) {
     // if (!(processed++ & ((1 << 4) - 1))) Debug::log("processed", processed);
     now = knob_damper.get(knob, Now);

@@ -41,7 +41,7 @@ public:
 
 private:
 
-  FIFO();
+  FIFO() = default;
   CtrlChanges* ctrl_changes = nullptr;
   ConnectedChanges* connected_changes = nullptr;
   void push(uint32_t msg);
