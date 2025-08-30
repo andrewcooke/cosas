@@ -25,13 +25,16 @@ public:
 
 
 class Blank final : public Param {
+
 public:
   Blank();
   void set(float value) override;
   float get() override;
   void unblank(Param* del);
+
 private:
   Param* delegate;
+
 };
 
 

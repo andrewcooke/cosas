@@ -10,7 +10,7 @@ TEST_CASE("FomeApp, memory") {
   RelSource* src = app.get_source(0);
   CHECK(src->next(1, 0) == 0);
   CHECK(app.n_pages() == 2);
-  ParamHandler k = ParamHandler(app.get_param(0, Main));
+  ParamAdapter k = ParamAdapter(app.get_param(0, Main));
   {
     KnobChange change = k.handle_knob_change(1000, 0);
     // change applied at end of scope

@@ -58,10 +58,10 @@ protected:
 };
 
 
-class ParamHandler final : public KnobHandler {
+class ParamAdapter final : public KnobHandler {
 
 public:
-  explicit ParamHandler(Param& param);
+  explicit ParamAdapter(Param& param);
   void apply_change() override;
 
 private:

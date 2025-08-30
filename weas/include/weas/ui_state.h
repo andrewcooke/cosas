@@ -36,7 +36,7 @@ private:
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
-  CtrlDamper knob_damper = CtrlDamper({1, 2, 2}, {16, 255, 255});
+  CtrlDamper knob_damper = CtrlDamper({1, 2, 2}, {16, 4096, 4096});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(CtrlEvent event);

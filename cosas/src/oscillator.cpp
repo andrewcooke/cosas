@@ -161,10 +161,13 @@ RelFreqParam& RelDexOsc::get_freq_param() {
 
 
 PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<bool(float)> s, std::function<float()> g)
-  : Param(1, 0.5, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
+  : Param(1, 1, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
 
 void PolyMixin::CtrlParam::set(float v) {
-  if (delegate_set(v)) mixin.update();
+  if (delegate_set(v)) {
+    BaseDebug::log("update", v);
+    mixin.update();
+  }
 }
 
 float PolyMixin::CtrlParam::get() {

@@ -15,9 +15,9 @@ UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
 
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
-  static uint processed = 0;
+  // static uint processed = 0;
   if (knob_damper.append(event)) {
-    if (!(processed++ & ((1 << 4) - 1))) Debug::log("processed", processed);
+    // if (!(processed++ & ((1 << 4) - 1))) Debug::log("processed", processed);
     event = knob_damper.get();
     switch (state) {
     case (ADJUST):
@@ -128,7 +128,7 @@ void UIState::update_source() {
 
 void UIState::update_page() {
   for (uint i = 0; i < N_KNOBS; i++) {
-    current_page_knobs[i] = std::make_unique<ParamHandler>(app.get_param(page, static_cast<Knob>(i)));
+    current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
   }
 }
 

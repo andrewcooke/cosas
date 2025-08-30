@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include "cosas/knobs.h"
+#include "cosas/debug.h"
 
 
 KnobChange::~KnobChange() {
@@ -11,7 +12,9 @@ KnobChange::~KnobChange() {
 
 
 KnobChange KnobHandler::handle_knob_change(uint16_t now, uint16_t prev) {
+  float norm = normalized;
   normalized = sigmoid(now, prev);
+  BaseDebug::log(norm, "->", normalized);
   return KnobChange(this, normalized, ends());
 }
 
@@ -40,7 +43,7 @@ float KnobHandler::sigmoid(uint16_t now, uint16_t prev) {
 }
 
 
-ParamHandler::ParamHandler(Param &p)
+ParamAdapter::ParamAdapter(Param &p)
   : KnobHandler(p.scale, p.linearity, p.log, p.lo, p.hi), param(p) {
   valid = p.valid;
   float v = p.get();
@@ -49,7 +52,7 @@ ParamHandler::ParamHandler(Param &p)
   normalized = clip(v);
 }
 
-void ParamHandler::apply_change() {
+void ParamAdapter::apply_change() {
   if (valid) {
     float val = lo + (hi - lo) * normalized;
     if (log) val = powf(10, val);
