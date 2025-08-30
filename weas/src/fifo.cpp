@@ -21,40 +21,39 @@ void FIFO::handle_ctrl_change(CtrlEvent event) {
 // }
 
 void FIFO::push(CtrlEvent event) {
-  uint32_t msg = event.pack();
-  static uint write = 0, dropped_write = 0;
-  // if (!(write & DUMP_MASK)) Debug::log("write", dropped_write, "/", write);
+  static uint write = 0, queued = 0;
+  // if (!(write & DUMP_MASK)) Debug::log("write", queued, "/", write);
   write++;
-  while (!overflow.empty()) {
-    uint32_t pending = overflow.front();
-    if (multicore_fifo_push_timeout_us(pending, TIMEOUT_US)) {
-      overflow.pop();
-    } else {
-      dropped_write++;
-      overflow.push(Header::Overflow | msg);
-      return;
+  if (stalled) {
+    queue.add(event);
+    queued++;
+    return;
+  } else {
+    while (!queue.empty()) {
+      CtrlEvent pending = queue.pop();
+      if (!multicore_fifo_push_timeout_us(pending.pack(), TIMEOUT_US)) {
+        queue.add(pending);
+        queue.add(event);
+        queued++;
+        return;
+      }
     }
-  }
-  if (!multicore_fifo_push_timeout_us(msg, TIMEOUT_US)) {
-    dropped_write++;
-    overflow.push(Header::Overflow | msg);
+    if (!multicore_fifo_push_timeout_us(event.pack(), TIMEOUT_US)) {
+      queue.add(event);
+      queued++;
+    }
   }
 }
 
 // TODO - in memory?
 void FIFO::core1_marshaller() {
   auto& fifo = get();
-  uint read = 0, read_dropped = 0;
+  uint read = 0;
   while (true) {
     // if (!(read & DUMP_MASK)) Debug::log("read", read_dropped, "/", read);
     read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
-    CtrlEvent event = CtrlEvent::unpack(packed);
-    if (packed & Overflow && event.ctrl != CtrlEvent::Switch) {
-      read_dropped++;
-    } else {
-      fifo.ctrl_changes->handle_ctrl_change(event);
-    }
+    fifo.ctrl_changes->handle_ctrl_change(CtrlEvent::unpack(packed));
     // case CONNECTED: {
     //   bool connected = packed & 0x1;
     //   uint8_t socket_in = (packed >> 1) & 0x7;

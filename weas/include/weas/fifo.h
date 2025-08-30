@@ -55,7 +55,7 @@ private:
   void push(CtrlEvent);
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
-  std::queue<uint32_t> overflow;
+  CtrlQueue queue;
   std::atomic<bool> stalled = false;
 };
 

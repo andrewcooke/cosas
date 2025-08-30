@@ -7,7 +7,8 @@
 #include <cstddef>
 #include <cstdint>
 
-enum Header {Ctrl = 0x0 << 30, Connected = 0x1 << 30, Overflow = 0x1 << 31};
+
+enum Header {Ctrl = 0x0 << 30, Connected = 0x1 << 30};
 
 
 class CtrlEvent {
