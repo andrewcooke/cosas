@@ -198,11 +198,11 @@ Param& PolyMixin::get_off_param() const {
 }
 
 void PolyMixin::update() {
-  BaseDebug::log("start update for", shape, asym, offset);
+  // BaseDebug::log("start update for", shape, asym, offset);
   std::unique_ptr<Wavetable> save = std::move(wtable);  // save while we modify
   wtable = std::move(std::make_unique<PolyTable>(shape, asym, offset));
   oscillator->abs_source = wtable.get();  // now old value can disappear
-  BaseDebug::log("update done");
+  // BaseDebug::log("update done");
 }
 
 

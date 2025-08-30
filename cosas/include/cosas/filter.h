@@ -3,7 +3,8 @@
 #define WEAS_FILTER_H
 
 #include <cstddef>
-#include <stdint.h>
+#include <cstdint>
+#include <array>
 
 #include "cosas/common.h"
 #include "cosas/ctrl.h"
@@ -90,15 +91,15 @@ private:
 class CtrlDamper {
 
 public:
-  CtrlDamper(uint8_t lo, uint8_t hi);
+  CtrlDamper(std::array<uint8_t, N_KNOBS> lo, std::array<uint8_t, N_KNOBS> hi);
   static constexpr uint16_t SKIP = 0xffff;
   CtrlEvent get();
   bool append(CtrlEvent event);
 
 private:
   uint8_t active = N_KNOBS;
-  uint8_t thresh_lo;
-  uint8_t thresh_hi;
+  std::array<uint8_t, N_KNOBS> thresh_lo;
+  std::array<uint8_t, N_KNOBS> thresh_hi;
   CtrlEvent latest = CtrlEvent(CtrlEvent::Switch, 0, 0);  // anything
   MovingAverage<uint32_t, 5> average[N_WHEN][N_KNOBS];
 

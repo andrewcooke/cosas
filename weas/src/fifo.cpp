@@ -22,7 +22,7 @@ void FIFO::handle_ctrl_change(CtrlEvent event) {
 
 void FIFO::push(CtrlEvent event) {
   static uint write = 0, queued = 0;
-  // if (!(write & DUMP_MASK)) Debug::log("write", queued, "/", write);
+  if (!(write & DUMP_MASK)) Debug::log("write", queued, "/", write);
   write++;
   if (stalled) {
     queue.add(event);
@@ -50,7 +50,7 @@ void FIFO::core1_marshaller() {
   auto& fifo = get();
   uint read = 0;
   while (true) {
-    // if (!(read & DUMP_MASK)) Debug::log("read", read_dropped, "/", read);
+    if (!(read & DUMP_MASK)) Debug::log("read", read);
     read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     fifo.ctrl_changes->handle_ctrl_change(CtrlEvent::unpack(packed));

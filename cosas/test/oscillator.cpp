@@ -46,3 +46,20 @@ TEST_CASE("Oscillator, AbsPolyOsc") {
   CHECK(abs(o.next(static_cast<int32_t>(0.25f * SAMPLE_RATE / 440), 0) - SAMPLE_MIN) < 1000);
   CHECK(abs(o.next(static_cast<int32_t>(0.25f * SAMPLE_RATE / 440), 0) - 0) < 1000);
 }
+
+
+TEST_CASE("Oscillator, AbsPolyOsc params") {
+  AbsPolyOsc o = AbsPolyOsc(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE);
+  for (size_t shape = 0; shape < PolyTable::N_SHAPES; shape++) {
+    o.get_shp_param().set(shape);
+    for (size_t asym = 0; asym < PolyTable::N_SHAPES; asym++) {
+      o.get_asym_param().set(asym);
+      for (size_t offset = 0; offset < HALF_TABLE_SIZE; offset += HALF_TABLE_SIZE / 10) {
+        o.get_off_param().set(offset);
+        CHECK(o.get_shp_param().get() == shape);
+        CHECK(o.get_asym_param().get() == asym);
+        CHECK(o.get_off_param().get() == offset);
+      }
+    }
+  }
+}
