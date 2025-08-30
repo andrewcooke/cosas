@@ -14,7 +14,7 @@ int main() {
   auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
   auto& fifo = FIFO::get();
   DummyApp app;
-  UIState ui(app, codec.read_switch());
+  UIState ui(app, fifo, codec.read_switch());
   fifo.set_ctrl_changes(&ui);
   fifo.start(codec);
   codec.set_adc_correction_and_scale(fix_dnl);
