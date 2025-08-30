@@ -1,7 +1,9 @@
 
 #include "cosas/ctrl.h"
 
+#include "cosas/debug.h"
 #include "cosas/common.h"
+
 
 uint32_t CtrlEvent::pack() {
   return Header::Ctrl | ((ctrl & 0x3) << 24 | (prev & 0xfff) << 12 | (now & 0xfff));
@@ -11,14 +13,25 @@ CtrlEvent CtrlEvent::unpack(uint32_t packed) {
   return CtrlEvent(packed >> 24 & 0x3, packed & 0xfff, packed >> 12 & 0xfff);
 }
 
+bool CtrlEvent::operator==(const CtrlEvent &other) const {
+  return other.ctrl == ctrl && other.now == now && other.prev == prev;
+}
+
+std::ostream& operator<<(std::ostream& os, const CtrlEvent& obj) {
+  os << "CtrlEvent(" << obj.ctrl << "," << obj.now << "," << obj.prev << ")";
+  return os;
+}
+
+
 
 void CtrlQueue::add(CtrlEvent event) {
+  BaseDebug::log("queued");
   empty_ = false;
   if (event.ctrl == CtrlEvent::Switch) {
     queue[0] = event;
     queue[1] = CtrlEvent();
     queue[2] = CtrlEvent();
-  } else if (event.ctrl != CtrlEvent::Dummy && queue[0].ctrl == CtrlEvent::Switch) {
+  } else if (event.ctrl != CtrlEvent::Dummy && queue[0].ctrl != CtrlEvent::Switch) {
     if (queue[event.ctrl].ctrl == CtrlEvent::Dummy) {
       queue[event.ctrl] = event;
     } else {
@@ -46,5 +59,6 @@ CtrlEvent CtrlQueue::pop() {
     }
   }
   offset = (offset + 1) % N_KNOBS;
+  BaseDebug::log("unqueued");
   return found;
 }

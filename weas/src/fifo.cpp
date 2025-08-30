@@ -29,6 +29,7 @@ void FIFO::push(CtrlEvent event) {
     queued++;
     return;
   } else {
+    Debug::log("direct");
     while (!queue.empty()) {
       CtrlEvent pending = queue.pop();
       if (!multicore_fifo_push_timeout_us(pending.pack(), TIMEOUT_US)) {
@@ -70,11 +71,13 @@ void FIFO::start(Codec& cc) {
 
 
  Stalled::Stalled(FIFO &fifo) : fifo(fifo) {
+  Debug::log("stalled -----");
   fifo.stalled = true;
 }
 
  Stalled::~Stalled() {
   fifo.stalled = false;
+  Debug::log("unstalled ------");
 }
 
 

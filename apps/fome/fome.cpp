@@ -11,7 +11,7 @@
 
 
 int main() {
-  // Debug::get().init();
+  Debug::get().init();
   auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
   auto& fifo = FIFO::get();
   FomeApp app;

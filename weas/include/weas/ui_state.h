@@ -12,6 +12,17 @@
 #include "weas/fifo.h"
 
 
+
+class SleepParam : public Param {
+public:
+  SleepParam(float scale, float linearity, bool log, float lo, float hi)
+    : Param(scale, linearity, log, lo, hi) {};
+  void set(float /* v */) override {sleep_ms(100);};
+  float get() override {return 0.5;}
+};
+
+
+
 class UIState final : public CtrlHandler {
 
 public:
@@ -50,6 +61,8 @@ private:
   void update_source();
   void update_page();
   uint32_t saved_adjust_mask = 0;
+
+  std::unique_ptr<Param> param = std::make_unique<SleepParam>(1, 1, false, 0, 1);
 
 };
 

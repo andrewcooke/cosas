@@ -12,9 +12,7 @@ KnobChange::~KnobChange() {
 
 
 KnobChange KnobHandler::handle_knob_change(uint16_t now, uint16_t prev) {
-  float norm = normalized;
   normalized = sigmoid(now, prev);
-  BaseDebug::log(norm, "->", normalized);
   return KnobChange(this, normalized, ends());
 }
 

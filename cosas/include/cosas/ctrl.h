@@ -6,6 +6,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 
 
 enum Header {Ctrl = 0x0 << 30, Connected = 0x1 << 30};
@@ -22,6 +23,8 @@ class CtrlEvent {
   CtrlEvent(Ctrl ctrl, uint16_t now, uint16_t prev) : ctrl(ctrl), now(now), prev(prev) {};
   CtrlEvent(uint8_t ctrl, uint16_t now, uint16_t prev) : CtrlEvent(static_cast<CtrlEvent::Ctrl>(ctrl), now, prev) {};
   CtrlEvent() : CtrlEvent(Dummy, 0, 0) {};
+  bool operator==(const CtrlEvent &other) const;
+  friend std::ostream& operator<<(std::ostream& os, const CtrlEvent& obj);
 
   Ctrl ctrl;
   uint16_t now;

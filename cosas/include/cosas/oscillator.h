@@ -170,9 +170,9 @@ public:
 protected:
   void update();
 private:
-  std::unique_ptr<CtrlParam> shape_param;
-  std::unique_ptr<CtrlParam> asym_param;
-  std::unique_ptr<CtrlParam> offset_param;
+  std::unique_ptr<Param> shape_param;
+  std::unique_ptr<Param> asym_param;
+  std::unique_ptr<Param> offset_param;
   BaseOscillator* oscillator;
   size_t shape;
   size_t asym;

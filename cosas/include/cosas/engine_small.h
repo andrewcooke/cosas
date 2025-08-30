@@ -7,7 +7,7 @@
 
 
 
-class SmallManager : public BaseManager{
+class SmallManager : public BaseManager {
 
 public:
 

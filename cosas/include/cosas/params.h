@@ -3,6 +3,9 @@
 #define COSAS_PARAMS_H
 
 
+#include <unistd.h>
+
+
 class Param {
 
 public:
@@ -35,6 +38,15 @@ public:
 private:
   Param* delegate;
 
+};
+
+
+class DummyParam : public Param {
+public:
+  DummyParam(float scale, float linearity, bool log, float lo, float hi)
+    : Param(scale, linearity, log, lo, hi) {};
+  void set(float /* v */) override {};
+  float get() override {return 0.5;}
 };
 
 
