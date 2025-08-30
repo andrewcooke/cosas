@@ -12,7 +12,7 @@ FIFO& FIFO::get() {
 
 // TODO - in memory?
 void FIFO::handle_ctrl_change(CtrlEvent event) {
-  if (!stalled || event.ctrl == CtrlEvent::Switch) push(event);
+  if (!stalled.Load() || event.ctrl == CtrlEvent::Switch) push(event);
 }
 
 // void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {
@@ -24,7 +24,7 @@ void FIFO::push(CtrlEvent event) {
   static uint write = 0, queued = 0;
   // if (!(write & DUMP_MASK)) Debug::log("write", queued, "/", write);
   write++;
-  if (stalled) {
+  if (stalled.Load()) {
     queue.add(event);
     queued++;
     return;

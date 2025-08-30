@@ -8,10 +8,12 @@
 
 #include "weas/codec.h"
 #include "weas/ui_state.h"
+#include "RP2040Atomic.hpp"
 
 
 int main() {
-  Debug::get().init();
+  // Debug::get().init();
+  patom::PseudoAtomicInit();
   auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
   auto& fifo = FIFO::get();
   FomeApp app;

@@ -1,5 +1,6 @@
 
 cmake_minimum_required(VERSION 3.13)
+include(FetchContent)
 
 if (BUILD STREQUAL "pico")
     # if we're building for pico we need to do some setup before the project
@@ -21,6 +22,8 @@ add_subdirectory(cosas/src)  # cosas_lib is common to both architectures
 
 if (BUILD STREQUAL "pico")
 
+    FetchContent_Declare(RP2040Atomic GIT_REPOSITORY https://github.com/TSprech/RP2040_Pseudo_Atomic GIT_TAG main)
+    FetchContent_MakeAvailable(RP2040Atomic)
     add_subdirectory(weas/src)  # weas_lib is pico-specific interface code
 
     # apps to deploy on cards
@@ -35,8 +38,7 @@ if (BUILD STREQUAL "pico")
 else()
 
     # testing is only on laptop
-    include(FetchContent)
-    FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG "master")
+    FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG master)
     FetchContent_MakeAvailable(doctest)
     add_subdirectory(cosas/test)
     

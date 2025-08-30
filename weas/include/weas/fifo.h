@@ -3,11 +3,12 @@
 #define WEAS_FIFO_H
 
 
-#include <atomic>
 #include <queue>
 
-#include "cosas/filter.h"
+#include "../../../build-pico/_deps/rp2040atomic-src/Inc/RP2040Atomic.hpp"
+#include "RP2040Atomic.hpp"
 
+#include "cosas/filter.h"
 #include "weas/codec.h"
 
 
@@ -49,14 +50,16 @@ public:
 
 private:
 
-  FIFO() = default;
+  FIFO() {
+    stalled = false;
+  };
   CtrlHandler* ctrl_changes = nullptr;
   // ConnectedHandler* connected_changes = nullptr;
   void push(CtrlEvent);
   static void core1_marshaller();
   static constexpr uint TIMEOUT_US = 0;
   CtrlQueue queue;
-  std::atomic<bool> stalled = false;
+  patom::types::patomic_bool stalled;
 };
 
 
