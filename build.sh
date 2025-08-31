@@ -8,7 +8,7 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
-BUILD=$1
+export BUILD=$1
 shift
 
 pushd "build-$BUILD" > /dev/null
