@@ -19,8 +19,11 @@ TEST_CASE("CtrlQueue, pop") {
   queue.add(CtrlEvent(CtrlEvent::Main, 4, 2));
   queue.add(CtrlEvent(CtrlEvent::Main, 3, 4));
   queue.add(CtrlEvent(CtrlEvent::X, 1, 0));
+  CHECK(!queue.empty());
   CHECK(queue.pop() == CtrlEvent(CtrlEvent::X, 1, 0));
+  CHECK(!queue.empty());
   CHECK(queue.pop() == CtrlEvent(CtrlEvent::Main, 3, 0));
+  CHECK(queue.empty());
 }
 
 TEST_CASE("CtrlEvent, pack/unpack") {

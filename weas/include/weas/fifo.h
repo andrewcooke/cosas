@@ -3,12 +3,8 @@
 #define WEAS_FIFO_H
 
 
-#include <queue>
-
-#include "../../../build-pico/_deps/rp2040atomic-src/Inc/RP2040Atomic.hpp"
 #include "RP2040Atomic.hpp"
 
-#include "cosas/filter.h"
 #include "weas/codec.h"
 
 

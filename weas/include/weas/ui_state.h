@@ -17,7 +17,7 @@ class SleepParam : public Param {
 public:
   SleepParam(float scale, float linearity, bool log, float lo, float hi)
     : Param(scale, linearity, log, lo, hi) {};
-  void set(float /* v */) override {sleep_ms(100);};
+  void set(float /* v */) override {sleep_ms(50);};
   float get() override {return 0.5;}
 };
 
@@ -47,7 +47,7 @@ private:
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
-  CtrlDamper knob_damper = CtrlDamper({1, 2, 2}, {16, 4096, 4096});
+  CtrlDamper knob_damper = CtrlDamper({2, 4, 4}, {16, 128, 128});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(CtrlEvent event);
@@ -62,7 +62,7 @@ private:
   void update_page();
   uint32_t saved_adjust_mask = 0;
 
-  std::unique_ptr<Param> param = std::make_unique<SleepParam>(1, 1, false, 0, 1);
+  // std::unique_ptr<Param> param = std::make_unique<SleepParam>(1, 1, false, 0, 1);
 
 };
 

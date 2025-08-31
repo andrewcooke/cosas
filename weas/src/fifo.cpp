@@ -12,7 +12,7 @@ FIFO& FIFO::get() {
 
 // TODO - in memory?
 void FIFO::handle_ctrl_change(CtrlEvent event) {
-  if (!stalled.Load() || event.ctrl == CtrlEvent::Switch) push(event);
+  push(event);
 }
 
 // void FIFO::handle_connected_change(uint8_t socket_in, bool changed) {

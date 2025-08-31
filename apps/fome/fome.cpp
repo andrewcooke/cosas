@@ -1,4 +1,6 @@
 
+#include "RP2040Atomic.hpp"
+
 #include "weas/fifo.h"
 #include "weas/debug.h"
 
@@ -8,7 +10,6 @@
 
 #include "weas/codec.h"
 #include "weas/ui_state.h"
-#include "RP2040Atomic.hpp"
 
 
 int main() {

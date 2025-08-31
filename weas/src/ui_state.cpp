@@ -128,8 +128,8 @@ void UIState::update_source() {
 
 void UIState::update_page() {
   for (uint i = 0; i < N_KNOBS; i++) {
-    // current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
-    current_page_knobs[i] = std::make_unique<ParamAdapter>(*param);
+    current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
+    // current_page_knobs[i] = std::make_unique<ParamAdapter>(*param);
   }
 }
 
