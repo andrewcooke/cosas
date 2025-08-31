@@ -6,7 +6,7 @@
 #ifdef PICO
 #include "RP2040Atomic.hpp"
 #define ATOMIC(type) patom::types::patomic_##type
-#define LOAD(var) var.load()
+#define LOAD(var) var.Load()
 #else
 #define ATOMIC(type) type
 #define LOAD(var) var

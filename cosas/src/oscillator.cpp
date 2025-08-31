@@ -7,7 +7,9 @@
 #include "cosas/oscillator.h"
 
 
-BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : frequency(f), abs_source(t) {};
+BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : abs_source(t) {
+  frequency = f;  // cannot set directly as it may be atomic
+};
 
 int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
   /*
