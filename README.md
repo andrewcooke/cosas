@@ -26,7 +26,8 @@ the plan is to have a unified UI via the weas library (input via three
 knobs and a switch, display via 6 leds - what luxury!)
 
 significant waypoints:
-* 2025-08-25 - refactored audio code tyo interface to knobs in UI
+* 2025-08-31 - first signal generated
+* 2025-08-25 - refactored audio code to interface to knobs in UI
 * 2025-08-22 - finally have LEDs and knobs working cleanly
 * 2025-08-02 - updated to include CC 0.2.6 changes (afaict)
 * 2025-07-31 - refactored codec to avoid template mess; LED based UI started

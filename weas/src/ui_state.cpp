@@ -8,8 +8,8 @@
 
 // TODO - should really handle "impossible" switch transitions since they may occur when stalled
 
-UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
-  : CtrlHandler(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
+UIState::UIState(App& app, Codec& codec, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
+  : CtrlHandler(), app(app), codec(codec), fifo(fifo), buffer(LEDsBuffer::get()),
     leds_mask(buffer.leds_mask.get()) {
   update_source();
   handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, initial, initial));
@@ -120,8 +120,8 @@ void UIState::state_next_page(CtrlEvent event) {
 }
 
 void UIState::update_source() {
-  // TODO - connect the source
   source = app.get_source(source_idx);
+  codec.set_per_sample_cb([&](Codec& c) {c.write_audio(Right, source->next(1, 0));});
   page = 0;
   update_page();
 }

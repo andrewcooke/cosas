@@ -29,12 +29,13 @@ class UIState final : public CtrlHandler {
 
 public:
 
-  UIState(App& app, FIFO& fifo, CtrlEvent::SwitchPosition initial);
+  UIState(App& app, Codec& codec, FIFO& fifo, CtrlEvent::SwitchPosition initial);
   void handle_ctrl_change(CtrlEvent event) override;
 
 private:
 
   App& app;
+  Codec& codec;
   FIFO& fifo;
   LEDsBuffer& buffer;
   BaseLEDsMask* leds_mask;
