@@ -5,6 +5,7 @@
 #include <memory>
 #include <functional>
 
+#include "cosas/patomic.h"
 #include "cosas/maths.h"
 #include "cosas/params.h"
 #include "cosas/wavelib.h"
@@ -43,7 +44,7 @@ public:
   BaseOscillator(uint32_t f, Wavetable *t);
   [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
 protected:
-  uint32_t frequency;  // subtick units
+  ATOMIC(uint32_t) frequency;  // subtick units
   AbsSource* abs_source;
 private:
   static constexpr int32_t TIME_MODULUS = SAMPLE_RATE << SUBTICK_BITS;  // see discussion in oscillator.cpp
@@ -76,7 +77,7 @@ public:
 private:
   void set_relative_freqs(uint32_t f) const;
   // we have subtick_bits of fraction so 16 bits is insufficient
-  uint32_t frequency;
+  uint32_t frequency;  // TODO - why does this exist separately from the value in the oscillator?
   std::vector<RelFreqParam*> relative_freqs;
 };
 

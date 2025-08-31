@@ -27,10 +27,11 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
    * 32 bits after all.
    */
   // increment time
-  tick += delta * static_cast<int32_t>(frequency);
+  uint32_t frequency_val = LOAD(frequency);
+  tick += delta * frequency_val;
   if (tick > TIME_MODULUS) tick -= TIME_MODULUS;
   // convert phi to something like phase
-  const int32_t phi_phase = (phi * frequency) >> PHI_FUDGE_BITS;  // arbitrary scaling
+  const int32_t phi_phase = (phi * frequency_val) >> PHI_FUDGE_BITS;  // arbitrary scaling
   return abs_source->next(tick + phi_phase);
 }
 
