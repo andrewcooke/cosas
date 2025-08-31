@@ -6,6 +6,8 @@
 #include "weas/debug.h"
 
 
+// TODO - should really handle "impossible" switch transitions since they may occur when stalled
+
 UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
   : CtrlHandler(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
     leds_mask(buffer.leds_mask.get()) {
@@ -15,10 +17,8 @@ UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
 
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
-  // static uint processed = 0;
-  if (knob_damper.append(event)) {
-    // if (!(processed++ & ((1 << 4) - 1))) Debug::log("processed", processed);
-    event = knob_damper.get();
+  if (ctrl_gate.test(event)) {
+    event = ctrl_gate.get();
     switch (state) {
     case (ADJUST):
       state_adjust(event);
@@ -89,7 +89,7 @@ void UIState::transition_leds_to(uint32_t mask, bool down) {
 }
 
 uint32_t UIState::current_page_mask() {
-  // +1 is shifting from 0 to 1 indx
+  // +1 is shifting from 0 to 1 index
   return leds_mask->rot2dot(page + 1, leds_mask->BITS_MASK, leds_mask->BITS_MASK >> 2);
 }
 

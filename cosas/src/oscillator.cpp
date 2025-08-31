@@ -185,7 +185,6 @@ PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this,
     [this](float v) noexcept -> bool {size_t o = offset; offset = static_cast<size_t>(v); return o != offset;},
     [this]() noexcept -> float {return offset;}));
-  // offset_param = std::move(std::make_unique<DummyParam>(1, 1, false, 0, 1));
   update();
 }
 

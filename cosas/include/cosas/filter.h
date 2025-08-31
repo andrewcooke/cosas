@@ -88,19 +88,28 @@ private:
 
 // with oversampling, we can leave filtering to core 1 and combine the above
 
-class CtrlDamper {
+// this gates knob values based on a moving average.  the gate threshold
+// is lower for the "current" knob.  the idea is that the thresholds for
+// the non-current knob are high enough to block noise, but once a knob is
+// active smaller movements will be allowed through.
+
+// switch is special cased and always passed.
+
+// to use, call test() with the latest data.  if this returns true then
+// retrieve the filtered data with get().
+
+class CtrlGate {
 
 public:
-  CtrlDamper(std::array<uint16_t, N_KNOBS> lo, std::array<uint16_t, N_KNOBS> hi);
+  CtrlGate(std::array<uint16_t, N_KNOBS> lo, std::array<uint16_t, N_KNOBS> hi);
   static constexpr uint16_t SKIP = 0xffff;
   CtrlEvent get();
-  bool append(CtrlEvent event);
+  bool test(CtrlEvent event);
 
 private:
-  uint8_t active = N_KNOBS;
   std::array<uint16_t, N_KNOBS> thresh_lo;
   std::array<uint16_t, N_KNOBS> thresh_hi;
-  CtrlEvent latest = CtrlEvent(CtrlEvent::Switch, 0, 0);  // anything
+  CtrlEvent active = CtrlEvent(CtrlEvent::Switch, 0, 0);  // anything
   MovingAverage<uint32_t, 5> average[N_WHEN][N_KNOBS];
 
 };

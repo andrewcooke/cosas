@@ -36,20 +36,19 @@ bool Gate::accumulate(size_t knob, uint16_t n, uint16_t p) {
 }
 
 
-CtrlDamper::CtrlDamper(std::array<uint16_t, N_KNOBS> lo, std::array<uint16_t, N_KNOBS> hi) : thresh_lo(lo), thresh_hi(hi) {};
+CtrlGate::CtrlGate(std::array<uint16_t, N_KNOBS> lo, std::array<uint16_t, N_KNOBS> hi) : thresh_lo(lo), thresh_hi(hi) {};
 
-bool CtrlDamper::append(CtrlEvent event) {
+bool CtrlGate::test(CtrlEvent event) {
   if (event.ctrl == CtrlEvent::Switch) {
-    active = event.ctrl;
-    latest = event;
+    active = event;
     return true;
   } else {
-    uint16_t thresh = event.ctrl == active ? thresh_lo[event.ctrl] : thresh_hi[event.ctrl];
-    latest = CtrlEvent(event.ctrl,
+    uint16_t thresh = event.ctrl == active.ctrl ? thresh_lo[event.ctrl] : thresh_hi[event.ctrl];
+    CtrlEvent filtered = CtrlEvent(event.ctrl,
       average[Now][event.ctrl].next_or(event.now, thresh, SKIP),
       average[Prev][event.ctrl].next(event.prev));
-    if (latest.now != SKIP) {
-      active = event.ctrl;
+    if (filtered.now != SKIP) {
+      active = filtered;
       return true;
     } else {
       return false;
@@ -57,7 +56,7 @@ bool CtrlDamper::append(CtrlEvent event) {
   }
 }
 
-CtrlEvent CtrlDamper::get() {
-  return latest;
+CtrlEvent CtrlGate::get() {
+  return active;
 }
 

@@ -50,6 +50,18 @@ public:  // TODO - event class
 };
 
 
+// a "queue" of ctrl events that is tailored to match ui_state's needs.
+
+// knob events are accumulated (the initial prev and the latest new are kept)
+// and events are retrieved in an irregular (ie long term fair) manner.
+
+// switch events clear the queue; only the latest switch is stored.
+
+// together this gives a queue that accumulates knob movement when the
+// ui is stalled in a calculation, but which changes state as soon as
+// possible when flow resumes.  this is CRITICAL to getting a usable ui
+// with slow calculations.
+
 class CtrlQueue {
 
 public:
