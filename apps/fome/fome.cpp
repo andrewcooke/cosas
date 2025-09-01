@@ -19,8 +19,8 @@ int main() {
   auto& fifo = FIFO::get();
   FomeApp app;
   // DummyApp app;
-  UIState ui(app, codec, fifo, codec.read_switch());
-  codec.set_per_sample_cb(UIState::trampoline);
+  UIState ui(app, fifo, codec.read_switch());
+  codec.set_per_sample_cb([&ui](Codec& c) {ui.per_sample_cb(c);});
   fifo.set_ctrl_changes(&ui);
   fifo.start(codec);
   codec.set_adc_correction_and_scale(fix_dnl);

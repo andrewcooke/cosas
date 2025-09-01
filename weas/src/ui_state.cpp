@@ -6,22 +6,20 @@
 #include "weas/debug.h"
 
 
-RelSource* UIState::source = nullptr;
-
-void UIState::trampoline(Codec &codec) {
-  codec.write_audio(Right, source->next(1, 0));
-}
-
-
 // TODO - should really handle "impossible" switch transitions since they may occur when stalled
 
-UIState::UIState(App& app, Codec& codec, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
-  : CtrlHandler(), app(app), codec(codec), fifo(fifo), buffer(LEDsBuffer::get()),
+UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
+  : CtrlHandler(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
     leds_mask(buffer.leds_mask.get()) {
   update_source();
   handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, initial, initial));
 }
 
+void UIState::per_sample_cb(Codec &codec) {
+  if (source) {
+    codec.write_audio(Right, source->next(1, 0));
+  }
+};
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
   if (ctrl_gate.test(event)) {
