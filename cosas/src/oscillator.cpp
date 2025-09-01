@@ -7,8 +7,10 @@
 #include "cosas/oscillator.h"
 
 
-BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) : abs_source(t) {
-  frequency = f;  // cannot set directly as it may be atomic
+BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) {
+  // cannot be set directly as may be atomic
+  abs_source = t;
+  frequency = f;
 };
 
 int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
@@ -34,7 +36,7 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
   if (tick > TIME_MODULUS) tick -= TIME_MODULUS;
   // convert phi to something like phase
   const int32_t phi_phase = (phi * frequency_val) >> PHI_FUDGE_BITS;  // arbitrary scaling
-  return abs_source->next(tick + phi_phase);
+  return LOAD(abs_source)->next(tick + phi_phase);
 }
 
 
