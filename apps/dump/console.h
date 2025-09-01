@@ -14,6 +14,6 @@ void dump_poly(float f, size_t shp, size_t asym, size_t off, size_t n);
 void dump_dex(float f, Wavelib& w, size_t idx);
 void dump_old(OldManager::OldEngine e, size_t n);
 void dump_small(SmallManager::SmallEngine e, size_t n);
-
+void dump_fome(size_t n);
 
 #endif

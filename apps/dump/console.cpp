@@ -3,6 +3,7 @@
 #include <cmath>
 
 #include "console.h"
+#include "cosas/app_fome.h"
 
 
 void dump_w_top(OldManager::OldEngine e, size_t n, size_t pane) {
@@ -67,5 +68,19 @@ void dump_small(SmallManager::SmallEngine e, size_t n) {
   for (size_t i = 0; i < n; i++) {
     int16_t amp = src.next(1, 0);
     std::cout << i << " " << amp << std::endl;
+  }
+}
+
+void dump_fome(size_t n) {
+  FomeApp app;
+  RelSource* source = app.get_source(0);
+  ParamAdapter knob = ParamAdapter(app.get_param(0, Main));
+  size_t prev_knb = 0;
+  for (size_t i = 0; i < n; i++) {
+    int16_t amp = source->next(1, 0);
+    size_t next_knob = (i >> 2 & 0xfff);
+    knob.handle_knob_change(next_knob, prev_knb);
+    std::cout << i << " " << amp << std::endl;
+    prev_knb = next_knob;
   }
 }

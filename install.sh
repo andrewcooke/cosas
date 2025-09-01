@@ -10,10 +10,10 @@ fi
 
 mkdir -p build-pico
 pushd build-pico > /dev/null
-cmake -DBUILD=pico ..
+BUILD=pico cmake -DBUILD=pico ..
 popd > /dev/null
 
 mkdir -p build-amd64
 pushd build-amd64 > /dev/null
-cmake -DBUILD=amd64 ..
+BUILD=amd64 cmake -DBUILD=amd64 ..
 popd > /dev/null
