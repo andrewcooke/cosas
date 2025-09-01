@@ -6,6 +6,7 @@
 #include "cosas/app.h"
 #include "cosas/filter.h"
 #include "cosas/knobs.h"
+#include "cosas/patomic.h"
 
 #include "weas/codec.h"
 #include "weas/leds_buffer.h"
@@ -35,7 +36,7 @@ public:
 
 private:
 
-  RelSource* source = nullptr;
+  ATOMIC(RelSource*) source;
   App& app;
   FIFO& fifo;
   LEDsBuffer& buffer;
@@ -50,7 +51,7 @@ private:
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
-  CtrlGate ctrl_gate = CtrlGate({2, 4, 4}, {16, 128, 128});
+  CtrlGate ctrl_gate = CtrlGate({4, 8, 8}, {16, 128, 128});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(CtrlEvent event);
