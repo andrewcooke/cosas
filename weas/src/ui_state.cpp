@@ -6,6 +6,13 @@
 #include "weas/debug.h"
 
 
+RelSource* UIState::source = nullptr;
+
+void UIState::trampoline(Codec &codec) {
+  codec.write_audio(Right, source->next(1, 0));
+}
+
+
 // TODO - should really handle "impossible" switch transitions since they may occur when stalled
 
 UIState::UIState(App& app, Codec& codec, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
@@ -121,7 +128,6 @@ void UIState::state_next_page(CtrlEvent event) {
 
 void UIState::update_source() {
   source = app.get_source(source_idx);
-  codec.set_per_sample_cb([&](Codec& c) {c.write_audio(Right, source->next(1, 0));});
   page = 0;
   update_page();
 }

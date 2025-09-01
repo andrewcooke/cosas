@@ -62,7 +62,7 @@ public:
 
   [[nodiscard]] int32_t get_count() const { return count; }
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
-  void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
+  void set_per_sample_cb(void (*f)(Codec&)) { per_sample_cb = f; }
   void set_ctrl_changes(CtrlHandler* k) { ctrl_changes = k; }
   void select_ctrl_changes(bool on) {track_ctrl_changes = on; }
   void set_adc_correction_and_scale(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
@@ -148,7 +148,7 @@ protected:
 
   Codec() = default;
 
-  std::function<void(Codec&)> per_sample_cb = [](Codec&) {};
+  void (*per_sample_cb)(Codec&) = nullptr;
 
   CtrlHandler* ctrl_changes = nullptr;
   bool track_ctrl_changes = false;

@@ -32,6 +32,9 @@ public:
   UIState(App& app, Codec& codec, FIFO& fifo, CtrlEvent::SwitchPosition initial);
   void handle_ctrl_change(CtrlEvent event) override;
 
+  static void trampoline(Codec& codec);
+  static RelSource* source;
+
 private:
 
   App& app;
@@ -45,7 +48,6 @@ private:
   uint page = 0;
   uint source_idx = 0;
   uint saved_source_idx = 0;  // used to check if we changed source
-  RelSource* source = nullptr;
   std::array<std::unique_ptr<KnobHandler>, CtrlEvent::N_CTRLS - 1> current_page_knobs = {
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),

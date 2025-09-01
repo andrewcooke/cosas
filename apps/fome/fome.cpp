@@ -20,6 +20,7 @@ int main() {
   FomeApp app;
   // DummyApp app;
   UIState ui(app, codec, fifo, codec.read_switch());
+  codec.set_per_sample_cb(UIState::trampoline);
   fifo.set_ctrl_changes(&ui);
   fifo.start(codec);
   codec.set_adc_correction_and_scale(fix_dnl);
