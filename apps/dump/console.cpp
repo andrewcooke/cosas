@@ -6,7 +6,7 @@
 
 
 void dump_w_top(OldManager::OldEngine e, size_t n, size_t pane) {
-  auto m = OldManager(true);
+  auto m = OldManager();
   RelSource& fm = m.build(e);
   const auto p = m.get_pane(pane);
   for (size_t i = 0; i < n; i++) {
@@ -17,7 +17,7 @@ void dump_w_top(OldManager::OldEngine e, size_t n, size_t pane) {
 }
 
 void dump_w_gain(OldManager::OldEngine e, size_t n) {
-  auto m = OldManager(true);
+  auto m = OldManager();
   RelSource& fm = m.build(e);
   auto p = m.get_pane(m.n_panes()-1);
   for (size_t i = 0; i < n; i++) {
@@ -27,16 +27,16 @@ void dump_w_gain(OldManager::OldEngine e, size_t n) {
   }
 }
 
-void dump_w_wdex(OldManager::OldEngine e, size_t n) {
-  auto m = OldManager(true);
-  RelSource& fm = m.build(e);
-  auto p = m.get_pane(0);
-  for (size_t i = 0; i < n; i++) {
-    p.x.set(m.n_dex() * i / static_cast<float>(n));
-    const int16_t amp = fm.next(1, 0);
-    std::cout << i << " " << amp << std::endl;
-  }
-}
+// void dump_w_wdex(OldManager::OldEngine e, size_t n) {
+//   auto m = OldManager();
+//   RelSource& fm = m.build(e);
+//   auto p = m.get_pane(0);
+//   for (size_t i = 0; i < n; i++) {
+//     p.x.set(m.n_dex() * i / static_cast<float>(n));
+//     const int16_t amp = fm.next(1, 0);
+//     std::cout << i << " " << amp << std::endl;
+//   }
+// }
 
 void dump_poly(float f, size_t shp, size_t asym, size_t off, size_t n) {
   AbsPolyOsc o = AbsPolyOsc(f, shp, asym, off);
@@ -52,11 +52,20 @@ void dump_dex(float f, Wavelib& w, size_t idx) {
   }
 }
 
-void dump(OldManager::OldEngine e, size_t n) {
+void dump_old(OldManager::OldEngine e, size_t n) {
   auto m = OldManager();
   RelSource& fm = m.build(e);
   for (size_t i = 0; i < n; i++) {
     int16_t amp = fm.next(1, 0);
+    std::cout << i << " " << amp << std::endl;
+  }
+}
+
+void dump_small(SmallManager::SmallEngine e, size_t n) {
+  auto m = SmallManager();
+  RelSource& src = m.build(e);
+  for (size_t i = 0; i < n; i++) {
+    int16_t amp = src.next(1, 0);
     std::cout << i << " " << amp << std::endl;
   }
 }
