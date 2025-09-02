@@ -41,8 +41,8 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
 
 
 FrequencyParam::FrequencyParam(BaseOscillator* o)
-  : Param(0.5, 0, true,
-    1.0 / (1 << SUBTICK_BITS), 0.5 * SAMPLE_RATE), oscillator(o) {}
+  : Param(0.5, 0, true, log10f(1.0 / (1 << SUBTICK_BITS)), log10f(0.5 * SAMPLE_RATE)),
+    oscillator(o) {}
 
 void FrequencyParam::set_oscillator(const uint32_t f) const {  // const because it affects chained oscillator, not us
   oscillator->frequency = f;

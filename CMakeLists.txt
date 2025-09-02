@@ -19,7 +19,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wdouble-promotion -Wfloat-conversion -Wall -Wextra -Werror)
 if (BUILD STREQUAL "amd64")
-   add_compile_options(-g)
+   add_compile_options(-g -O0)
 endif()
 add_link_options(-Wl,--print-memory-usage)
 
