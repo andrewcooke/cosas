@@ -169,10 +169,7 @@ PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<bool(floa
   : Param(1, 1, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
 
 void PolyMixin::CtrlParam::set(float v) {
-  if (delegate_set(v)) {
-    BaseDebug::log("update", v);
-    mixin.update();
-  }
+  if (delegate_set(clip(v))) mixin.update();
 }
 
 float PolyMixin::CtrlParam::get() {
@@ -187,7 +184,7 @@ PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
     [this](float v) noexcept -> bool {size_t a = asym; asym = static_cast<size_t>(v); return  a != asym;},
     [this]() noexcept -> float {return asym;}));
-  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE, *this,
+  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE - 1, *this,
     [this](float v) noexcept -> bool {size_t o = offset; offset = static_cast<size_t>(v); return o != offset;},
     [this]() noexcept -> float {return offset;}));
   update();

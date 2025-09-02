@@ -2,6 +2,11 @@
 #include "cosas/params.h"
 
 
+float Param::clip(float v) {
+  return std::max(clip_lo, std::min(clip_hi, v));
+}
+
+
 Blank::Blank() : delegate(nullptr) {};
 
 void Blank::set(float value) {

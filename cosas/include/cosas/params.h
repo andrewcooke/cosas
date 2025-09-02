@@ -4,13 +4,14 @@
 
 
 #include <unistd.h>
-
+#include <cmath>
 
 class Param {
 
 public:
   Param(float scale, float linearity, bool log, float lo, float hi)
-  : scale(scale), linearity(linearity), log(log), lo(lo), hi(hi) {};
+  : scale(scale), linearity(linearity), log(log), lo(lo), hi(hi),
+    clip_lo(log ? powf(10, lo) : lo), clip_hi(log ? powf(10, hi) : hi) {};
   Param() : valid(false) {};
   virtual ~Param() = default;
   virtual void set(float v) = 0;
@@ -21,8 +22,15 @@ public:
   float scale = 1;
   float linearity = 1;  // 0 flat, 1 linear
   bool log = false;
-  float lo = 0;
+  float lo = 0;  // if log, these are log10 of final value
   float hi = 1;
+
+protected:
+  float clip(float v);
+
+private:
+  float clip_lo;
+  float clip_hi;
 
 };
 
