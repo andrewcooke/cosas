@@ -9,7 +9,7 @@
 
 constexpr uint32_t SAMPLE_RATE = 44100;
 constexpr uint8_t SAMPLE_BITS = 16;
-constexpr int16_t SAMPLE_MAX = std::numeric_limits<int16_t>::max();
+constexpr int16_t SAMPLE_MAX = 1 << 11;
 constexpr int16_t SAMPLE_MIN =
     -SAMPLE_MAX; // throw away one value because i don't like the asymmetry
 

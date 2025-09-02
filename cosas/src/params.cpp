@@ -2,7 +2,7 @@
 #include "cosas/params.h"
 
 
-float Param::clip(float v) {
+float Param::clip(const float v) {
   return std::max(clip_lo, std::min(clip_hi, v));
 }
 

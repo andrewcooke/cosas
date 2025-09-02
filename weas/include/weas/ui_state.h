@@ -51,7 +51,7 @@ private:
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
-  CtrlGate ctrl_gate = CtrlGate({4, 8, 8}, {16, 128, 128});
+  CtrlGate ctrl_gate = CtrlGate({8, 16, 16}, {16, 128, 128});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(CtrlEvent event);

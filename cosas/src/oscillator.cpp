@@ -54,7 +54,7 @@ AbsFreqParam::AbsFreqParam(BaseOscillator* o, const float f) : FrequencyParam(o)
 };
 
 void AbsFreqParam::set(const float f) {
-  frequency = hz2freq(f);
+  frequency = hz2freq(clip(f));
   set_oscillator(frequency);
   set_relative_freqs(frequency);
 }
