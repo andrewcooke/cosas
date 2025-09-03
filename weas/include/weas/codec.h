@@ -65,16 +65,16 @@ public:
   void set_normalisation_probe(bool use) { use_norm_probe = use; }
   void set_per_sample_cb(std::function<void(Codec&)> f) { per_sample_cb = f; }
   void set_ctrl_changes(CtrlHandler* k) { ctrl_changes = k; }
-  void select_ctrl_changes(bool on) {track_ctrl_changes = on; }
-  void set_adc_correction_and_scale(std::function<uint16_t(uint16_t)> f) {adc_correction = f; adc_scale = calc_adc_scale(); };
-  void select_adc_correction(uint bits) {adc_correct_mask = bits; };
-  void select_adc_correction(ADCBitFlag bits) {select_adc_correction(static_cast<uint>(bits)); };
-  void select_adc_scale(bool scale) {scale_adc = scale; };
-  void set_adc_mask(ADCSource s, uint16_t mask) {adc_mask[s] = mask; };
-  void set_adc_mask(uint s, uint16_t mask) {set_adc_mask(static_cast<ADCSource>(s), mask); };
+  void select_ctrl_changes(bool on) { track_ctrl_changes = on; }
+  void set_adc_correction_and_scale(std::function<uint16_t(uint16_t)> f) { adc_correction = f; adc_scale = calc_adc_scale(); };
+  void select_adc_correction(uint bits) { adc_correct_mask = bits; };
+  void select_adc_correction(ADCBitFlag bits) { select_adc_correction(static_cast<uint>(bits)); };
+  void select_adc_scale(bool scale) { scale_adc = scale; };
+  void set_adc_mask(ADCSource s, uint16_t mask) { adc_mask[s] = mask; };
+  void set_adc_mask(uint s, uint16_t mask) { set_adc_mask(static_cast<ADCSource>(s), mask); };
   // use a bigger number if you lower SAMPLE_FREQ and knobs become sluggish
-  void set_ctrl_alpha(uint a) {ctrl_alpha = std::min(6u, std::max(1u, a)); }
-  void set_ctrl_sample_rate(uint bits) {ctrl_sample_mask = ((1u << bits) - 1) << 2; }
+  void set_ctrl_alpha(uint a) { ctrl_alpha = std::min(6u, std::max(1u, a)); }
+  void set_ctrl_sample_rate(uint bits) { ctrl_sample_mask = ((1u << bits) - 1) << 2; }
 
   [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(CtrlEvent::Ctrl k) { return ctrls[Now][k]; }
   [[nodiscard]] uint16_t __not_in_flash_func(read_ctrl)(uint k) { return read_ctrl(static_cast<CtrlEvent::Ctrl>(k)); }
@@ -151,9 +151,7 @@ protected:
 
   CtrlHandler* ctrl_changes = nullptr;
   bool track_ctrl_changes = false;
-  uint ctrl_alpha = 1;
-  // smoothing by default is 60hz when sampling at 48khz.  48000/60 = 800 or 9-10 bits
-  // so use 8 shifted right two for the mux
+  uint ctrl_alpha = 2;  // see discussions below
   uint32_t ctrl_sample_mask = 0xf << 2;
 
   uint adc_correct_mask = 0;
@@ -415,13 +413,13 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   const uint ctrl = mux_state;
-  smooth_ctrls[ctrl] = ((32 - ctrl_alpha) * smooth_ctrls[ctrl] + ctrl_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 5;
+  smooth_ctrls[ctrl] = ((64 - ctrl_alpha) * smooth_ctrls[ctrl] + ctrl_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 6;
   const bool sample_ctrls = !(count & ctrl_sample_mask);
   if (sample_ctrls) {
     // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
     // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
-    // an alpha of 1/32 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
-    // with default (1) at 60hz
+    // an alpha of 2/64 would be 1/200 x 12khz = 60hz - that's a decent range, so let's make it configurable
+    // with default (2) at 60hz
     ctrls[Prev][ctrl] = ctrls[Now][ctrl];
     uint32_t ctrl_now = smooth_ctrls[ctrl] >> EXTRA;
     if (ctrl == CtrlEvent::Switch) {

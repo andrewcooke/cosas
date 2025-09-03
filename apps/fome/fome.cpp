@@ -16,9 +16,9 @@ int main() {
   // Debug::get().init();
   patom::PseudoAtomicInit();
   auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
+  codec.set_ctrl_alpha(1);
   auto& fifo = FIFO::get();
   FomeApp app;
-  // DummyApp app;
   UIState ui(app, fifo, codec.read_switch());
   codec.set_per_sample_cb([&ui](Codec& c) {ui.per_sample_cb(c);});
   fifo.set_ctrl_changes(&ui);

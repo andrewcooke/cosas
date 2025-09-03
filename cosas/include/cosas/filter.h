@@ -114,7 +114,7 @@ private:
   std::array<uint16_t, N_KNOBS> thresh_lo;
   std::array<uint16_t, N_KNOBS> thresh_hi;
   CtrlEvent active = CtrlEvent(CtrlEvent::Switch, 0, 0);
-  MovingAverage<uint32_t, 6> average[N_WHEN][N_KNOBS];
+  MovingAverage<uint32_t, 1> average[N_WHEN][N_KNOBS];
 
 };
 
