@@ -74,15 +74,18 @@ void dump_small(SmallManager::SmallEngine e, size_t n) {
 void dump_fome(size_t n) {
   FomeApp app;
   RelSource* source = app.get_source(0);
-//  Param& param = app.get_param(0, Main);  // freq
-  Param& param = app.get_param(1, Main);  // shape
-  ParamAdapter knob = ParamAdapter(param);
-  size_t prev_knb = 0;
+  app.get_param(0, Main).set(1);
+  app.get_param(1, Main).set(QUARTER_TABLE_SIZE - 27);
+  app.get_param(1, X).set(PolyTable::SINE+1);
+  app.get_param(1, Y).set(5);
+  // ParamAdapter knob = ParamAdapter(param);
+  // size_t prev_knb = 0;
   for (size_t i = 0; i < n; i++) {
     int16_t amp = source->next(1, 0);
-    size_t next_knob = (i >> 2 & 0xfff);
-    knob.handle_knob_change(next_knob, prev_knb);
-    std::cout << i << " " << amp << " " <<  param.get() << std::endl;
-    prev_knb = next_knob;
+    // size_t next_knob = (i >> 2 & 0xfff);
+    // knob.handle_knob_change(next_knob, prev_knb);
+    // std::cout << i << " " << amp << " " <<  param.get() << std::endl;
+    std::cout << i << " " << amp << std::endl;
+    // prev_knb = next_knob;
   }
 }

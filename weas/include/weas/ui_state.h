@@ -39,7 +39,7 @@ private:
   ATOMIC(RelSource*) source;
   App& app;
   FIFO& fifo;
-  LEDsBuffer& buffer;
+  LEDsBuffer& leds_buffer;
   BaseLEDsMask* leds_mask;
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SOURCE};
   State state = SOURCE;  // start in meta so when we transition knobs are set
@@ -51,7 +51,7 @@ private:
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>(),
     std::make_unique<KnobHandler>()};
-  CtrlGate ctrl_gate = CtrlGate({8, 16, 16}, {16, 128, 128});
+  CtrlGate ctrl_gate = CtrlGate({4, 4, 4}, {128, 128, 128});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
 
   void state_adjust(CtrlEvent event);
@@ -65,6 +65,8 @@ private:
   void update_source();
   void update_page();
   uint32_t saved_adjust_mask = 0;
+
+  Blank blank = Blank();
 
 };
 

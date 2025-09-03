@@ -22,14 +22,12 @@ void FIFO::handle_ctrl_change(CtrlEvent event) {
 
 void FIFO::push(CtrlEvent event) {
   static uint write = 0, queued = 0;
-  // if (!(write & DUMP_MASK)) Debug::log("write", queued, "/", write);
   write++;
   if (stalled.Load()) {
     queue.add(event);
     queued++;
     return;
   } else {
-    Debug::log("direct");
     while (!queue.empty()) {
       CtrlEvent pending = queue.pop();
       if (!multicore_fifo_push_timeout_us(pending.pack(), TIMEOUT_US)) {
@@ -51,15 +49,9 @@ void FIFO::core1_marshaller() {
   auto& fifo = get();
   uint read = 0;
   while (true) {
-    // if (!(read & DUMP_MASK)) Debug::log("read", read);
     read++;
     uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
     fifo.ctrl_changes->handle_ctrl_change(CtrlEvent::unpack(packed));
-    // case CONNECTED: {
-    //   bool connected = packed & 0x1;
-    //   uint8_t socket_in = (packed >> 1) & 0x7;
-    //   fifo.handle_connected_change(socket_in, connected);
-    // }
   }
 }
 
@@ -70,14 +62,12 @@ void FIFO::start(Codec& cc) {
 }
 
 
- Stalled::Stalled(FIFO &fifo) : fifo(fifo) {
-  Debug::log("stalled -----");
+Stalled::Stalled(FIFO &fifo) : fifo(fifo) {
   fifo.stalled = true;
 }
 
- Stalled::~Stalled() {
+Stalled::~Stalled() {
   fifo.stalled = false;
-  Debug::log("unstalled ------");
 }
 
 

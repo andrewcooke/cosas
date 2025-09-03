@@ -44,10 +44,14 @@ float KnobHandler::sigmoid(uint16_t now, uint16_t prev) {
 ParamAdapter::ParamAdapter(Param &p)
   : KnobHandler(p.scale, p.linearity, p.log, p.lo, p.hi), param(p) {
   valid = p.valid;
-  float v = p.get();
-  if (p.log) v = log10f(v);
-  v = (v - p.lo) / (p.hi - p.lo);
-  normalized = clip(v);
+  if (valid) {
+    float v = p.get();
+    if (p.log) v = log10f(v);
+    v = (v - p.lo) / (p.hi - p.lo);
+    normalized = clip(v);
+  } else {
+    normalized = 0;
+  }
 }
 
 void ParamAdapter::apply_change() {

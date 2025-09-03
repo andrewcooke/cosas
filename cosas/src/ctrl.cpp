@@ -25,7 +25,6 @@ std::ostream& operator<<(std::ostream& os, const CtrlEvent& obj) {
 
 
 void CtrlQueue::add(CtrlEvent event) {
-  BaseDebug::log("queued");
   empty_ = false;
   if (event.ctrl == CtrlEvent::Switch) {
     queue[0] = event;
@@ -59,6 +58,5 @@ CtrlEvent CtrlQueue::pop() {
     }
   }
   offset = (offset + 1) % N_KNOBS;
-  BaseDebug::log("unqueued");
   return found;
 }

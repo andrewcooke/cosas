@@ -62,10 +62,10 @@ int16_t Triangle::next(int32_t tick) const {
 HalfWtable::HalfWtable() : half_table() {}
 
 int16_t HalfWtable::next(int32_t tick) const {
-  size_t full_idx = tick2idx(tick);
+  size_t full_idx = tick2idx(tick);  // % FULL_TABLE_SIZE
   size_t half_idx = full_idx % HALF_TABLE_SIZE;
   if (full_idx < HALF_TABLE_SIZE) return half_table.at(half_idx);
-  else return -half_table.at(HALF_TABLE_SIZE - 1 - half_idx);
+  else return -half_table.at(HALF_TABLE_SIZE - 1 - half_idx);  // weird, but half_index is always < HALF_TABLE_SIZE
 }
 
 
@@ -129,8 +129,8 @@ Noise::Noise(size_t smooth) {
 
 
 PolyTable::PolyTable(size_t shape, size_t asym, size_t offset) {
-  make_half(half_table, shape % N_SHAPES, 0, offset);
-  make_half(half_table, (shape + asym) % N_SHAPES, offset, HALF_TABLE_SIZE);
+  make_half(half_table, shape, 0, offset);
+  make_half(half_table, shape + asym, offset, HALF_TABLE_SIZE);
 }
 
 float PolyTable::pow2(float x, size_t n) {
@@ -160,6 +160,7 @@ void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo
     table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(std::numbers::pi) * tox(i, lo, hi) / 2.0f));
 }
 
+// TODO - still not 12 bit?? looks fine...  dump seemed wrong
 void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   std::random_device rd;
   std::mt19937 gen(rd());
@@ -171,6 +172,10 @@ void PolyTable::make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t 
   for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(lo ? SAMPLE_MAX : SAMPLE_MIN);
 }
 
+void PolyTable::make_constant(std::array<int16_t, HALF_TABLE_SIZE>& table, int16_t value, size_t lo, size_t hi) {
+  for (size_t i = lo; i < hi; i++) table.at(i) = value;
+}
+
 void PolyTable::make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi) {
   shape = shape % N_SHAPES;
   if (shape == NOISE) make_noise(table, lo, hi);
@@ -178,6 +183,8 @@ void PolyTable::make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t sh
   else if (shape == LINEAR) make_linear(table, lo, hi);
   else if (shape == SINE) make_sine(table, lo, hi);
   else if (shape < SQUARE) make_convex(table, shape - SINE + 1, lo, hi);
-  else make_square(table, lo, hi);
+  else if (shape == SQUARE) make_square(table, lo, hi);
+  else make_constant(table, 0, lo, hi);
 }
+
 

@@ -8,6 +8,7 @@
 
 #include "cosas/common.h"
 #include "cosas/ctrl.h"
+#include "cosas/debug.h"
 
 
 // WIDTH_BITS should < 5 for 12 bit values and uint16_t
@@ -26,13 +27,16 @@ public:
     return out;
   };
 
-  uint16_t next_or(uint16_t in, uint16_t repeat) {
-    return next_or(in, 1, repeat);
-  };
-
   uint16_t next_or(uint16_t in, uint16_t thresh, uint16_t repeat) {
     uint16_t out = next(in);
-    if ((prev > out && prev - out < thresh) || (prev <= out && out - prev < thresh)) return repeat;
+    if (index < WIDTH) {
+      prev = out;
+      return repeat;
+    }
+    if ((prev > out && prev - out < thresh) || (prev <= out && out - prev < thresh)) {
+      return repeat;
+    }
+    BaseDebug::log("index", index, "prev", prev, "out", out, "thresh", thresh);
     prev = out;
     return out;
   };
@@ -109,8 +113,8 @@ public:
 private:
   std::array<uint16_t, N_KNOBS> thresh_lo;
   std::array<uint16_t, N_KNOBS> thresh_hi;
-  CtrlEvent active = CtrlEvent(CtrlEvent::Switch, 0, 0);  // anything
-  MovingAverage<uint32_t, 5> average[N_WHEN][N_KNOBS];
+  CtrlEvent active = CtrlEvent(CtrlEvent::Switch, 0, 0);
+  MovingAverage<uint32_t, 6> average[N_WHEN][N_KNOBS];
 
 };
 

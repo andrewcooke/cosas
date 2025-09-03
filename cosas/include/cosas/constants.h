@@ -8,10 +8,9 @@
 #include <cstdint>
 
 constexpr uint32_t SAMPLE_RATE = 44100;
-constexpr uint8_t SAMPLE_BITS = 16;
-constexpr int16_t SAMPLE_MAX = 1 << 11;
-constexpr int16_t SAMPLE_MIN =
-    -SAMPLE_MAX; // throw away one value because i don't like the asymmetry
+constexpr uint8_t SAMPLE_BITS = 12;
+constexpr int16_t SAMPLE_MAX = (1 << (SAMPLE_BITS - 1)) - 1;
+constexpr int16_t SAMPLE_MIN = -SAMPLE_MAX; // throw away one value because i don't like the asymmetry
 
 constexpr size_t FULL_TABLE_SIZE = SAMPLE_RATE;
 constexpr size_t HALF_TABLE_SIZE = SAMPLE_RATE / 2;

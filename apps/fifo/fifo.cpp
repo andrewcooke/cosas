@@ -10,7 +10,6 @@
 
 
 int main() {
-  // Debug::init();
   auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
   auto& fifo = FIFO::get();
   DummyApp app;

@@ -1,16 +1,16 @@
 
 #include "weas/ui_state.h"
 
-#include "weas/leds_buffer.h"
+#include "cosas/wavetable.h"
 #include "weas/codec.h"
 #include "weas/debug.h"
-
+#include "weas/leds_buffer.h"
 
 // TODO - should really handle "impossible" switch transitions since they may occur when stalled
 
 UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
-  : CtrlHandler(), app(app), fifo(fifo), buffer(LEDsBuffer::get()),
-    leds_mask(buffer.leds_mask.get()) {
+  : CtrlHandler(), app(app), fifo(fifo), leds_buffer(LEDsBuffer::get()),
+    leds_mask(leds_buffer.leds_mask.get()) {
   source = nullptr;
   update_source();
   handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, initial, initial));
@@ -19,6 +19,7 @@ UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
 void UIState::per_sample_cb(Codec &codec) {
   RelSource* s = LOAD(source);
   if (s) codec.write_audio(Right, s->next(1, 0));
+  // codec.write_audio(Right, (codec.get_count() << 4 & 0xfff) - 2048);
 };
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
@@ -47,13 +48,13 @@ void UIState::state_adjust(CtrlEvent event) {
   case (CtrlEvent::Switch): {
     switch (event.now) {
     case (CtrlEvent::Up):
-      saved_adjust_mask = buffer.get_mask();
+      saved_adjust_mask = leds_buffer.get_mask();
       saved_source_idx = source_idx;
       transition_leds_to(current_source_mask(), false);
       state = SOURCE;
       break;
     case (CtrlEvent::Down): {
-      saved_adjust_mask = buffer.get_mask();
+      saved_adjust_mask = leds_buffer.get_mask();
       transition_leds_to(current_page_mask(), true);
       state = NEXT_PAGE;
       break;
@@ -69,10 +70,11 @@ void UIState::state_adjust(CtrlEvent event) {
     if (current_page_knobs[event.ctrl]->is_valid()) {
       auto stalled = Stalled(fifo);
       KnobChange change = current_page_knobs[event.ctrl]->handle_knob_change(event.now, event.prev);
+      // KnobChange change = current_page_knobs[event.ctrl]->handle_knob_change(0, 0);
       uint32_t ring = leds_mask->ring(change.normalized, change.highlight);
-      buffer.queue(ring, false, false, 0);
+      leds_buffer.queue(ring, false, false, 0);
     } else {
-      buffer.queue(INVALID_KNOB, false, false, 0);
+      leds_buffer.queue(INVALID_KNOB, false, false, 0);
     }
     break;
   }
@@ -82,15 +84,15 @@ void UIState::state_adjust(CtrlEvent event) {
 }
 
 void UIState::transition_leds_to(uint32_t mask, bool down) {
-  uint32_t start = buffer.get_mask();
+  uint32_t start = leds_buffer.get_mask();
   if (down) {
-    buffer.queue(leds_mask->vinterp(1, start, mask), false, true, 0);
-    buffer.queue(leds_mask->vinterp(2, start, mask), false, true, 0);
+    leds_buffer.queue(leds_mask->vinterp(1, start, mask), false, true, 0);
+    leds_buffer.queue(leds_mask->vinterp(2, start, mask), false, true, 0);
   } else {
-    buffer.queue(leds_mask->vinterp(2, mask, start), false, true, 0);
-    buffer.queue(leds_mask->vinterp(1, mask, start), false, true, 0);
+    leds_buffer.queue(leds_mask->vinterp(2, mask, start), false, true, 0);
+    leds_buffer.queue(leds_mask->vinterp(1, mask, start), false, true, 0);
   }
-  buffer.queue(mask, false, true, 0);
+  leds_buffer.queue(mask, false, true, 0);
 }
 
 uint32_t UIState::current_page_mask() {
@@ -105,7 +107,7 @@ void UIState::state_next_page(CtrlEvent event) {
     case (CtrlEvent::Middle):
       // changing page!
       page = (page + 1) % app.n_pages();
-      buffer.queue(current_page_mask(), false, false, buffer.INTERP_N << 2);  // keep it there a while
+      leds_buffer.queue(current_page_mask(), false, false, leds_buffer.INTERP_N << 2);  // keep it there a while
       transition_leds_to(saved_adjust_mask, false);
       update_page();
       state = ADJUST;
@@ -117,6 +119,7 @@ void UIState::state_next_page(CtrlEvent event) {
   case (CtrlEvent::Main):
   case (CtrlEvent::X):
   case (CtrlEvent::Y):
+    Debug::log("knob brokw next page", event);
     state = FREEWHEEL;
     break;
   default:
@@ -127,13 +130,17 @@ void UIState::state_next_page(CtrlEvent event) {
 void UIState::update_source() {
   source = app.get_source(source_idx);
   page = 0;
+  app.get_param(0, Main).set(440);
+  app.get_param(1, Main).set(QUARTER_TABLE_SIZE);
+  app.get_param(1, X).set(PolyTable::LINEAR);
+  app.get_param(1, Y).set(1);
   update_page();
 }
 
 void UIState::update_page() {
   for (uint i = 0; i < N_KNOBS; i++) {
     current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
-    // current_page_knobs[i] = std::make_unique<ParamAdapter>(*param);
+    // current_page_knobs[i] = std::make_unique<ParamAdapter>(blank);
   }
 }
 
@@ -176,7 +183,7 @@ void UIState::state_source(CtrlEvent event) {
   case (CtrlEvent::Main): {
     KnobChange change = source_knob.handle_knob_change(event.now, event.prev);
     source_idx = static_cast<uint>(app.n_sources() * change.normalized);
-    buffer.queue(current_source_mask(), false, false, 0);
+    leds_buffer.queue(current_source_mask(), false, false, 0);
     break;
   }
   default:

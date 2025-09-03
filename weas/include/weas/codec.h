@@ -13,8 +13,9 @@
 #include "hardware/gpio.h"
 #include "hardware/pwm.h"
 
-#include "cosas/ctrl.h"
 #include "cosas/common.h"
+#include "cosas/constants.h"
+#include "cosas/ctrl.h"
 
 #include "weas/weas.h"
 
@@ -83,19 +84,17 @@ public:
 
   void set_connected_changes(CtrlHandler* k) { ctrl_changes = k; }
   void select_connected_changes(bool on) {track_connected_changes = on; }
-  [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio[1 - lr]; } // ports swapped
+  [[nodiscard]] int16_t __not_in_flash_func(read_audio)(Channel lr) { return audio_in[1 - lr]; } // ports swapped
   [[nodiscard]] int16_t __not_in_flash_func(read_audio)(uint lr) { return read_audio(static_cast<Channel>(lr)); }
   void __not_in_flash_func(write_audio)(Channel lr, int16_t v) { audio_out[lr] = v; }
   void __not_in_flash_func(write_audio)(uint lr, int16_t v) { write_audio(static_cast<Channel>(lr), v); }
 
-  [[nodiscard]] int16_t __not_in_flash_func(read_cv)(Channel lr) { return cv[lr]; }
+  [[nodiscard]] int16_t __not_in_flash_func(read_cv)(Channel lr) { return cv_in[lr]; }
   [[nodiscard]] int16_t __not_in_flash_func(read_cv)(uint lr) { return read_cv(static_cast<Channel>(lr)); }
 
   // cv pins in reverse order
   // 12 bit signed
-  void __not_in_flash_func(write_cv)(Channel lr, int16_t v) {
-    cv_out[lr] = (2047 + std::min(2047, std::max(-2048, static_cast<int>(v)))) << 7;
-  }
+  void __not_in_flash_func(write_cv)(Channel lr, int16_t v) { cv_out[lr] = ((0x800 + v) & 0xfff) << 7; }
   void __not_in_flash_func(write_cv)(uint lr, int16_t v) { write_cv(static_cast<Channel>(lr), v); }
   void __not_in_flash_func(write_cv)(Channel lr, uint16_t v) { cv_out[lr] = static_cast<uint32_t>(v) << 7; }
   void __not_in_flash_func(write_cv)(uint lr, uint16_t v) { write_cv(static_cast<Channel>(lr), v); }
@@ -164,16 +163,16 @@ protected:
   uint16_t adc_mask[N_ADC_SOURCES] = { 0xffffu, 0xffffu, 0xffffu };  // TODO - hardcodes N_AUDIO_SOURCES
 
   uint32_t count = 0;
-  bool starting = false;
+  uint32_t starting = 10;
   volatile ADCRunMode run_mode;
 
-  uint32_t cv_out[N_CHANNELS] = {262144u, 262144u};  // TODO - again, hardcoding length
-  uint16_t audio_out[N_CHANNELS] = {};
+  uint32_t cv_out[N_CHANNELS] = {262144u, 262144u};  // TODO - again, hardcoding length  TODO - unsure of type here, audio was wrong
+  int16_t audio_out[N_CHANNELS] = {};
   volatile int16_t ctrls[N_WHEN][CtrlEvent::N_CTRLS] = {};
   volatile bool pulse[N_CHANNELS] = {};
   volatile bool last_pulse[N_CHANNELS] = {};
-  volatile int16_t cv[N_CHANNELS] = {};
-  volatile int16_t audio[N_CHANNELS] = {0x800, 0x800};
+  volatile int16_t cv_in[N_CHANNELS] = {};
+  volatile int16_t audio_in[N_CHANNELS] = {0x800, 0x800};
   uint16_t spi_buffer[N_PHASES][N_CHANNELS] = {};
   uint8_t adc_dma = 0, spi_dma = 0;
 
@@ -188,8 +187,6 @@ protected:
   static uint16_t scale_cv_out(uint16_t value);
   [[nodiscard]] uint32_t calc_adc_scale();
   [[nodiscard]] uint16_t apply_adc_scale(uint16_t v);
-
-  // longer method definitions in codec.cpp
 
 };
 
@@ -296,7 +293,7 @@ template <uint O, uint SAMPLE_FREQ> void __attribute__((section(".time_critical.
 CodecFactory<O, SAMPLE_FREQ>::start() {
 
   count = 0;
-  starting = true;
+  starting = 10;
 
   const uint dma_phase = count & 0x1;
   adc_select_input(0);
@@ -399,7 +396,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     cv_tmp = adc_correction(cv_tmp);
     if (scale_adc) cv_tmp = apply_adc_scale(cv_tmp);
   }
-  cv[cv_lr] = static_cast<int16_t>(0x800 - (cv_tmp & adc_mask[CVs]));
+  cv_in[cv_lr] = static_cast<int16_t>(0x800 - (cv_tmp & adc_mask[CVs]));
 
   for (uint audio_lr = 0; audio_lr < N_CHANNELS; audio_lr++) {
     uint32_t audio_tmp_wide = 0;
@@ -409,7 +406,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
       audio_tmp = adc_correction(audio_tmp);
       if (scale_adc) audio_tmp = apply_adc_scale(audio_tmp);
     }
-    audio[audio_lr] = static_cast<int16_t>(0x800 - (audio_tmp & adc_mask[Audios]));
+    audio_in[audio_lr] = static_cast<int16_t>(0x800 - (audio_tmp & adc_mask[Audios]));
   }
 
   for (uint pulse_lr = 0; pulse_lr < N_CHANNELS; pulse_lr++) {
@@ -418,8 +415,8 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
   }
 
   const uint ctrl = mux_state;
-  const bool sample_ctrls = !(count & ctrl_sample_mask);
   smooth_ctrls[ctrl] = ((32 - ctrl_alpha) * smooth_ctrls[ctrl] + ctrl_alpha * (adc_buffer[cpu_phase][2] << EXTRA)) >> 5;
+  const bool sample_ctrls = !(count & ctrl_sample_mask);
   if (sample_ctrls) {
     // see discussion above.  if we aim for 1/100 nyquist (240hz), but raw data already 1/4 cycles,
     // so alpha/(2pi(1-alpha)) = 1/25, alpha = 6/31 but that's a bit noisy at 48khs.  how low can we go?
@@ -433,11 +430,10 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
       ctrls[Now][ctrl] = ctrl_now & adc_mask[Knobs];
     }
 
-    // TODO - do we still care about starting?
     if (starting) {  // avoid startup noise
       ctrls[Prev][ctrl] = ctrls[Now][ctrl];
       // TODO - Should initialise ctrl and CV smoothing filters here too
-      starting = count < 8;
+      starting--;
     }
   }
 
@@ -463,10 +459,10 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     }
 
     // Force disconnected values to zero, rather than the normalisation probe garbage
-    if (!is_connected(SocketIn::Audio1)) audio[1] = 0;
-    if (!is_connected(SocketIn::Audio2)) audio[0] = 0;
-    if (!is_connected(SocketIn::CV1)) cv[0] = 0;
-    if (!is_connected(SocketIn::CV2)) cv[1] = 0;
+    if (!is_connected(SocketIn::Audio1)) audio_in[1] = 0;
+    if (!is_connected(SocketIn::Audio2)) audio_in[0] = 0;
+    if (!is_connected(SocketIn::CV1)) cv_in[0] = 0;
+    if (!is_connected(SocketIn::CV2)) cv_in[1] = 0;
     if (!is_connected(SocketIn::Pulse1)) pulse[0] = false;
     if (!is_connected(SocketIn::Pulse2)) pulse[1] = false;
   }
