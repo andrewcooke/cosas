@@ -105,7 +105,7 @@ public:
 
 class PolyTable final : public HalfWtable {
 public:
-  PolyTable(size_t shape, size_t asym, size_t offset);
+  PolyTable(size_t shape, size_t asym, int offset);
   static constexpr size_t N_CONCAVE = 4;
   static constexpr size_t N_CONVEX = 4;
   static constexpr size_t NOISE = 0;

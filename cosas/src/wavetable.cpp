@@ -128,9 +128,14 @@ Noise::Noise(size_t smooth) {
 }
 
 
-PolyTable::PolyTable(size_t shape, size_t asym, size_t offset) {
-  make_half(half_table, shape, 0, offset);
-  make_half(half_table, shape + asym, offset, HALF_TABLE_SIZE);
+PolyTable::PolyTable(size_t shape, size_t asym, int offset) {
+  size_t abs_offset = abs(offset);
+  make_half(half_table, shape, 0, abs_offset);
+  make_half(half_table, shape + asym, abs_offset, HALF_TABLE_SIZE);
+  if (offset < 0) {
+    std::transform(half_table.begin(), half_table.end(), half_table.begin(),
+                   [](int16_t element) { return -element; });
+  }
 }
 
 float PolyTable::pow2(float x, size_t n) {
@@ -160,13 +165,14 @@ void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo
     table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(std::numbers::pi) * tox(i, lo, hi) / 2.0f));
 }
 
-// TODO - still not 12 bit?? looks fine...  dump seemed wrong
 void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(SAMPLE_MIN, SAMPLE_MAX);
   for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * distrib(gen));
 }
+
+// TODO - one bit noise?
 
 void PolyTable::make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(lo ? SAMPLE_MAX : SAMPLE_MIN);
@@ -183,7 +189,8 @@ void PolyTable::make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t sh
   else if (shape == LINEAR) make_linear(table, lo, hi);
   else if (shape == SINE) make_sine(table, lo, hi);
   else if (shape < SQUARE) make_convex(table, shape - SINE + 1, lo, hi);
-  else if (shape == SQUARE) make_square(table, lo, hi);
+  // else if (shape == SQUARE) make_square(table, lo, hi);
+  else if (shape == SQUARE) make_constant(table, SAMPLE_MAX, lo, hi);
   else make_constant(table, 0, lo, hi);
 }
 

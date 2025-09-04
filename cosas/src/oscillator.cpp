@@ -165,8 +165,8 @@ RelFreqParam& RelDexOsc::get_freq_param() {
 }
 
 
-PolyMixin::CtrlParam::CtrlParam(size_t hi, PolyMixin& m, std::function<bool(float)> s, std::function<float()> g)
-  : Param(1, 1, false, 0, hi), mixin(m), delegate_set(s), delegate_get(g) {};
+PolyMixin::CtrlParam::CtrlParam(float lo, float hi, PolyMixin& m, std::function<bool(float)> s, std::function<float()> g)
+  : Param(1, 1, false, lo, hi), mixin(m), delegate_set(s), delegate_get(g) {};
 
 void PolyMixin::CtrlParam::set(float v) {
   if (delegate_set(clip(v))) mixin.update();
@@ -178,14 +178,15 @@ float PolyMixin::CtrlParam::get() {
 
 PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   : oscillator(o), shape(s), asym(a), offset(off) {
-  shape_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
+  shape_param = std::move(std::make_unique<CtrlParam>(0, PolyTable::N_SHAPES, *this,
     [this](float v) noexcept -> bool {size_t s = shape; shape = static_cast<size_t>(v); return s != shape;},
     [this]() noexcept -> float {return shape;}));
-  asym_param = std::move(std::make_unique<CtrlParam>(PolyTable::N_SHAPES, *this,
+  asym_param = std::move(std::make_unique<CtrlParam>(0, PolyTable::N_SHAPES, *this,
     [this](float v) noexcept -> bool {size_t a = asym; asym = static_cast<size_t>(v); return  a != asym;},
     [this]() noexcept -> float {return asym;}));
-  offset_param = std::move(std::make_unique<CtrlParam>(HALF_TABLE_SIZE - 1, *this,
-    [this](float v) noexcept -> bool {size_t o = offset; offset = static_cast<size_t>(v); return o != offset;},
+  float almost_half = HALF_TABLE_SIZE - 1;
+  offset_param = std::move(std::make_unique<CtrlParam>(-almost_half, almost_half, *this,
+    [this](float v) noexcept -> bool {int o = offset; offset = static_cast<int>(v); return o != offset;},
     [this]() noexcept -> float {return offset;}));
   update();
 }

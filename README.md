@@ -26,6 +26,7 @@ the plan is to have a unified UI via the weas library (input via three
 knobs and a switch, display via 6 leds - what luxury!)
 
 significant waypoints:
+* 2925-09-03 - reasonable / usable signal generation
 * 2025-08-31 - first signal generated
 * 2025-08-25 - refactored audio code to interface to knobs in UI
 * 2025-08-22 - finally have LEDs and knobs working cleanly
