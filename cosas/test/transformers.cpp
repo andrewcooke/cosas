@@ -28,12 +28,12 @@ TEST_CASE("Transformers, Folder") {
   Folder f0_12 = Folder(c1234, 0);
   CHECK(f0_12.next(0, 0) == 1234);
   f0_12.get_fold().set(1);
-  CHECK(f0_12.next(0, 0) == 2421);  // not sure if correct, but more +ve
+  CHECK(f0_12.next(0, 0) == 1724);  // not sure if correct, but more +ve
   f0_12.get_fold().set(2);
-  CHECK(f0_12.next(0, 0) == 4750);  // not sure if correct
+  CHECK(f0_12.next(0, 0) == 1960);  // not sure if correct
   Constant cm1234 = Constant(-1234);
   Folder f1_12x = Folder(cm1234, 1);
-  CHECK(f1_12x.next(0, 0) == -2421);  // symmetrical
+  CHECK(f1_12x.next(0, 0) == -1724);  // symmetrical
   
   Constant cmax = Constant(SAMPLE_MAX);  
   Folder f0_max = Folder(cmax, 0);

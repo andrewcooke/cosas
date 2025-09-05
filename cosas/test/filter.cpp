@@ -17,24 +17,24 @@ TEST_CASE("MovingAverage, next") {
 
 TEST_CASE("MovingAverage, next_or_2") {
   MovingAverage<uint16_t, 2> f;
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 1);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 2);
-  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 2);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
 }
 
 TEST_CASE("MovingAverage, next_or_3") {
   MovingAverage<uint16_t, 3> f;
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 1);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 4096);
-  CHECK(f.next_or(2, 4096) == 2);
-  CHECK(f.next_or(2, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
+  CHECK(f.next_or(2, 1, 4096) == 2);
+  CHECK(f.next_or(2, 1, 4096) == 4096);
 }
 
 

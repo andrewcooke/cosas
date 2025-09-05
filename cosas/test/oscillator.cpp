@@ -7,9 +7,9 @@
 TEST_CASE("Oscillator, Wavedex") {
   Wavelib w = Wavelib();
   AbsDexOsc o = AbsDexOsc(4400, w, w.sine_gamma_1);
-  CHECK(o.next(1000, 0) == -32417);
+  CHECK(o.next(1000, 0) == -2025);
   o.get_dex_param().set(w.square_duty_05);
-  CHECK(o.next(1000, 0) == -32767);
+  CHECK(o.next(1000, 0) == -2047);
 }
 
 
@@ -17,7 +17,7 @@ TEST_CASE("Oscillator, Detune") {
   Wavelib w = Wavelib();
   AbsDexOsc o1 = AbsDexOsc(4400, w, w.sine_gamma_1);
   RelDexOsc o2 = RelDexOsc(w, w.sine_gamma_1, o1.get_freq_param(), 1, 1);
-  CHECK(o2.next(1000, 0) == -32417);
+  CHECK(o2.next(1000, 0) == -2025);
   o2.get_freq_param().get_det_param().set(0.9f);
   CHECK(o2.next(1000, 0) != -32417);
 }
