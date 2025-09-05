@@ -117,6 +117,8 @@ inline int16_t mult_shift14(uint16_t k, int16_t x) {
 }
 
 
+/*
+
 class IEEEFloat {
 public:
   explicit IEEEFloat(double f);
@@ -145,5 +147,6 @@ float sample2float(int16_t s);
 
 int16_t float2sample(float f);
 
+*/
 
 #endif

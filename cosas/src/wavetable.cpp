@@ -7,6 +7,7 @@
 #include "cosas/maths.h"
 #include "cosas/wavetable.h"
 
+#include "cosas/random.h"
 
 Square::Square(float duty) : duty_idx(static_cast<size_t>(duty * FULL_TABLE_SIZE)) {}
 
@@ -165,15 +166,24 @@ void PolyTable::make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo
     table.at(i) = static_cast<int16_t>(SAMPLE_MAX * sinf(static_cast<float>(std::numbers::pi) * tox(i, lo, hi) / 2.0f));
 }
 
-void PolyTable::make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
+void PolyTable::make_noise_std(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_int_distribution<> distrib(SAMPLE_MIN, SAMPLE_MAX);
   for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(SAMPLE_MAX * distrib(gen));
 }
 
-// TODO - one bit noise?
+void PolyTable::make_noise_32(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
+  XorShift32 gen = XorShift32(0);
+  for (size_t i = lo; i < hi; i++) table.at(i) = gen.next_int12();
+}
 
+void PolyTable::make_noise_bit(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
+  XorShift32 gen = XorShift32(0);
+  for (size_t i = lo; i < hi; i++) table.at(i) = gen.next_bool() ? SAMPLE_MAX : SAMPLE_MIN;
+}
+
+// this is double freq
 void PolyTable::make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi) {
   for (size_t i = lo; i < hi; i++) table.at(i) = static_cast<int16_t>(lo ? SAMPLE_MAX : SAMPLE_MIN);
 }
@@ -184,12 +194,12 @@ void PolyTable::make_constant(std::array<int16_t, HALF_TABLE_SIZE>& table, int16
 
 void PolyTable::make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi) {
   shape = shape % N_SHAPES;
-  if (shape == NOISE) make_noise(table, lo, hi);
+  if (shape == NOISE) make_noise_bit(table, lo, hi);
+  else if (shape < CONCAVE) make_noise_32(table, lo, hi);
   else if (shape < LINEAR) make_concave(table, LINEAR - shape + 1, lo, hi);
   else if (shape == LINEAR) make_linear(table, lo, hi);
   else if (shape == SINE) make_sine(table, lo, hi);
   else if (shape < SQUARE) make_convex(table, shape - SINE + 1, lo, hi);
-  // else if (shape == SQUARE) make_square(table, lo, hi);
   else if (shape == SQUARE) make_constant(table, SAMPLE_MAX, lo, hi);
   else make_constant(table, 0, lo, hi);
 }

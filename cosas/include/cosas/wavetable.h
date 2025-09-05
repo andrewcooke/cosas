@@ -108,10 +108,13 @@ public:
   PolyTable(size_t shape, size_t asym, int offset);
   static constexpr size_t N_CONCAVE = 4;
   static constexpr size_t N_CONVEX = 4;
+  static constexpr size_t N_NOISE = 2;
   static constexpr size_t NOISE = 0;
-  static constexpr size_t LINEAR = N_CONCAVE + 1;
+  static constexpr size_t CONCAVE = N_NOISE;
+  static constexpr size_t LINEAR = CONCAVE + N_CONCAVE;
   static constexpr size_t SINE = LINEAR + 1;
-  static constexpr size_t SQUARE = SINE + N_CONVEX + 1;
+  static constexpr size_t CONVEX = SINE + 1;
+  static constexpr size_t SQUARE = CONVEX + N_CONVEX;
   static constexpr size_t ZERO = SQUARE + 1;
   static constexpr size_t N_SHAPES = ZERO + 1;
 private:
@@ -121,7 +124,9 @@ private:
   static void make_linear(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
   static void make_convex(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);
   static void make_sine(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
-  static void make_noise(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_noise_std(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_noise_32(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
+  static void make_noise_bit(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
   static void make_square(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t lo, size_t hi);
   static void make_constant(std::array<int16_t, HALF_TABLE_SIZE>& table, int16_t value, size_t lo, size_t hi);
   static void make_half(std::array<int16_t, HALF_TABLE_SIZE>& table, size_t shape, size_t lo, size_t hi);

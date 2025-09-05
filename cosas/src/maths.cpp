@@ -123,6 +123,8 @@ bool SimpleRatio::operator==(const SimpleRatio& other) const {
 }
 
 
+/*
+
 IEEEFloat::IEEEFloat(double v) : IEEEFloat(static_cast<float>(v)) {};
 
 IEEEFloat::IEEEFloat(float v) : fc({.f = v}) {};
@@ -185,3 +187,4 @@ int16_t float2sample(float f) {
   return IEEEFloat(std::max(-0.999969f, std::min(0.999969f, f))).sample();
 }
 
+*/

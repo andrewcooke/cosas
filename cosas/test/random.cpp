@@ -12,6 +12,16 @@ TEST_CASE("XorShift32, uint32") {
   CHECK(rand.next_uint32() == 2647435461);
 }
 
+TEST_CASE("XorShift32, int12") {
+  XorShift32 rand = XorShift32(1);
+  CHECK(rand.next_int12() == -2015);
+  CHECK(rand.next_int12() == -2044);
+  CHECK(rand.next_int12() == -511);
+  CHECK(rand.next_int12() == -1016);
+  CHECK(rand.next_int12() == 197);
+  CHECK(rand.next_int12() == 1484);
+}
+
 TEST_CASE("XorShift32, bool") {
   XorShift32 rand = XorShift32(1);
   CHECK(rand.next_bool());
