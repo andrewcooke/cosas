@@ -75,6 +75,7 @@ void dump_fome(size_t n) {
   FomeApp app;
   RelSource* source = app.get_source(0);
   app.get_param(0, Main).set(1);
+  app.get_param(0, X).set(0.5f);
   app.get_param(1, Main).set(-1.0f * QUARTER_TABLE_SIZE);
   app.get_param(1, X).set(PolyTable::SINE+1);
   app.get_param(1, Y).set(5);

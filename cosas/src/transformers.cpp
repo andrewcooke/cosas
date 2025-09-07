@@ -9,6 +9,7 @@
 #include "cosas/maths.h"
 #include "cosas/transformers.h"
 
+#include "cosas/debug.h"
 
 SingleFloat::SingleFloat(RelSource& nd, float v, float scale, float linearity, bool log, float lo, float hi)
   : SingleSource(nd), value(v), param(Value(this, scale, linearity, log, lo, hi)) {};
@@ -53,8 +54,8 @@ float Single14::Value::get() {
 }
 
 
-Gain14::Gain14(RelSource& nd, const float amp, float hi)
-  : Single14(nd, amp, 1, 1, true, 0, hi) {};
+Gain14::Gain14(RelSource& nd, const float amp, bool log)
+  : Single14(nd, amp, 1, 1, log, log ? -3 : 0, log ? 0 : 2) {};
 
 int16_t Gain14::next(const int32_t delta, const int32_t phi) {
   int16_t a = src.next(delta, phi);
@@ -67,7 +68,7 @@ Single14::Value& Gain14::get_amp() {
 }
 
 
-Gain::Gain(RelSource& nd, float amp, float hi) : Gain14(nd, amp, hi) {};
+Gain::Gain(RelSource& nd, float amp, bool log) : Gain14(nd, amp, log) {};
 
 
 // these (float based) may be too slow?

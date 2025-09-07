@@ -65,16 +65,19 @@ protected:
 
 class Gain14 : public Single14 {
 public:
-  Gain14(RelSource& src, float amp, float hi);
+  Gain14(RelSource& src, float amp, bool log);
   [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
   Value& get_amp();
 };
 
 
 // forward to Gain14 on assumption this is faster
+// a log gain goes from some small value to 1 in log steps (eg for phase shifting)
+// a linear gain goes from 0 to 2 in linear steps (eg for audio amp)
+// amp is initial value
 class Gain : public Gain14 {
 public:
-  Gain(RelSource& src, float amp, float hi);
+  Gain(RelSource& src, float amp, bool log);
 };
 
 

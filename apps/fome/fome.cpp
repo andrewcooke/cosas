@@ -19,7 +19,7 @@ int main() {
   codec.set_ctrl_alpha(1);
   auto& fifo = FIFO::get();
   FomeApp app;
-  UIState ui(app, fifo, codec.read_switch());
+  UIState ui(app, fifo, codec);
   codec.set_per_sample_cb([&ui](Codec& c) {ui.per_sample_cb(c);});
   fifo.set_ctrl_changes(&ui);
   fifo.start(codec);

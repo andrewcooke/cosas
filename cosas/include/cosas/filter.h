@@ -36,7 +36,7 @@ public:
     if ((prev > out && prev - out < thresh) || (prev <= out && out - prev < thresh)) {
       return repeat;
     }
-    BaseDebug::log("index", index, "prev", prev, "out", out, "thresh", thresh);
+    // BaseDebug::log("index", index, "prev", prev, "out", out, "thresh", thresh);
     prev = out;
     return out;
   };

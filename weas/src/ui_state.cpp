@@ -6,23 +6,27 @@
 #include "weas/debug.h"
 #include "weas/leds_buffer.h"
 
+
 // TODO - should really handle "impossible" switch transitions since they may occur when stalled
 
-UIState::UIState(App& app, FIFO& fifo,  CtrlEvent::SwitchPosition initial)
+UIState::UIState(App& app, FIFO& fifo,  Codec& codec)
   : CtrlHandler(), app(app), fifo(fifo), leds_buffer(LEDsBuffer::get()),
-    leds_mask(leds_buffer.leds_mask.get()) {
+    leds_mask(leds_buffer.leds_mask.get()), codec(codec) {
   source = nullptr;
   update_source();
-  handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, initial, initial));
 }
 
 void UIState::per_sample_cb(Codec &codec) {
   RelSource* s = LOAD(source);
   if (s) codec.write_audio(Right, s->next(1, 0));
-  // codec.write_audio(Right, (codec.get_count() << 4 & 0xfff) - 2048);
 };
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
+  if (! started) {
+    started = true;
+    handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, codec.read_switch(), 0));
+  }
+  Debug::log("handle ", event, " state ", state);
   if (ctrl_gate.test(event)) {
     event = ctrl_gate.get();
     switch (state) {
@@ -41,6 +45,7 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
       break;
     }
   }
+  Debug::log("done");
 }
 
 void UIState::state_adjust(CtrlEvent event) {
@@ -67,6 +72,7 @@ void UIState::state_adjust(CtrlEvent event) {
   case (CtrlEvent::Main):
   case (CtrlEvent::X):
   case (CtrlEvent::Y): {
+    Debug::log("knob ", event);
     if (current_page_knobs[event.ctrl]->is_valid()) {
       auto stalled = Stalled(fifo);
       KnobChange change = current_page_knobs[event.ctrl]->handle_knob_change(event.now, event.prev);
@@ -81,6 +87,7 @@ void UIState::state_adjust(CtrlEvent event) {
   default:
     break;
   }
+  Debug::log("done");
 }
 
 void UIState::transition_leds_to(uint32_t mask, bool down) {
@@ -119,7 +126,7 @@ void UIState::state_next_page(CtrlEvent event) {
   case (CtrlEvent::Main):
   case (CtrlEvent::X):
   case (CtrlEvent::Y):
-    Debug::log("knob brokw next page", event);
+    // Debug::log("knob brokw next page", event);
     state = FREEWHEEL;
     break;
   default:
@@ -128,20 +135,21 @@ void UIState::state_next_page(CtrlEvent event) {
 }
 
 void UIState::update_source() {
+  Debug::log("update source");
   source = app.get_source(source_idx);
   page = 0;
-  app.get_param(0, Main).set(440);
-  app.get_param(1, Main).set(QUARTER_TABLE_SIZE);
-  app.get_param(1, X).set(PolyTable::LINEAR);
-  app.get_param(1, Y).set(1);
   update_page();
+  Debug::log("done (update source)");
 }
 
 void UIState::update_page() {
+  Debug::log("update page");
   for (uint i = 0; i < N_KNOBS; i++) {
+    Debug::log(i);
     current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
     // current_page_knobs[i] = std::make_unique<ParamAdapter>(blank);
   }
+  Debug::log("done");
 }
 
 void UIState::state_freewheel(CtrlEvent event) {
@@ -192,7 +200,6 @@ void UIState::state_source(CtrlEvent event) {
 }
 
 uint32_t UIState::current_source_mask() {
-  // +1 is shifting from 0 to 1 index
   return leds_mask->wiggle19(source_idx, leds_mask->BITS_MASK >> 1, leds_mask->BITS_MASK >> 3);
 }
 

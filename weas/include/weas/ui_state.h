@@ -30,7 +30,7 @@ class UIState final : public CtrlHandler {
 
 public:
 
-  UIState(App& app, FIFO& fifo, CtrlEvent::SwitchPosition initial);
+  UIState(App& app, FIFO& fifo, Codec& codec);
   void handle_ctrl_change(CtrlEvent event) override;
   void per_sample_cb(Codec& codec);
 
@@ -44,6 +44,7 @@ private:
   enum State {ADJUST, NEXT_PAGE, FREEWHEEL, SOURCE};
   State state = SOURCE;  // start in meta so when we transition knobs are set
   uint32_t INVALID_KNOB = leds_mask->constant(0x08);
+  bool started = false;
   uint page = 0;
   uint source_idx = 0;
   uint saved_source_idx = 0;  // used to check if we changed source
@@ -53,6 +54,7 @@ private:
     std::make_unique<KnobHandler>()};
   CtrlGate ctrl_gate = CtrlGate({4, 4, 4}, {128, 128, 128});
   KnobHandler source_knob = KnobHandler(1, 1, false, 0, 1);
+  Codec& codec;  // used only during startup
 
   void state_adjust(CtrlEvent event);
   void state_next_page(CtrlEvent event);

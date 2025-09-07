@@ -12,16 +12,18 @@ class SmallManager : public BaseManager {
 public:
 
   enum SmallEngine {
-    POLY,
+    OSCILLATOR,
+    SIMPLE_2_OSC_FM
   };
-  static constexpr size_t N_ENGINE = POLY + 1;
+  static constexpr size_t N_ENGINE = SIMPLE_2_OSC_FM + 1;
 
   SmallManager() = default;
   RelSource& build(SmallEngine);
 
 private:
 
-  RelSource& build_poly();
+  RelSource& build_oscillator();
+  RelSource& build_simple_2_osc_fm();
 
 };
 
