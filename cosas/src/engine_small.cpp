@@ -11,8 +11,8 @@ RelSource& SmallManager::build(SmallEngine engine) {
   default:
   case OSCILLATOR:
     return build_oscillator();
-  // case SIMPLE_2_OSC_FM:
-  //   return build_simple_2_osc_fm();
+  case SIMPLE_2_OSC_FM:
+    return build_simple_2_osc_fm();
   }
 }
 
@@ -20,22 +20,19 @@ RelSource& SmallManager::build(SmallEngine engine) {
 //   1 - freq/gain/off
 //   2 - freq/shp/asym
 RelSource& SmallManager::build_oscillator() {
-  return add_abs_poly_osc_w_gain(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE, 1.0f);
+  return std::get<0>(add_abs_poly_osc_w_gain(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE, 1.0f));
 }
 
 // panes:
-//   1 - freq/gain/blk
-//   2 - off/shp/asym
-//   3 - freq/gain/blk
-//   4 - off/shp/asym
-// RelSource& SmallManager::build_simple_2_osc_fm() {
-//   auto [cf, c] = add_abs_poly_osc(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE);
-//   Gain& cg = add_source<Gain>(cf, 1.0f, false);
-//   add_pane(cf, cg.get_amp(), add_param<Blank>());
-//   swap_panes(0, 1);
-//   RelSource& m = add_rel_poly_osc(cf, wavelib->sine_gamma_1, 1, 1);
-//   // i don't understand this 3.  is it subtick_bits?
-//   RelSource& fm = add_fm(c, m, 0.5, 1.0 / (1 << (PHI_FUDGE_BITS - 3)));
-//   return fm;
-// }
+//   1 - freq/gain/off
+//   2 - freq/shp/asym
+//   3 - freq/gain/off
+//   4 - freq/shp/asym
+RelSource& SmallManager::build_simple_2_osc_fm() {
+  auto gc_c = add_abs_poly_osc_w_gain(440, PolyTable::SINE, 0, QUARTER_TABLE_SIZE, 1.0f);
+  auto gm_m = add_rel_poly_osc_w_gain(std::get<1>(gc_c).get_freq_param(), PolyTable::SINE, 1, 1, 0.01f);
+  // i don't understand this 3.  is it subtick_bits?
+  RelSource& fm = add_fm(std::get<0>(gc_c), std::get<0>(gm_m), 1.0f);
+  return fm;
+}
 

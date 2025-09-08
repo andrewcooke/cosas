@@ -101,7 +101,7 @@ uint32_t SimpleRatio::multiply(uint32_t val) const {
   uint64_t tmp = val * scale;
   if (third) tmp /= 3;
   if (fifth) tmp /= 5;
-  if (bits > 1) tmp <<= bits;
+  if (bits > 0) tmp <<= bits;
   else tmp >>= -bits;
   return clip_u32(tmp);
 }

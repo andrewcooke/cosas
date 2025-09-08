@@ -64,21 +64,51 @@ AbsPolyOsc& BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, si
 }
 
 // panes:
+//   1 - freq/blk/off
+//   2 - freq/shp/asym
+RelPolyOsc& BaseManager::add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off) {
+  auto& o = add_source<RelPolyOsc>(shp, asym, off, frq, 10.0f, 1.0f);
+  RelFreqParam& f = o.get_freq_param();
+  add_pane(f, add_param<Blank>(), o.get_off_param());
+  add_pane(f, o.get_shp_param(), o.get_asym_param());
+  return o;
+}
+
+// panes:
 //   1 - freq/gain/off
 //   2 - freq/shp/asym
-RelSource& BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
-                                                const size_t off, float amp) {
+std::tuple<Gain&, AbsPolyOsc&>
+BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym, const size_t off, float amp) {
   size_t n = n_panes();
-  RelSource& o = add_abs_poly_osc(frq, shp, asym, off);
+  AbsPolyOsc& o = add_abs_poly_osc(frq, shp, asym, off);
   Gain& g = add_source<Gain>(o, amp, false);  // abs poly gain is for volume
   static_cast<Blank&>(get_pane(n).x).unblank(&g.get_amp());
-  return g;
+  return {g, o};
+}
+
+// panes:
+//   1 - freq/gain/off
+//   2 - freq/shp/asym
+std::tuple<Gain&, RelPolyOsc&>
+BaseManager::add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym, const size_t off, float amp) {
+  size_t n = n_panes();
+  RelPolyOsc& o = add_rel_poly_osc(frq, shp, asym, off);
+  Gain& g = add_source<Gain>(o, amp, true);  // rel poly gain is for phase
+  static_cast<Blank&>(get_pane(n).x).unblank(&g.get_amp());
+  return {g, o};
 }
 
 Merge& BaseManager::add_balance(RelSource& a, RelSource& b, float bal) {
   auto& m = add_source<Merge>(a, bal);
   m.add_source(b, 1);
   return m;
+}
+
+// TODO _ pane
+RelSource& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
+  FM& fm = add_source<FM>(c, m);
+  Merge& b = add_balance(fm, c, bal);
+  return b;
 }
 
 // panes:

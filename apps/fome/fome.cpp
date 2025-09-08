@@ -13,16 +13,21 @@
 
 
 int main() {
-  // Debug::get().init();
-  patom::PseudoAtomicInit();
-  auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
-  codec.set_ctrl_alpha(1);
-  auto& fifo = FIFO::get();
-  FomeApp app;
-  UIState ui(app, fifo, codec);
-  codec.set_per_sample_cb([&ui](Codec& c) {ui.per_sample_cb(c);});
-  fifo.set_ctrl_changes(&ui);
-  fifo.start(codec);
-  codec.set_adc_correction_and_scale(fix_dnl);
-  codec.start();
+  try {
+    Debug::get().init();
+    patom::PseudoAtomicInit();
+    auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
+    codec.set_ctrl_alpha(1);
+    auto& fifo = FIFO::get();
+    FomeApp app;
+    UIState ui(app, fifo, codec);
+    codec.set_per_sample_cb([&ui](Codec& c) {ui.per_sample_cb(c);});
+    fifo.set_ctrl_changes(&ui);
+    fifo.start(codec);
+    codec.set_adc_correction_and_scale(fix_dnl);
+    codec.start();
+  } catch (std::exception& e) {
+    Debug::log(e.what());
+    throw;
+  }
 };

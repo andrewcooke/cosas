@@ -44,8 +44,11 @@ protected:
   void swap_panes(size_t i, size_t j) const;
   void rotate_panes(size_t a, size_t b) const;
   AbsPolyOsc& add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
-  RelSource& add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
+  std::tuple<Gain&, AbsPolyOsc&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
+  RelPolyOsc& add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off);
+  std::tuple<Gain&, RelPolyOsc&> add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym, size_t off, float amp);
   Merge& add_balance(RelSource& a, RelSource& b, float bal);
+  RelSource& add_fm(RelSource& c, RelSource& m, float bal);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Param& right);
 

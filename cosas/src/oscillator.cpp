@@ -188,6 +188,7 @@ PolyMixin::PolyMixin(BaseOscillator* o, size_t s, size_t a, size_t off)
   offset_param = std::move(std::make_unique<CtrlParam>(-almost_half, almost_half, *this,
     [this](float v) noexcept -> bool {int o = offset; offset = static_cast<int>(v); return o != offset;},
     [this]() noexcept -> float {return offset;}));
+
   update();
 }
 
@@ -220,6 +221,7 @@ AbsFreqParam& AbsPolyOsc::get_freq_param() {
 
 RelPolyOsc::RelPolyOsc(size_t shp, size_t asym, size_t off, AbsFreqParam& root, float f, float d)
   : BaseOscillator(0, nullptr), PolyMixin(this, shp, asym, off), freq_param(RelFreqParam(this, root, f, d)) {
+  root.add_relative_freq(&this->get_freq_param());
   get_freq_param().set(f);  // push initial value
 }
 

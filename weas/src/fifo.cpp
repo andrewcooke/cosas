@@ -46,12 +46,19 @@ void FIFO::push(CtrlEvent event) {
 
 // TODO - in memory?
 void FIFO::core1_marshaller() {
-  auto& fifo = get();
-  uint read = 0;
-  while (true) {
-    read++;
-    uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
-    fifo.ctrl_changes->handle_ctrl_change(CtrlEvent::unpack(packed));
+  try {
+    // exceptions used only for diagnostics
+    // see docs on multi core exception problems
+    auto& fifo = get();
+    uint read = 0;
+    while (true) {
+      read++;
+      uint32_t packed = multicore_fifo_pop_blocking();  // blocking wait
+      fifo.ctrl_changes->handle_ctrl_change(CtrlEvent::unpack(packed));
+    }
+  } catch (std::exception& e) {
+    Debug::log(e.what());
+    throw;
   }
 }
 

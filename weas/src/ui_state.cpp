@@ -26,7 +26,6 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
     started = true;
     handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, codec.read_switch(), 0));
   }
-  Debug::log("handle ", event, " state ", state);
   if (ctrl_gate.test(event)) {
     event = ctrl_gate.get();
     switch (state) {
@@ -45,7 +44,6 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
       break;
     }
   }
-  Debug::log("done");
 }
 
 void UIState::state_adjust(CtrlEvent event) {
@@ -72,7 +70,6 @@ void UIState::state_adjust(CtrlEvent event) {
   case (CtrlEvent::Main):
   case (CtrlEvent::X):
   case (CtrlEvent::Y): {
-    Debug::log("knob ", event);
     if (current_page_knobs[event.ctrl]->is_valid()) {
       auto stalled = Stalled(fifo);
       KnobChange change = current_page_knobs[event.ctrl]->handle_knob_change(event.now, event.prev);
@@ -87,7 +84,6 @@ void UIState::state_adjust(CtrlEvent event) {
   default:
     break;
   }
-  Debug::log("done");
 }
 
 void UIState::transition_leds_to(uint32_t mask, bool down) {
@@ -126,7 +122,6 @@ void UIState::state_next_page(CtrlEvent event) {
   case (CtrlEvent::Main):
   case (CtrlEvent::X):
   case (CtrlEvent::Y):
-    // Debug::log("knob brokw next page", event);
     state = FREEWHEEL;
     break;
   default:
@@ -135,21 +130,16 @@ void UIState::state_next_page(CtrlEvent event) {
 }
 
 void UIState::update_source() {
-  Debug::log("update source");
   source = app.get_source(source_idx);
   page = 0;
   update_page();
-  Debug::log("done (update source)");
 }
 
 void UIState::update_page() {
-  Debug::log("update page");
   for (uint i = 0; i < N_KNOBS; i++) {
-    Debug::log(i);
     current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
     // current_page_knobs[i] = std::make_unique<ParamAdapter>(blank);
   }
-  Debug::log("done");
 }
 
 void UIState::state_freewheel(CtrlEvent event) {

@@ -7,6 +7,7 @@ if (BUILD STREQUAL "pico")
     #set(PICO_BOARD mtm_computer_16mb CACHE STRING "Board type")
     set(PICO_BOARD pico CACHE STRING "Board type")
     set(PICO_SDK_FETCH_FROM_GIT on)
+    set(PICO_CXX_ENABLE_EXCEPTIONS 1)
     include(pico_sdk_import.cmake)
     pico_sdk_init()
 

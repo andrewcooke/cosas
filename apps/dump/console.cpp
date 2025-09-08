@@ -71,22 +71,14 @@ void dump_small(SmallManager::SmallEngine e, size_t n) {
   }
 }
 
-void dump_fome(size_t n) {
+void dump_fome(uint n, int src) {
   FomeApp app;
-  RelSource* source = app.get_source(0);
-  app.get_param(0, Main).set(1);
-  app.get_param(0, X).set(0.5f);
-  app.get_param(1, Main).set(-1.0f * QUARTER_TABLE_SIZE);
-  app.get_param(1, X).set(PolyTable::SINE+1);
-  app.get_param(1, Y).set(5);
-  // ParamAdapter knob = ParamAdapter(param);
-  // size_t prev_knb = 0;
+  RelSource* source = app.get_source(src);
+  app.get_param(0, Main).set(440);
+  app.get_param(2, Main).set(10);
+  app.get_param(2, X).set(1);
   for (size_t i = 0; i < n; i++) {
     int16_t amp = source->next(1, 0);
-    // size_t next_knob = (i >> 2 & 0xfff);
-    // knob.handle_knob_change(next_knob, prev_knb);
-    // std::cout << i << " " << amp << " " <<  param.get() << std::endl;
     std::cout << i << " " << amp << std::endl;
-    // prev_knb = next_knob;
   }
 }
