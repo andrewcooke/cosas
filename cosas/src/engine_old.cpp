@@ -11,9 +11,8 @@ constexpr int DEFAULT_BOXCAR = 1000;
 OldManager::OldManager() : wavelib(std::move(std::make_unique<Wavelib>())) {};
 
 RelSource& OldManager::build(OldManager::OldEngine engine) {
-  current_sources->clear();
-  current_params->clear();
-  current_panes->clear();
+
+  clear_all();
 
   switch (engine)
   {
@@ -82,9 +81,7 @@ RelSource& OldManager::build_dex() {
 //   1 - freq/blank/blk
 //   2 - off/shp/asym
 RelSource& OldManager::build_poly() {
-  auto [f, o] = add_abs_poly_osc(10, PolyTable::LINEAR - 1, 0,
-                                                   static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
-  return o;
+  return add_abs_poly_osc(10, PolyTable::LINEAR - 1, 0, static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
 }
 
 // panes:
@@ -120,10 +117,9 @@ RelSource& OldManager::build_fm_lfo() {
 //   4 - off/shp/asym
 RelSource& OldManager::build_fm_env() {
   RelSource& fm = build_fm_simple();
-  auto [ef, e] = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0,
-                                                      static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
+  AbsPolyOsc& e = add_abs_poly_osc(1, PolyTable::LINEAR - 1, 0, static_cast<size_t>(0.1f * QUARTER_TABLE_SIZE));
   RelSource& am = add_source<AM>(e, fm);
-  dynamic_cast<Blank&>(get_pane(0).y).unblank(&ef);
+  dynamic_cast<Blank&>(get_pane(0).y).unblank(&e.get_freq_param());
   return am;
 }
 

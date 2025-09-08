@@ -24,6 +24,7 @@ float Blank::get() {
 
 void Blank::unblank(Param *del) {
   this->delegate = del;
+  valid = true;
   scale = del->scale;
   linearity = del->linearity;
   log = del->log;

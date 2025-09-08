@@ -13,6 +13,8 @@
 #include "cosas/pane.h"
 
 
+// UNUSED - may be broken
+
 class BaseManager {
 
 public:
@@ -37,14 +39,17 @@ protected:
     return dynamic_cast<ParamType&>(*current_params->back());
   }
 
+  void clear_all();
   Pane& add_pane(Param& main, Param& x, Param& y) const;
   void swap_panes(size_t i, size_t j) const;
   void rotate_panes(size_t a, size_t b) const;
-  std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
-  std::tuple<AbsFreqParam&, RelSource&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
+  AbsPolyOsc& add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);
+  RelSource& add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
   Merge& add_balance(RelSource& a, RelSource& b, float bal);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Param& right);
+
+private:
 
   std::unique_ptr<std::vector<std::unique_ptr<RelSource>>> current_sources;
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;

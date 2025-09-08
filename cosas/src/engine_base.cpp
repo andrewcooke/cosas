@@ -3,12 +3,19 @@
 
 #include "cosas/engine_base.h"
 #include "cosas/modulators.h"
+#include "cosas/debug.h"
 
 
 BaseManager::BaseManager()
   : current_sources(std::move(std::make_unique<std::vector<std::unique_ptr<RelSource>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
     current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())) {};
+
+void BaseManager::clear_all() {
+  current_sources->clear();
+  current_params->clear();
+  current_panes->clear();
+}
 
 Pane& BaseManager::get_pane(size_t n) const {
   return *current_panes->at(n);
@@ -46,31 +53,26 @@ void BaseManager::rotate_panes(const size_t a, const size_t b) const {
 }
 
 // panes:
-//   1 - off/shp/asym
-//   (freq not mapped)
-std::tuple<AbsFreqParam&, RelSource&>
-BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
+//   1 - freq/blk/off
+//   2 - freq/shp/asym
+AbsPolyOsc& BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<AbsPolyOsc>(frq, shp, asym, off);
   AbsFreqParam& f = o.get_freq_param();
-  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
-  return {f, o};
+  add_pane(f, add_param<Blank>(), o.get_off_param());
+  add_pane(f, o.get_shp_param(), o.get_asym_param());
+  return o;
 }
 
 // panes:
-//   1 - freq/blk/gain
-//   2 - off/shp/asym
-std::tuple<AbsFreqParam&, RelSource&>
-BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
-                                     const size_t off, float amp) {
-  auto& top = add_param<Blank>();
-  auto& left = add_param<Blank>();
-  auto& right = add_param<Blank>();
-  add_pane(top, left, right);
-  auto [f, o] = add_abs_poly_osc(frq, shp, asym, off);
-  top.unblank(&f);
-  Gain& g = add_source<Gain>(o, amp, 100);  // todo - hi?
-  right.unblank(&g.get_amp());
-  return {f, g}; // TODO - currently unused.  why are we returning these?
+//   1 - freq/gain/off
+//   2 - freq/shp/asym
+RelSource& BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym,
+                                                const size_t off, float amp) {
+  size_t n = n_panes();
+  RelSource& o = add_abs_poly_osc(frq, shp, asym, off);
+  Gain& g = add_source<Gain>(o, amp, false);  // abs poly gain is for volume
+  static_cast<Blank&>(get_pane(n).x).unblank(&g.get_amp());
+  return g;
 }
 
 Merge& BaseManager::add_balance(RelSource& a, RelSource& b, float bal) {
