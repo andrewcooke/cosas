@@ -1,6 +1,7 @@
 
 
 #include "cosas/app_fome.h"
+#include "cosas/debug.h"
 
 
 FomeApp::FomeApp()

@@ -13,11 +13,11 @@ UIState::UIState(App& app, FIFO& fifo,  Codec& codec)
   : CtrlHandler(), app(app), fifo(fifo), leds_buffer(LEDsBuffer::get()),
     leds_mask(leds_buffer.leds_mask.get()), codec(codec) {
   source = nullptr;
-  update_source();
 }
 
 void UIState::per_sample_cb(Codec &codec) {
   RelSource* s = LOAD(source);
+  source_access_flag = true;
   if (s) codec.write_audio(Right, s->next(1, 0));
 };
 
@@ -130,6 +130,10 @@ void UIState::state_next_page(CtrlEvent event) {
 }
 
 void UIState::update_source() {
+  source = nullptr;
+  source_access_flag = false;
+  while (!LOAD(source_access_flag)) sleep_ms(1);
+  // here core 0 has hit the null source and so is not still accessing the old value
   source = app.get_source(source_idx);
   page = 0;
   update_page();
@@ -166,7 +170,7 @@ void UIState::state_source(CtrlEvent event) {
   switch (event.ctrl) {
   case (CtrlEvent::Switch):
     switch (event.now) {
-    case (CtrlEvent::Middle):
+  case (CtrlEvent::Middle):
       transition_leds_to(saved_adjust_mask, true);
       state = ADJUST;
       if (source_idx != saved_source_idx) {

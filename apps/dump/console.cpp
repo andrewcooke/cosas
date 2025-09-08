@@ -74,9 +74,14 @@ void dump_small(SmallManager::SmallEngine e, size_t n) {
 void dump_fome(uint n, int src) {
   FomeApp app;
   RelSource* source = app.get_source(src);
-  app.get_param(0, Main).set(440);
-  app.get_param(2, Main).set(10);
-  app.get_param(2, X).set(1);
+  // app.get_param(0, Main).set(440);
+  // app.get_param(2, Main).set(10);
+  // app.get_param(2, X).set(1);
+  for (size_t i = 0; i < n; i++) {
+    int16_t amp = source->next(1, 0);
+    std::cout << i << " " << amp << std::endl;
+  }
+  source = app.get_source(src+1);
   for (size_t i = 0; i < n; i++) {
     int16_t amp = source->next(1, 0);
     std::cout << i << " " << amp << std::endl;

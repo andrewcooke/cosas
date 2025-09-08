@@ -2,11 +2,11 @@
 #include <memory>
 
 #include "cosas/engine_small.h"
+#include "cosas/debug.h"
 
 
 RelSource& SmallManager::build(SmallEngine engine) {
   clear_all();
-
   switch (engine) {
   default:
   case OSCILLATOR:

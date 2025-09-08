@@ -2,6 +2,9 @@
 #include "weas/codec.h"
 
 
+void default_per_sample_cb(Codec& /* codec */) {};
+
+
 uint32_t __not_in_flash_func(Codec::calc_adc_scale)() {
   const uint16_t adc_max = adc_correction(0xfff);
   return static_cast<uint32_t>((0xfff << 19) / adc_max);
