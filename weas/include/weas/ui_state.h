@@ -6,6 +6,7 @@
 #include "cosas/app.h"
 #include "cosas/filter.h"
 #include "cosas/knobs.h"
+#include "cosas/node.h"
 #include "cosas/patomic.h"
 
 #include "weas/codec.h"
@@ -38,6 +39,7 @@ private:
 
   ATOMIC(RelSource*) source;
   ATOMIC(bool) source_access_flag;
+  ATOMIC(TapMixin*) tap;
   App& app;
   FIFO& fifo;
   LEDsBuffer& leds_buffer;

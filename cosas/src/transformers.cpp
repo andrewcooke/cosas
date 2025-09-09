@@ -11,6 +11,7 @@
 
 #include "cosas/debug.h"
 
+
 SingleFloat::SingleFloat(RelSource& nd, float v, float scale, float linearity, bool log, float lo, float hi)
   : SingleSource(nd), value(v), param(Value(this, scale, linearity, log, lo, hi)) {};
 

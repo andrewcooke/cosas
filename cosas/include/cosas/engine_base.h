@@ -41,6 +41,7 @@ protected:
 
   void clear_all();
   Pane& add_pane(Param& main, Param& x, Param& y) const;
+  Pane& add_pane(Param& main, Param& x, Param& y, TapMixin& tap) const;
   void swap_panes(size_t i, size_t j) const;
   void rotate_panes(size_t a, size_t b) const;
   AbsPolyOsc& add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off);

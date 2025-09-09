@@ -36,7 +36,7 @@
 // save parameters).
 
 // looks up the waveform in a wavetable, given the frequency
-class BaseOscillator : public RelSource {
+class BaseOscillator : public RelSource, public TapMixin {
 public:
   friend class PolyMixin;
   friend class FrequencyParam;

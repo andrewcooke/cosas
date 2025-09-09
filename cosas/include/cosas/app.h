@@ -8,6 +8,7 @@
 #include "cosas/common.h"
 #include "cosas/knobs.h"
 #include "cosas/source.h"
+#include "cosas/node.h"
 
 
 // this assumes that creating a source may be expensive but accessing
@@ -23,6 +24,7 @@ public:
   virtual RelSource* get_source(uint8_t source) = 0;
   virtual uint8_t n_pages() = 0;
   virtual Param& get_param(uint8_t page, Knob knob) = 0;
+  virtual TapMixin& get_tap(uint8_t page) = 0;
 
 };
 

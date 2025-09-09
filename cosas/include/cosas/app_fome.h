@@ -15,6 +15,7 @@ public:
   RelSource* get_source(uint8_t s) override;
   uint8_t n_pages() override;
   Param& get_param(uint8_t page, Knob knob) override;
+  TapMixin& get_tap(uint8_t page) override;;
 
 private:
   SmallManager manager;

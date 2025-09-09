@@ -26,3 +26,7 @@ uint8_t FomeApp::n_pages() {
 Param& FomeApp::get_param(uint8_t page, Knob knob) {
   return manager.get_pane(page).get_param(knob);
 }
+
+TapMixin& FomeApp::get_tap(uint8_t page) {
+  return manager.get_pane(page).tap;
+}

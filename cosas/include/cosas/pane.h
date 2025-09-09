@@ -5,6 +5,7 @@
 
 #include "cosas/params.h"
 #include "cosas/common.h"
+#include "cosas/node.h"
 
 
 // the collection of knobs/params currently on display
@@ -16,7 +17,9 @@ public:
   Param& main;
   Param& x;
   Param& y;
+  OptionalTap tap;
 };
+
 
 
 #endif

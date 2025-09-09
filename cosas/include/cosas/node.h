@@ -63,13 +63,37 @@ private:
   mutable int16_t previous = 0;
 };
 
-
+// TODO _ define inside Latch
 class SetOnInScope {
 public:
   explicit SetOnInScope(Latch* l);
   ~SetOnInScope();
 private:
   Latch* latch;
+};
+
+
+class TapMixin {
+public:
+  TapMixin() {};
+  virtual ~TapMixin() = default;
+  virtual int16_t prev() {return previous;};
+protected:
+  int16_t previous = 0;
+};
+
+
+class OptionalTap : public TapMixin {
+public:
+  OptionalTap() {};
+  ~OptionalTap() override = default;
+  void set(TapMixin* t) {tap = t;}
+  int16_t prev() override {
+    if (tap) return tap->prev();
+    return previous;
+  };
+private:
+  TapMixin* tap = nullptr;
 };
 
 

@@ -31,6 +31,12 @@ Pane& BaseManager::add_pane(Param& main, Param& x, Param& y) const {
   return *current_panes->back();
 }
 
+Pane& BaseManager::add_pane(Param& main, Param& x, Param& y, TapMixin& tap) const {
+  Pane& pane = add_pane(main, x, y);
+  pane.tap.set(&tap);
+  return pane;
+}
+
 void BaseManager::swap_panes(size_t i, size_t j) const {
   std::unique_ptr<Pane> tmp = std::move(current_panes->at(i));
   current_panes->at(i) = std::move(current_panes->at(j));
@@ -58,8 +64,8 @@ void BaseManager::rotate_panes(const size_t a, const size_t b) const {
 AbsPolyOsc& BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<AbsPolyOsc>(frq, shp, asym, off);
   AbsFreqParam& f = o.get_freq_param();
-  add_pane(f, add_param<Blank>(), add_param<Blank>());
-  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
+  add_pane(f, add_param<Blank>(), add_param<Blank>(), o);
+  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param(), o);
   return o;
 }
 
@@ -69,8 +75,8 @@ AbsPolyOsc& BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, si
 RelPolyOsc& BaseManager::add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<RelPolyOsc>(shp, asym, off, frq, 10.0f, 1.0f);
   RelFreqParam& f = o.get_freq_param();
-  add_pane(f, add_param<Blank>(), f.get_det_param());
-  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
+  add_pane(f, add_param<Blank>(), f.get_det_param(), o);
+  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param(), o);
   return o;
 }
 

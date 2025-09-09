@@ -34,7 +34,7 @@ void Latch::set_source(RelSource* s) {
 }
 
 int16_t Latch::next(int32_t delta, int32_t phi) {
-  if (! on) {
+  if (source && ! on) {
     auto s = SetOnInScope(this);
     previous = source->next(delta, phi);
   }

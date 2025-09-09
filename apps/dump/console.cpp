@@ -79,6 +79,7 @@ void dump_fome(uint n, int src) {
   app.get_param(2, X).set(10);
   for (size_t i = 0; i < n; i++) {
     int16_t amp = source->next(1, 0);
-    std::cout << i << " " << amp << std::endl;
+    int16_t amp2 = app.get_tap(0).prev();
+    std::cout << i << " " << amp << " " << amp2 << std::endl;
   }
 }

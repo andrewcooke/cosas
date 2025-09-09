@@ -13,16 +13,20 @@ UIState::UIState(App& app, FIFO& fifo,  Codec& codec)
   : CtrlHandler(), app(app), fifo(fifo), leds_buffer(LEDsBuffer::get()),
     leds_mask(leds_buffer.leds_mask.get()), codec(codec) {
   source = nullptr;
+  tap = nullptr;
 }
 
 void UIState::per_sample_cb(Codec &codec) {
   RelSource* s = LOAD(source);
   source_access_flag = true;
-  if (s) codec.write_audio(Right, s->next(1, 0));
+  if (s) {
+    codec.write_audio(Right, s->next(1, 0));
+    TapMixin* t = LOAD(tap);
+    codec.write_audio(Left, t->prev());
+  }
 };
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
-  State prev = state;
   if (! started) {
     started = true;
     handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, codec.read_switch(), 0));
@@ -45,11 +49,9 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
       break;
     }
   }
-  if (prev != state) Debug::log("state change ", prev, " -> ", state, " on ", event, " ", source_idx, "/", page);
 }
 
 void UIState::state_adjust(CtrlEvent event) {
-  if (source_idx == 1) Debug::log(event);
   switch (event.ctrl) {
   case (CtrlEvent::Switch): {
     switch (event.now) {
@@ -134,6 +136,7 @@ void UIState::state_next_page(CtrlEvent event) {
 
 void UIState::update_source() {
   source = nullptr;
+  tap = nullptr;
   source_access_flag = false;
   while (!LOAD(source_access_flag)) sleep_ms(1);
   // here core 0 has hit the null source and so is no longer accessing the
@@ -148,6 +151,7 @@ void UIState::update_page() {
     current_page_knobs[i] = std::make_unique<ParamAdapter>(app.get_param(page, static_cast<Knob>(i)));
     // current_page_knobs[i] = std::make_unique<ParamAdapter>(blank);
   }
+  tap = &app.get_tap(page);
 }
 
 void UIState::state_freewheel(CtrlEvent event) {
