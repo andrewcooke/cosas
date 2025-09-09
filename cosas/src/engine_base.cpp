@@ -53,30 +53,30 @@ void BaseManager::rotate_panes(const size_t a, const size_t b) const {
 }
 
 // panes:
-//   1 - freq/blk/off
-//   2 - freq/shp/asym
+//   1 - freq/blk/blk
+//   2 - off/shp/asym
 AbsPolyOsc& BaseManager::add_abs_poly_osc(float frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<AbsPolyOsc>(frq, shp, asym, off);
   AbsFreqParam& f = o.get_freq_param();
-  add_pane(f, add_param<Blank>(), o.get_off_param());
-  add_pane(f, o.get_shp_param(), o.get_asym_param());
+  add_pane(f, add_param<Blank>(), add_param<Blank>());
+  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
   return o;
 }
 
 // panes:
-//   1 - freq/blk/off
-//   2 - freq/shp/asym
+//   1 - freq/blk/det
+//   2 - off/shp/asym
 RelPolyOsc& BaseManager::add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off) {
   auto& o = add_source<RelPolyOsc>(shp, asym, off, frq, 10.0f, 1.0f);
   RelFreqParam& f = o.get_freq_param();
-  add_pane(f, add_param<Blank>(), o.get_off_param());
-  add_pane(f, o.get_shp_param(), o.get_asym_param());
+  add_pane(f, add_param<Blank>(), f.get_det_param());
+  add_pane(o.get_off_param(), o.get_shp_param(), o.get_asym_param());
   return o;
 }
 
 // panes:
-//   1 - freq/gain/off
-//   2 - freq/shp/asym
+//   1 - freq/gain/blk
+//   2 - off/shp/asym
 std::tuple<Gain&, AbsPolyOsc&>
 BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym, const size_t off, float amp) {
   size_t n = n_panes();
@@ -87,8 +87,8 @@ BaseManager::add_abs_poly_osc_w_gain(const float frq, size_t shp, size_t asym, c
 }
 
 // panes:
-//   1 - freq/gain/off
-//   2 - freq/shp/asym
+//   1 - freq/gain/det
+//   2 - off/shp/asym
 std::tuple<Gain&, RelPolyOsc&>
 BaseManager::add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym, const size_t off, float amp) {
   size_t n = n_panes();
@@ -104,8 +104,7 @@ Merge& BaseManager::add_balance(RelSource& a, RelSource& b, float bal) {
   return m;
 }
 
-// TODO _ pane
-RelSource& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
+Merge& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
   FM& fm = add_source<FM>(c, m);
   Merge& b = add_balance(fm, c, bal);
   return b;

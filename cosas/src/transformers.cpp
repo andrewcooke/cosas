@@ -70,7 +70,7 @@ Single14::Value& Gain14::get_amp() {
 
 Gain16::Gain16(RelSource& src, float amp, bool log)
   : SingleSource(src), value(static_cast<int32_t>(amp * one16)),
-    param(Value(this, 1, 0, log, log ? -1 : 0, log ? 1 : 2) ) {};
+    param(Value(this, 1, 1, log, log ? -1 : 0, log ? 3 : 2) ) {};
 
 int16_t Gain16::next(int32_t delta, int32_t phi) {
   int32_t a = src.next(delta, phi);

@@ -21,7 +21,7 @@ TEST_CASE("Engine, BuildFM_LFO") {
 TEST_CASE("Engine, BuildFM_FB") {
   OldManager m = OldManager();
   int32_t amp = m.build(m.FM_FB).next(666, 0);
-  CHECK(amp == 305);  // exact value not important
+  CHECK(amp == 1959);  // exact value not important
   CHECK(m.n_panes() == 3);  // carrier/filter, modulator, fm gain/balance/flt balance
 }
 
