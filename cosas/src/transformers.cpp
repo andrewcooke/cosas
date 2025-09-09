@@ -71,16 +71,19 @@ Single14::Value& Gain14::get_amp() {
 
 Gain16::Gain16(RelSource& src, float amp, bool log)
   : SingleSource(src), value(static_cast<int32_t>(amp * one16)),
-    param(Value(this, 1, 1, log, log ? -1 : 0, log ? 3 : 2) ) {};
+    param(Value(this, 1, 1, log, log ? -4 : 0, log ? 3 : 2)) {};
 
 int16_t Gain16::next(int32_t delta, int32_t phi) {
   int32_t a = src.next(delta, phi);
   int32_t b = (a * value) >> one16_bits;
-  // folding!  (because we can and it's relatively cheao)
-  if (b > SAMPLE_MAX) {
-    b = std::max(2 * SAMPLE_MAX - b, static_cast<int32_t>(SAMPLE_MIN));
-  } else if (b < SAMPLE_MIN) {
-    b = std::min(2 * SAMPLE_MIN - b, static_cast<int32_t>(SAMPLE_MAX));
+  // folding!  (because we can and it's relatively cheap)
+  if (! param.log) {
+    if (b > SAMPLE_MAX) {
+      b = std::max(2 * SAMPLE_MAX - b, static_cast<int32_t>(SAMPLE_MIN));
+    } else if (b < SAMPLE_MIN) {
+      b = std::min(2 * SAMPLE_MIN - b, static_cast<int32_t>(SAMPLE_MAX));
+    }
+    b = clip_16(b);
   }
   return static_cast<int16_t>(b);
 }

@@ -114,7 +114,7 @@ RelFreqParam::DetuneParam& RelFreqParam::get_det_param() {
 
 
 RelFreqParam::DetuneParam::DetuneParam(RelFreqParam *f)
-  : Param(0.1f, 0, false, 0.5, 2), rel_freq_param(f) {}
+  : Param(1.0f, 0, false, 0.9f, 1.1f), rel_freq_param(f) {}
 
 void RelFreqParam::DetuneParam::set(float v) {
   rel_freq_param->set_detune(v);
