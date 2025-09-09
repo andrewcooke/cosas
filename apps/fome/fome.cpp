@@ -14,7 +14,7 @@
 
 int main() {
   try {
-    Debug::get().init();
+    // Debug::get().init();
     patom::PseudoAtomicInit();
     auto& codec = CodecFactory<1, CODEC_SAMPLE_44_1>::get();
     codec.set_ctrl_alpha(1);

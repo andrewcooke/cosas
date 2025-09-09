@@ -19,7 +19,7 @@ constexpr size_t QUARTER_TABLE_SIZE = SAMPLE_RATE / 4;
 constexpr uint8_t SUBTICK_BITS = 3;
 constexpr size_t FULL_TABLE_SUB = FULL_TABLE_SIZE << SUBTICK_BITS;
 
-constexpr size_t PHI_FUDGE_BITS = 12;
+constexpr size_t PHI_FUDGE_BITS = 8;
 
 inline size_t tick2idx(int32_t tick) {
   return (tick >> SUBTICK_BITS) % FULL_TABLE_SIZE;

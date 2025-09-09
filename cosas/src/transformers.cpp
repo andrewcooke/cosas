@@ -40,7 +40,7 @@ SingleFloat::Value& GainFloat::get_amp() {
 
 
 Single14::Single14(RelSource& nd, const float v, float scale, float linearity, bool log, float lo, float hi)
-  : SingleSource(nd), value(scale2mult_shift14(v)), param(Value(this, scale, linearity, log, lo, hi)), v(v) {};
+  : SingleSource(nd), value(scale2mult_shift14(v)), param(Value(this, scale, linearity, log, lo, hi)) {};
 
 Single14::Value::Value(Single14* p, float scale, float linearity, bool log, float lo, float hi)
   : Param(scale, linearity, log, lo, hi), parent(p) {};
@@ -68,7 +68,38 @@ Single14::Value& Gain14::get_amp() {
 }
 
 
-Gain::Gain(RelSource& nd, float amp, bool log) : Gain14(nd, amp, log) {};
+Gain16::Gain16(RelSource& src, float amp, bool log)
+  : SingleSource(src), value(static_cast<int32_t>(amp * one16)),
+    param(Value(this, 1, 0, log, log ? -1 : 0, log ? 1 : 2) ) {};
+
+int16_t Gain16::next(int32_t delta, int32_t phi) {
+  int32_t a = src.next(delta, phi);
+  int32_t b = (a * value) >> one16_bits;
+  // folding!  (because we can and it's relatively cheao)
+  if (b > SAMPLE_MAX) {
+    b = std::max(2 * SAMPLE_MAX - b, static_cast<int32_t>(SAMPLE_MIN));
+  } else if (b < SAMPLE_MIN) {
+    b = std::min(2 * SAMPLE_MIN - b, static_cast<int32_t>(SAMPLE_MAX));
+  }
+  return static_cast<int16_t>(b);
+}
+
+Gain16::Value::Value(Gain16* p, float scale, float linearity, bool log, float lo, float hi)
+  : Param(scale, linearity, log, lo, hi), parent(p) {};
+
+void Gain16::Value::set(const float v) {
+  parent->value = static_cast<int32_t>(v * one16);
+}
+
+float Gain16::Value::get() {
+  return static_cast<float>(parent->value) / one16;
+}
+
+Gain16::Value& Gain16::get_amp() {
+  return param;
+}
+
+Gain::Gain(RelSource& nd, float amp, bool log) : Gain16(nd, amp, log) {};
 
 
 // these (float based) may be too slow?

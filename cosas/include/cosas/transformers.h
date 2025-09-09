@@ -59,7 +59,6 @@ protected:
   Single14(RelSource& src, float v, float scale, float linearity, bool log, float lo, float h);
   uint16_t value;
   Value param;
-  const float v;
 };
 
 
@@ -71,11 +70,33 @@ public:
 };
 
 
+class Gain16 : public SingleSource {
+public:
+  Gain16(RelSource& src, float amp, bool log);
+  static constexpr size_t one16_bits = 16;
+  static constexpr int32_t one16 = 1 << one16_bits;
+  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  class Value final : public Param {
+  public:
+    Value(Gain16* p, float scale, float linearity, bool log, float lo, float hi);
+    void set(float v) override;
+    float get() override;
+  private:
+    Gain16* parent;
+  };
+  friend class Value;
+  Value& get_amp();
+private:
+  int32_t value;
+  Value param;
+};
+
+
 // forward to Gain14 on assumption this is faster
 // a log gain goes from some small value to 1 in log steps (eg for phase shifting)
 // a linear gain goes from 0 to 2 in linear steps (eg for audio amp)
 // amp is initial value
-class Gain : public Gain14 {
+class Gain : public Gain16 {
 public:
   Gain(RelSource& src, float amp, bool log);
 };

@@ -26,5 +26,5 @@ int main() {
   //  dump_w_gain(Manager::Engine::FM_ENV, 0.3 * sample_rate);
   // dump_w_top(Manager::Engine::CHORD, 0.3 * SAMPLE_RATE, 1); // weight of first overtone
   // dump_small(SmallManager::POLY, HALF_TABLE_SIZE);
-  dump_fome(0.01 * FULL_TABLE_SIZE, 0);
+  dump_fome(0.01 * FULL_TABLE_SIZE, 1);
 }

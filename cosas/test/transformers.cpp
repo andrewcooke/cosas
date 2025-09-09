@@ -23,6 +23,31 @@ TEST_CASE("Transformers, Gain14") {
 }
 
 
+TEST_CASE("Transformers, Gain16 pos lin") {
+  Constant c = Constant(100);
+  Gain16 g = Gain16(c, 1, false);
+  CHECK(g.next(123, 0) == 100);
+  g.get_amp().set(0.1f);
+  CHECK(g.next(123, 0) == 9);  // almost
+  g.get_amp().set(10.0f);
+  CHECK(g.next(123, 0) == 1000);
+  g.get_amp().set(30.0f);
+  CHECK(g.next(123, 0) == 1094);  // folding
+}
+
+TEST_CASE("Transformers, Gain16 neg lin") {
+  Constant c = Constant(-100);
+  Gain16 g = Gain16(c, 1, false);
+  CHECK(g.next(123, 0) == -100);
+  g.get_amp().set(0.1f);
+  CHECK(g.next(123, 0) == -10);
+  g.get_amp().set(10.0f);
+  CHECK(g.next(123, 0) == -1000);
+  g.get_amp().set(30.0f);
+  CHECK(g.next(123, 0) == -1094);
+}
+
+
 TEST_CASE("Transformers, Folder") {
   Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);

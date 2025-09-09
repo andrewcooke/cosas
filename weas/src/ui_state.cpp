@@ -22,6 +22,7 @@ void UIState::per_sample_cb(Codec &codec) {
 };
 
 void UIState::handle_ctrl_change(CtrlEvent event) {
+  State prev = state;
   if (! started) {
     started = true;
     handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, codec.read_switch(), 0));
@@ -44,9 +45,11 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
       break;
     }
   }
+  if (prev != state) Debug::log("state change ", prev, " -> ", state, " on ", event, " ", source_idx, "/", page);
 }
 
 void UIState::state_adjust(CtrlEvent event) {
+  if (source_idx == 1) Debug::log(event);
   switch (event.ctrl) {
   case (CtrlEvent::Switch): {
     switch (event.now) {
@@ -133,7 +136,8 @@ void UIState::update_source() {
   source = nullptr;
   source_access_flag = false;
   while (!LOAD(source_access_flag)) sleep_ms(1);
-  // here core 0 has hit the null source and so is not still accessing the old value
+  // here core 0 has hit the null source and so is no longer accessing the
+  // old value and we can safely delete
   source = app.get_source(source_idx);
   page = 0;
   update_page();
