@@ -22,7 +22,7 @@ void UIState::per_sample_cb(Codec &codec) {
   if (s) {
     codec.write_audio(Right, s->next(1, 0));
     TapMixin* t = LOAD(tap);
-    codec.write_audio(Left, t->prev());
+    codec.write_audio(Left, t ? t->prev() : 0);
   }
 };
 
