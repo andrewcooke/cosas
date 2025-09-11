@@ -32,10 +32,12 @@ int16_t BaseOscillator::next(uint32_t tick, int32_t phi) {
    */
   // increment time
   uint32_t frequency_val = LOAD(frequency);
-  if (tick > FULL_TABLE_SUB) tick -= FULL_TABLE_SUB;
+  // if (tick > FULL_TABLE_SUB) tick -= FULL_TABLE_SUB;
   // convert phi to something like phase (didn't seem to get signed shift even though using c23)
   const int32_t phi_phase = sgn(phi) * static_cast<int32_t>((static_cast<uint32_t>(abs(phi)) * frequency_val) >> PHI_FUDGE_BITS_2);  // arbitrary scaling
-  return previous = LOAD(abs_source)->next(tick * frequency_val + phi_phase);
+  int64_t full_tick = static_cast<int64_t>(tick) * frequency_val + phi_phase;
+  return previous = LOAD(abs_source)->next(static_cast<int32_t>(full_tick ^ FULL_TABLE_SUB));
+  // return previous = LOAD(abs_source)->next(tick * frequency_val + phi_phase);
 }
 
 
