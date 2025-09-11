@@ -56,7 +56,7 @@ float Single14::Value::get() {
 
 
 Gain14::Gain14(RelSource& nd, const float amp, bool log)
-  : Single14(nd, amp, 1, 1, log, log ? -3 : 0, log ? 3 : 2) {};
+  : Single14(nd, amp, 1, 1, log, log ? -1 : 0, log ? 1 : 2) {};
 
 int16_t Gain14::next(const int32_t delta, const int32_t phi) {
   int16_t a = src.next(delta, phi);

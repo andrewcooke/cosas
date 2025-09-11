@@ -74,12 +74,25 @@ void dump_small(SmallManager::SmallEngine e, size_t n) {
 void dump_fome(uint n, int src) {
   FomeApp app;
   RelSource* source = app.get_source(src);
-  // app.get_param(0, Main).set(440);
+  app.get_param(2, X).set(1e-10f);
+  std::cerr << "fc " << app.get_param(0, Main).get() << std::endl;
+  std::cerr << "ac " << app.get_param(0, X).get() << std::endl;
+  std::cerr << "mx " << app.get_param(0, Y).get() << std::endl;
+  std::cerr << "oc " << app.get_param(1, Main).get() << std::endl;
+  std::cerr << "sc " << app.get_param(1, X).get() << std::endl;
+  std::cerr << "ac " << app.get_param(1, Y).get() << std::endl;
+  std::cerr << "fm " << app.get_param(2, Main).get() << std::endl;
+  std::cerr << "am " << app.get_param(2, X).get() << std::endl;
+  std::cerr << "dm " << app.get_param(2, Y).get() << std::endl;
+  std::cerr << "om " << app.get_param(3, Main).get() << std::endl;
+  std::cerr << "sm " << app.get_param(3, X).get() << std::endl;
+  std::cerr << "am " << app.get_param(3, Y).get() << std::endl;
   // app.get_param(2, Main).set(10);
-  app.get_param(2, X).set(10);
+  // app.get_param(2, X).set(10);
   for (size_t i = 0; i < n; i++) {
+    app.get_param(2, X).set(powf(10, -1 + 2 * (static_cast<float>(i) / n)));
     int16_t amp = source->next(1, 0);
     int16_t amp2 = app.get_tap(0).prev();
-    std::cout << i << " " << amp << " " << amp2 << std::endl;
+    std::cout << i << " " << amp << " " << amp2 << " " << app.get_param(2, X).get() << std::endl;
   }
 }

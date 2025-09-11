@@ -117,6 +117,13 @@ inline int16_t mult_shift14(uint16_t k, int16_t x) {
 }
 
 
+template <typename T> T sgn(T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
+
+
+
 /*
 
 class IEEEFloat {
