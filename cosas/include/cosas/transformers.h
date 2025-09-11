@@ -11,10 +11,10 @@
 // these have one input (modulators have two)
 
 
-class SingleSource : public RelSource {
+class SingleSource : public PhaseSource {
 protected:
-  explicit SingleSource(RelSource& src) : src(src) {};
-  RelSource& src;
+  explicit SingleSource(PhaseSource& src) : src(src) {};
+  PhaseSource& src;
 };
 
 
@@ -30,7 +30,7 @@ public:
   };
   friend class Value;
 protected:
-  SingleFloat(RelSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
+  SingleFloat(PhaseSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
   float value;
   Value param;
 };
@@ -38,8 +38,8 @@ protected:
 
 class GainFloat final : public SingleFloat {
 public:
-  GainFloat(RelSource& src, float amp, float hi);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  GainFloat(PhaseSource& src, float amp, float hi);
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
   Value& get_amp();
 };
 
@@ -56,7 +56,7 @@ public:
   };
   friend class Value;
 protected:
-  Single14(RelSource& src, float v, float scale, float linearity, bool log, float lo, float h);
+  Single14(PhaseSource& src, float v, float scale, float linearity, bool log, float lo, float h);
   uint16_t value;
   Value param;
 };
@@ -64,18 +64,18 @@ protected:
 
 class Gain14 : public Single14 {
 public:
-  Gain14(RelSource& src, float amp, bool log);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  Gain14(PhaseSource& src, float amp, bool log);
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
   Value& get_amp();
 };
 
 
 class Gain16 : public SingleSource {
 public:
-  Gain16(RelSource& src, float amp, bool log);
+  Gain16(PhaseSource& src, float amp, bool log);
   static constexpr size_t one16_bits = 16;
   static constexpr int32_t one16 = 1 << one16_bits;
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
   class Value final : public Param {
   public:
     Value(Gain16* p, float scale, float linearity, bool log, float lo, float hi);
@@ -98,15 +98,15 @@ private:
 // amp is initial value
 class Gain : public Gain16 {
 public:
-  Gain(RelSource& src, float amp, bool log);
+  Gain(PhaseSource& src, float amp, bool log);
 };
 
 
 class FloatFunc : public SingleFloat {
 public:
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 protected:
-  FloatFunc(RelSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
+  FloatFunc(PhaseSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
   // x is normalised 0-1 and this can (will) use value
   [[nodiscard]] virtual float func(float x) const = 0;
 };
@@ -114,7 +114,7 @@ protected:
 
 class Compander final : public FloatFunc {
 public:
-  Compander(RelSource& src, float gamma);
+  Compander(PhaseSource& src, float gamma);
 private:
   [[nodiscard]] float func(float x) const override;
 };
@@ -123,7 +123,7 @@ private:
 class Folder final : public FloatFunc {
 public:
   // k is progrgessive, 0-1 expands and 1-2 folds
-  Folder(RelSource& src, float k);
+  Folder(PhaseSource& src, float k);
   Value& get_fold();
 private:
   [[nodiscard]] float func(float x) const override;
@@ -154,8 +154,8 @@ public:
     mutable size_t circular_idx;
   };
   friend class Length;
-  Boxcar(RelSource& src, size_t l);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  Boxcar(PhaseSource& src, size_t l);
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
   Length& get_len();
 private:
   std::unique_ptr<CircBuffer> cbuf;
@@ -174,7 +174,7 @@ private:
 // for use with a long list of nodes, it means that the first node is
 // dominant, and the rest fill in as required.
 
-class MergeFloat : public RelSource {
+class MergeFloat : public PhaseSource {
 public:
   class Weight final : public Param {
   public:
@@ -186,14 +186,14 @@ public:
     size_t idx;
   };
   friend class Weight;
-  MergeFloat(RelSource& src, float w);
-  void add_source(RelSource& src, float w);
+  MergeFloat(PhaseSource& src, float w);
+  void add_source(PhaseSource& src, float w);
   [[nodiscard]] Weight& get_weight(size_t i) const;
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 protected:
   virtual void normalize();
   std::unique_ptr<std::vector<Weight>> weights;
-  std::unique_ptr<std::vector<RelSource*>> sources;
+  std::unique_ptr<std::vector<PhaseSource*>> sources;
   std::unique_ptr<std::vector<float>> given_weights;
   std::unique_ptr<std::vector<float>> norm_weights;
 };
@@ -202,8 +202,8 @@ protected:
 class Merge14 : public MergeFloat {
 public:
   friend class Weight;
-  Merge14(RelSource& src, float w);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
+  Merge14(PhaseSource& src, float w);
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 protected:
   void normalize() override;
   std::unique_ptr<std::vector<uint16_t>> uint16_weights;
@@ -213,7 +213,7 @@ protected:
 // forward to Gain14 on assumption this is faster
 class Merge final : public Merge14 {
 public:
-  Merge(RelSource& src, float w);
+  Merge(PhaseSource& src, float w);
 };
 
 

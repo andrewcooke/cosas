@@ -17,10 +17,10 @@ UIState::UIState(App& app, FIFO& fifo,  Codec& codec)
 }
 
 void UIState::per_sample_cb(Codec &codec) {
-  RelSource* s = LOAD(source);
+  PhaseSource* s = LOAD(source);
   source_access_flag = true;
   if (s) {
-    codec.write_audio(Right, s->next(1, 0));
+    codec.write_audio(Right, s->next(codec.get_count(), 0));
     TapMixin* t = LOAD(tap);
     codec.write_audio(Left, t ? t->prev() : 0);
   }
@@ -31,6 +31,7 @@ void UIState::handle_ctrl_change(CtrlEvent event) {
     started = true;
     handle_ctrl_change(CtrlEvent(CtrlEvent::Switch, codec.read_switch(), 0));
   }
+  Debug::log(event);
   if (ctrl_gate.test(event)) {
     event = ctrl_gate.get();
     switch (state) {

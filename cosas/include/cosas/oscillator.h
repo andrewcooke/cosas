@@ -5,6 +5,8 @@
 #include <memory>
 #include <functional>
 
+#include "cosas/source.h"
+#include "cosas/node.h"
 #include "cosas/patomic.h"
 #include "cosas/maths.h"
 #include "cosas/params.h"
@@ -36,19 +38,16 @@
 // save parameters).
 
 // looks up the waveform in a wavetable, given the frequency
-class BaseOscillator : public RelSource, public TapMixin {
+class BaseOscillator : public PhaseSource, public TapMixin {
 public:
   friend class PolyMixin;
   friend class FrequencyParam;
   friend class WavedexMixin;
   BaseOscillator(uint32_t f, Wavetable *t);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 protected:
   ATOMIC(uint32_t) frequency;  // subtick units
   ATOMIC(AbsSource*) abs_source;
-private:
-  static constexpr int32_t TIME_MODULUS = SAMPLE_RATE << SUBTICK_BITS;  // see discussion in oscillator.cpp
-  int32_t tick = 0;
 };
 
 

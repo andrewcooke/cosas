@@ -37,7 +37,7 @@ public:
 
 private:
 
-  ATOMIC(RelSource*) source;
+  ATOMIC(PhaseSource*) source;
   ATOMIC(bool) source_access_flag;
   ATOMIC(TapMixin*) tap;
   App& app;

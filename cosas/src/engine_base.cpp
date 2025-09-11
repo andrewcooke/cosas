@@ -7,7 +7,7 @@
 
 
 BaseManager::BaseManager()
-  : current_sources(std::move(std::make_unique<std::vector<std::unique_ptr<RelSource>>>())),
+  : current_sources(std::move(std::make_unique<std::vector<std::unique_ptr<PhaseSource>>>())),
     current_params(std::move(std::make_unique<std::vector<std::unique_ptr<Param>>>())),
     current_panes(std::move(std::make_unique<std::vector<std::unique_ptr<Pane>>>())) {};
 
@@ -104,13 +104,13 @@ BaseManager::add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym,
   return {g, o};
 }
 
-Merge& BaseManager::add_balance(RelSource& a, RelSource& b, float bal) {
+Merge& BaseManager::add_balance(PhaseSource& a, PhaseSource& b, float bal) {
   auto& m = add_source<Merge>(a, bal);
   m.add_source(b, 1);
   return m;
 }
 
-Merge& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
+Merge& BaseManager::add_fm(PhaseSource& c, PhaseSource& m, float bal) {
   FM& fm = add_source<FM>(c, m);
   Merge& b = add_balance(fm, c, bal);
   return b;
@@ -118,13 +118,13 @@ Merge& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
 
 // panes:
 //   1 - gain/wet/blk
-RelSource& BaseManager::add_fm(RelSource& c, RelSource& m, float bal, float amp) {
+PhaseSource& BaseManager::add_fm(PhaseSource& c, PhaseSource& m, float bal, float amp) {
   return add_fm(c, m, bal, amp, add_param<Blank>());
 }
 
 // panes:
 //   1 - gain/wet/arg
-RelSource& BaseManager::add_fm(RelSource& c, RelSource& m, float bal, float amp, Param& right) {
+PhaseSource& BaseManager::add_fm(PhaseSource& c, PhaseSource& m, float bal, float amp, Param& right) {
   Gain& g = add_source<Gain>(m, amp, 100);  // todo - hi
   FM& fm = add_source<FM>(c, g);
   Merge& b = add_balance(fm, c, bal);

@@ -12,15 +12,15 @@ constexpr uint8_t SAMPLE_BITS = 12;
 constexpr int16_t SAMPLE_MAX = (1 << (SAMPLE_BITS - 1)) - 1;
 constexpr int16_t SAMPLE_MIN = -SAMPLE_MAX; // throw away one value because i don't like the asymmetry
 
-constexpr size_t FULL_TABLE_SIZE = SAMPLE_RATE;
-constexpr size_t HALF_TABLE_SIZE = SAMPLE_RATE / 2;
-constexpr size_t QUARTER_TABLE_SIZE = SAMPLE_RATE / 4;
+constexpr uint32_t FULL_TABLE_SIZE = SAMPLE_RATE;
+constexpr uint32_t HALF_TABLE_SIZE = SAMPLE_RATE / 2;
+constexpr uint32_t QUARTER_TABLE_SIZE = SAMPLE_RATE / 4;
 
 constexpr uint8_t SUBTICK_BITS = 3;
-constexpr size_t FULL_TABLE_SUB = FULL_TABLE_SIZE << SUBTICK_BITS;
+constexpr uint32_t FULL_TABLE_SUB = FULL_TABLE_SIZE << SUBTICK_BITS;
 
-constexpr size_t PHI_FUDGE_BITS = 5;
-constexpr size_t PHI_FUDGE_BITS_2 = 8;
+constexpr uint32_t PHI_FUDGE_BITS = 5;
+constexpr uint32_t PHI_FUDGE_BITS_2 = 8;
 
 inline size_t tick2idx(int32_t tick) {
   return (tick >> SUBTICK_BITS) % FULL_TABLE_SIZE;

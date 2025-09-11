@@ -18,12 +18,12 @@ public:
   static constexpr size_t N_ENGINE = SIMPLE_2_OSC_FM + 1;
 
   SmallManager() = default;
-  RelSource& build(SmallEngine);
+  PhaseSource& build(SmallEngine);
 
 private:
 
-  RelSource& build_oscillator();
-  RelSource& build_simple_2_osc_fm();
+  PhaseSource& build_oscillator();
+  PhaseSource& build_simple_2_osc_fm();
 
 };
 

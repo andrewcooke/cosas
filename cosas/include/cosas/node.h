@@ -11,12 +11,12 @@
 
 // useful for testing
 
-class Constant final : public RelSource {
+class Constant final : public PhaseSource {
 
 public:
 
-  Constant(int16_t v); // NOLINT(*-explicit-constructor)
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  explicit Constant(int16_t v);
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 
 private:
 
@@ -26,12 +26,12 @@ private:
 extern Constant zero;
 
 
-class Sequence final : public RelSource {
+class Sequence final : public PhaseSource {
 
 public:
 
   Sequence(std::initializer_list<int16_t> vs);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(uint32_t tick, int32_t phi) override;
 
 private:
 
@@ -46,19 +46,19 @@ private:
 // and implemented with mutable to avoid polluting the Node/Source
 // interface.
 
-class Latch final : public RelSource {
+class Latch final : public PhaseSource {
 
 public:
 
   Latch();
-  void set_source(RelSource* s);
-  int16_t next(int32_t delta, int32_t phi) override;
+  void set_source(PhaseSource* s);
+  int16_t next(uint32_t tick, int32_t phi) override;
 
   friend class SetOnInScope;
 
 private:
 
-  mutable RelSource* source;
+  mutable PhaseSource* source;
   mutable bool on = false;
   mutable int16_t previous = 0;
 };
@@ -75,7 +75,7 @@ private:
 
 class TapMixin {
 public:
-  TapMixin() {};
+  TapMixin() = default;
   virtual ~TapMixin() = default;
   virtual int16_t prev() {return previous;};
 protected:

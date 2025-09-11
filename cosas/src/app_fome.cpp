@@ -11,7 +11,7 @@ uint8_t FomeApp::n_sources() {
   return SmallManager::N_ENGINE;
 }
 
-RelSource* FomeApp::get_source(uint8_t s) {
+PhaseSource* FomeApp::get_source(uint8_t s) {
   if (s != source_idx) {
     source_idx = s;
     source = &manager.build(static_cast<SmallManager::SmallEngine>(s));

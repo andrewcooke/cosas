@@ -48,14 +48,14 @@ protected:
   std::tuple<Gain&, AbsPolyOsc&> add_abs_poly_osc_w_gain(float frq, size_t shp, size_t asym, size_t off, float amp);
   RelPolyOsc& add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off);
   std::tuple<Gain&, RelPolyOsc&> add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym, size_t off, float amp);
-  Merge& add_balance(RelSource& a, RelSource& b, float bal);
-  Merge& add_fm(RelSource& c, RelSource& m, float bal);
-  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
-  RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Param& right);
+  Merge& add_balance(PhaseSource& a, PhaseSource& b, float bal);
+  Merge& add_fm(PhaseSource& c, PhaseSource& m, float bal);
+  PhaseSource& add_fm(PhaseSource& c,  PhaseSource& m, float bal, float amp);
+  PhaseSource& add_fm(PhaseSource& c,  PhaseSource& m, float bal, float amp, Param& right);
 
 private:
 
-  std::unique_ptr<std::vector<std::unique_ptr<RelSource>>> current_sources;
+  std::unique_ptr<std::vector<std::unique_ptr<PhaseSource>>> current_sources;
   std::unique_ptr<std::vector<std::unique_ptr<Param>>> current_params;
   std::unique_ptr<std::vector<std::unique_ptr<Pane>>> current_panes;
 };

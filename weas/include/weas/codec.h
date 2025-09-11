@@ -161,7 +161,7 @@ protected:
   uint16_t adc_mask[N_ADC_SOURCES] = { 0xffffu, 0xffffu, 0xffffu };  // TODO - hardcodes N_AUDIO_SOURCES
 
   uint32_t count = 0;
-  uint32_t starting = 10;
+  uint32_t starting = 100;
   volatile ADCRunMode run_mode;
 
   uint32_t cv_out[N_CHANNELS] = {262144u, 262144u};  // TODO - again, hardcoding length  TODO - unsure of type here, audio was wrong
@@ -493,7 +493,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     run_mode = Stopped;
   }
 
-  count++;
+  count = (count + 1) % FULL_TABLE_SUB;
 }
 
 template <uint OVERSAMPLE_BITS, uint F> __attribute__((section(".time_critical." "cc-handle-cv")))
