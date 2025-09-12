@@ -6,6 +6,7 @@
 
 #include "cosas/params.h"
 #include "cosas/node.h"
+#include "cosas/maths.h"
 
 
 // these have one input (modulators have two)
@@ -199,7 +200,7 @@ protected:
 };
 
 
-class Merge14 : public MergeFloat {
+class Merge14 : public MergeFloat {  // TODO - this shouldn't inherit from float
 public:
   friend class Weight;
   Merge14(RelSource& src, float w);
@@ -215,6 +216,41 @@ class Merge final : public Merge14 {
 public:
   Merge(RelSource& src, float w);
 };
+
+
+class Mix : public RelSource {
+public:
+  Mix(RelSource& dry, float w);
+  [[nodiscard]] int16_t next(int32_t phi) override;
+  void set_wet(RelSource* w) { wet = w; };
+  class Weight final : public Param {
+  public:
+    explicit Weight(Mix* mix) : Param(1, 1, false, 0 , 1), mix(mix) {};
+    void set(float w) override { mix->weight = scale2mult_shift14(w); };
+    float get() override { return unscale2mult_shift14(mix->weight); };
+  private:
+    Mix* mix;
+  };
+  friend class Weight;
+  Weight& get_weight() { return param; };
+  class SetOnInScope {
+  public:
+    explicit SetOnInScope(Mix* mix) : mix(mix) { mix->on = true;};
+    ~SetOnInScope() { mix->on = false; };
+  private:
+    Mix* mix;
+  };
+  friend class SetOnInScope;
+protected:
+  RelSource& dry;
+  RelSource* wet = nullptr;
+  uint16_t weight;
+  Weight param;
+  bool on = false;
+  int16_t dry_val;
+};
+
+
 
 
 #endif

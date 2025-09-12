@@ -49,7 +49,7 @@ protected:
   RelPolyOsc& add_rel_poly_osc(AbsFreqParam& frq, size_t shp, size_t asym, size_t off);
   std::tuple<Gain&, RelPolyOsc&> add_rel_poly_osc_w_gain(AbsFreqParam& frq, size_t shp, size_t asym, size_t off, float amp);
   Merge& add_balance(RelSource& a, RelSource& b, float bal);
-  Merge& add_fm(RelSource& c, RelSource& m, float bal);
+  Mix& add_fm(RelSource& c, RelSource& m, float bal);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp);
   RelSource& add_fm(RelSource& c,  RelSource& m, float bal, float amp, Param& right);
 

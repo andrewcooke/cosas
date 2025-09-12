@@ -110,9 +110,10 @@ Merge& BaseManager::add_balance(RelSource& a, RelSource& b, float bal) {
   return m;
 }
 
-Merge& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
+Mix& BaseManager::add_fm(RelSource& c, RelSource& m, float bal) {
+  Mix& b = add_source<Mix>(c, bal);
   FM& fm = add_source<FM>(c, m);
-  Merge& b = add_balance(fm, c, bal);
+  b.set_wet(&fm);
   return b;
 }
 

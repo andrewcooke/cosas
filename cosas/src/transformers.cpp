@@ -262,3 +262,17 @@ int16_t Merge14::next(const int32_t phi) {
 
 Merge::Merge(RelSource& n, const float w) : Merge14(n, w) {};
 
+
+Mix::Mix(RelSource &dry, float w)
+  : dry(dry), weight(scale2mult_shift14(w)), param(Weight(this)), dry_val(0) {};
+
+int16_t Mix::next(int32_t phi) {
+  if (on) {
+    return dry_val;
+  } else {
+    dry_val = dry.next(phi);
+    auto flag = SetOnInScope(this);
+    int16_t wet_val = wet->next(phi);  // this recurses and finds on = true
+    return mult_shift14(weight, wet_val) + mult_shift14(one14 - weight, dry_val);
+  }
+}
