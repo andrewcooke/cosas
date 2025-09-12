@@ -30,8 +30,8 @@ float SingleFloat::Value::get() {
 GainFloat::GainFloat(RelSource& nd, float amp, float hi)
   : SingleFloat(nd, amp, 1, 1, true, 0, hi) {};
 
-int16_t GainFloat::next(const int32_t delta, const int32_t phi)  {
-  const int16_t a = src.next(delta, phi);
+int16_t GainFloat::next(const int32_t phi)  {
+  const int16_t a = src.next(phi);
   return clip_16(value * static_cast<float>(a));
 }
 
@@ -58,8 +58,8 @@ float Single14::Value::get() {
 Gain14::Gain14(RelSource& nd, const float amp, bool log)
   : Single14(nd, amp, 1, 1, log, log ? -1 : 0, log ? 1 : 2) {};
 
-int16_t Gain14::next(const int32_t delta, const int32_t phi) {
-  int16_t a = src.next(delta, phi);
+int16_t Gain14::next(const int32_t phi) {
+  int16_t a = src.next(phi);
   int16_t b = mult_shift14(value, a);
   return b;
 }
@@ -73,8 +73,8 @@ Gain16::Gain16(RelSource& src, float amp, bool log)
   : SingleSource(src), value(static_cast<int32_t>(amp * one16)),
     param(Value(this, 1, 1, log, log ? -4 : 0, log ? 3 : 2)) {};
 
-int16_t Gain16::next(int32_t delta, int32_t phi) {
-  int32_t a = src.next(delta, phi);
+int16_t Gain16::next(int32_t phi) {
+  int32_t a = src.next(phi);
   int32_t b = (a * value) >> one16_bits;
   // folding!  (because we can and it's relatively cheap)
   if (! param.log) {
@@ -100,6 +100,7 @@ float Gain16::Value::get() {
 }
 
 Gain16::Value& Gain16::get_amp() {
+
   return param;
 }
 
@@ -112,8 +113,8 @@ Gain::Gain(RelSource& nd, float amp, bool log) : Gain16(nd, amp, log) {};
 FloatFunc::FloatFunc(RelSource& nd, float v, float scale, float linearity, bool log, float lo, float hi)
   : SingleFloat(nd, v, scale, linearity, log, lo, hi) {};
 
-int16_t FloatFunc::next(const int32_t delta, const int32_t phi) {
-  const int16_t sample = src.next(delta, phi);
+int16_t FloatFunc::next(const int32_t phi) {
+  const int16_t sample = src.next(phi);
   const bool neg = sample < 0;
   const float x = static_cast<float>(abs(sample)) / static_cast<float>(SAMPLE_MAX);
   const float y = func(x);
@@ -178,8 +179,8 @@ float Boxcar::Length::get() {
 }
 
 
-int16_t Boxcar::next(int32_t delta, int32_t phi) {
-  return cbuf->next(src.next(delta, phi));
+int16_t Boxcar::next(int32_t phi) {
+  return cbuf->next(src.next(phi));
 }
 
 Boxcar::Length& Boxcar::get_len() {
@@ -217,10 +218,10 @@ MergeFloat::Weight& MergeFloat::get_weight(size_t i) const {
   return weights->at(i);
 }
 
-int16_t MergeFloat::next(const int32_t tick, const int32_t phi) {
+int16_t MergeFloat::next(const int32_t phi) {
   float acc = 0;
   for (size_t i = 0; i < norm_weights->size(); i++) {
-    acc += norm_weights->at(i) * static_cast<float>(sources->at(i)->next(tick, phi));
+    acc += norm_weights->at(i) * static_cast<float>(sources->at(i)->next(phi));
   }
   return clip_16(acc + 0.5f);  // round to nearest
 }
@@ -250,10 +251,10 @@ void Merge14::normalize() {
   uint16_weights = std::move(new_uint16_weights);
 }
 
-int16_t Merge14::next(const int32_t tick, const int32_t phi) {
+int16_t Merge14::next(const int32_t phi) {
   int32_t acc = 0;
   for (size_t i = 0; i < uint16_weights->size(); i++) {
-    acc += mult_shift14(uint16_weights->at(i), sources->at(i)->next(tick, phi));
+    acc += mult_shift14(uint16_weights->at(i), sources->at(i)->next(phi));
   }
   return clip_16(acc);
 }

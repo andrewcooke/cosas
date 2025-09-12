@@ -13,7 +13,7 @@ BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) {
   frequency = f;
 };
 
-int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
+int16_t BaseOscillator::next(const int32_t phi) {
   /*
    * the RelSource interface deals in delta samples - typically 1, but allowing
    * for more in case the output buffer underflows.  here we need to convert that
@@ -32,7 +32,7 @@ int16_t BaseOscillator::next(const int32_t delta, const int32_t phi) {
    */
   // increment time
   uint32_t frequency_val = LOAD(frequency);
-  tick += delta * static_cast<int32_t>(frequency_val);
+  tick += static_cast<int32_t>(frequency_val);
   if (tick > TIME_MODULUS) tick -= TIME_MODULUS;
   // convert phi to something like phase (didn't seem to get signed shift even though using c23)
   const int32_t phi_phase = sgn(phi) * static_cast<int32_t>((static_cast<uint32_t>(abs(phi)) * frequency_val) >> PHI_FUDGE_BITS_2);  // arbitrary scaling

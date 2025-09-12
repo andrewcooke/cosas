@@ -39,7 +39,7 @@ protected:
 class GainFloat final : public SingleFloat {
 public:
   GainFloat(RelSource& src, float amp, float hi);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
   Value& get_amp();
 };
 
@@ -65,7 +65,7 @@ protected:
 class Gain14 : public Single14 {
 public:
   Gain14(RelSource& src, float amp, bool log);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
   Value& get_amp();
 };
 
@@ -75,7 +75,7 @@ public:
   Gain16(RelSource& src, float amp, bool log);
   static constexpr size_t one16_bits = 16;
   static constexpr int32_t one16 = 1 << one16_bits;
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
   class Value final : public Param {
   public:
     Value(Gain16* p, float scale, float linearity, bool log, float lo, float hi);
@@ -104,7 +104,7 @@ public:
 
 class FloatFunc : public SingleFloat {
 public:
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 protected:
   FloatFunc(RelSource& src, float v, float scale, float linearity, bool log, float lo, float hi);
   // x is normalised 0-1 and this can (will) use value
@@ -155,7 +155,7 @@ public:
   };
   friend class Length;
   Boxcar(RelSource& src, size_t l);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
   Length& get_len();
 private:
   std::unique_ptr<CircBuffer> cbuf;
@@ -189,7 +189,7 @@ public:
   MergeFloat(RelSource& src, float w);
   void add_source(RelSource& src, float w);
   [[nodiscard]] Weight& get_weight(size_t i) const;
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 protected:
   virtual void normalize();
   std::unique_ptr<std::vector<Weight>> weights;
@@ -203,7 +203,7 @@ class Merge14 : public MergeFloat {
 public:
   friend class Weight;
   Merge14(RelSource& src, float w);
-  [[nodiscard]] int16_t next(int32_t tick, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 protected:
   void normalize() override;
   std::unique_ptr<std::vector<uint16_t>> uint16_weights;

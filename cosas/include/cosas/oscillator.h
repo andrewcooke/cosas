@@ -42,7 +42,7 @@ public:
   friend class FrequencyParam;
   friend class WavedexMixin;
   BaseOscillator(uint32_t f, Wavetable *t);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 protected:
   ATOMIC(uint32_t) frequency;  // subtick units
   ATOMIC(AbsSource*) abs_source;

@@ -16,7 +16,7 @@ class Constant final : public RelSource {
 public:
 
   Constant(int16_t v); // NOLINT(*-explicit-constructor)
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 
 private:
 
@@ -31,7 +31,7 @@ class Sequence final : public RelSource {
 public:
 
   Sequence(std::initializer_list<int16_t> vs);
-  [[nodiscard]] int16_t next(int32_t delta, int32_t phi) override;
+  [[nodiscard]] int16_t next(int32_t phi) override;
 
 private:
 
@@ -52,7 +52,7 @@ public:
 
   Latch();
   void set_source(RelSource* s);
-  int16_t next(int32_t delta, int32_t phi) override;
+  int16_t next(int32_t phi) override;
 
   friend class SetOnInScope;
 

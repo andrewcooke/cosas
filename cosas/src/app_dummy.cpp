@@ -10,7 +10,7 @@ uint8_t DummyApp::n_sources() {
 class DummySource : public RelSource {
 
 public:
-  int16_t next(int32_t /* delta */, int32_t /* phi */) {
+  int16_t next(int32_t /* phi */) {
     return 0;
   }
 
