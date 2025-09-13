@@ -54,7 +54,7 @@ static SimpleRatio from_above(float target, int8_t bits, SimpleRatio hi) {
     best(target, hi, SimpleRatio(bits, 3, false, true)); // x 3/5 major sixth
   b = best(target, b, SimpleRatio(bits - 3, 5, false, false)); // x 5/8 minor sixth
   b = best(target, b, SimpleRatio(bits + 1, 1, true, false)); // x 2/3 perfect fifth
-  b = best(target, b, SimpleRatio(bits + 2, 3, false, false)); // x 3/4 perfect fourth
+  b = best(target, b, SimpleRatio(bits - 2, 3, false, false)); // x 3/4 perfect fourth
   b = best(target, b, SimpleRatio(bits + 2, 1, false, true)); // x 4/5 major third
   b = best(target, b, SimpleRatio(bits - 1, 5, true, false)); // x 5/6 minor third
 

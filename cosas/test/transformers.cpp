@@ -5,91 +5,97 @@
 #include "cosas/constants.h"
 
 
+int16_t ff2(RelSource& src, uint32_t n) {
+  for (uint32_t i = 0; i < n-1; i++) { src.next(0); }
+  return src.next(0);
+}
+
+
 TEST_CASE("Transformers, GainFloat") {
   Constant c = Constant(100);
   GainFloat g = GainFloat(c, 1, 100);
-  CHECK(g.next(123, 0) == 100);
+  CHECK(ff2(g, 123) == 100);
   g.get_amp().set(0.1f);
-  CHECK(g.next(123, 0) == 10);
+  CHECK(ff2(g, 123) == 10);
 }
 
 
 TEST_CASE("Transformers, Gain14") {
   Constant c = Constant(100);
   Gain14 g = Gain14(c, 1, 100);
-  CHECK(g.next(123, 0) == 100);
+  CHECK(ff2(g, 123) == 100);
   g.get_amp().set(0.1f);
-  CHECK(g.next(123, 0) == 9);  // almost
+  CHECK(ff2(g, 123) == 9);  // almost
 }
 
 
 TEST_CASE("Transformers, Gain16 pos lin") {
   Constant c = Constant(100);
   Gain16 g = Gain16(c, 1, false);
-  CHECK(g.next(123, 0) == 100);
+  CHECK(ff2(g, 123) == 100);
   g.get_amp().set(0.1f);
-  CHECK(g.next(123, 0) == 9);  // almost
+  CHECK(ff2(g, 123) == 9);  // almost
   g.get_amp().set(10.0f);
-  CHECK(g.next(123, 0) == 1000);
+  CHECK(ff2(g, 123) == 1000);
   g.get_amp().set(30.0f);
-  CHECK(g.next(123, 0) == 1094);  // folding
+  CHECK(ff2(g, 123) == 1094);  // folding
 }
 
 TEST_CASE("Transformers, Gain16 neg lin") {
   Constant c = Constant(-100);
   Gain16 g = Gain16(c, 1, false);
-  CHECK(g.next(123, 0) == -100);
+  CHECK(ff2(g, 123) == -100);
   g.get_amp().set(0.1f);
-  CHECK(g.next(123, 0) == -10);
+  CHECK(ff2(g, 123) == -10);
   g.get_amp().set(10.0f);
-  CHECK(g.next(123, 0) == -1000);
+  CHECK(ff2(g, 123) == -1000);
   g.get_amp().set(30.0f);
-  CHECK(g.next(123, 0) == -1094);
+  CHECK(ff2(g, 123) == -1094);
 }
 
 
 TEST_CASE("Transformers, Folder") {
   Constant c1234 = Constant(1234);  // random +ve value
   Folder f0_12 = Folder(c1234, 0);
-  CHECK(f0_12.next(0, 0) == 1234);
+  CHECK(f0_12.next(0) == 1234);
   f0_12.get_fold().set(1);
-  CHECK(f0_12.next(0, 0) == 1724);  // not sure if correct, but more +ve
+  CHECK(f0_12.next(0) == 1724);  // not sure if correct, but more +ve
   f0_12.get_fold().set(2);
-  CHECK(f0_12.next(0, 0) == 1960);  // not sure if correct
+  CHECK(f0_12.next(0) == 1960);  // not sure if correct
   Constant cm1234 = Constant(-1234);
   Folder f1_12x = Folder(cm1234, 1);
-  CHECK(f1_12x.next(0, 0) == -1724);  // symmetrical
+  CHECK(f1_12x.next(0) == -1724);  // symmetrical
   
   Constant cmax = Constant(SAMPLE_MAX);  
   Folder f0_max = Folder(cmax, 0);
-  CHECK(f0_max.next(0, 0) == SAMPLE_MAX);
+  CHECK(f0_max.next(0) == SAMPLE_MAX);
   f0_max.get_fold().set(1);
-  CHECK(f0_max.next(0, 0) == SAMPLE_MAX);
+  CHECK(f0_max.next(0) == SAMPLE_MAX);
   f0_max.get_fold().set(2);
-  CHECK(f0_max.next(0, 0) == 0);
+  CHECK(f0_max.next(0) == 0);
 }
 
 
 TEST_CASE("Transformers, Boxcar") {
   Sequence s1 = Sequence({0, 0, 100});
   Boxcar b1 = Boxcar(s1, 3);
-  CHECK(b1.next(0, 0) == 0);
-  CHECK(b1.next(0, 0) == 0);
-  CHECK(b1.next(0, 0) == 33);
-  CHECK(b1.next(0, 0) == 33);
-  CHECK(b1.next(0, 0) == 33);
-  CHECK(b1.next(0, 0) == 0);
-  CHECK(b1.next(0, 0) == 0);
+  CHECK(b1.next(0) == 0);
+  CHECK(b1.next(0) == 0);
+  CHECK(b1.next(0) == 33);
+  CHECK(b1.next(0) == 33);
+  CHECK(b1.next(0) == 33);
+  CHECK(b1.next(0) == 0);
+  CHECK(b1.next(0) == 0);
   Sequence s2 = Sequence({0, 0, 100});
   Boxcar b2 = Boxcar(s2, 3);
   b2.get_len().set(1);
-  CHECK(b2.next(0, 0) == 0);
-  CHECK(b2.next(0, 0) == 0);
-  CHECK(b2.next(0, 0) == 100);
-  CHECK(b2.next(0, 0) == 0);
-  CHECK(b2.next(0, 0) == 0);
-  CHECK(b2.next(0, 0) == 0);
-  CHECK(b2.next(0, 0) == 0);
+  CHECK(b2.next(0) == 0);
+  CHECK(b2.next(0) == 0);
+  CHECK(b2.next(0) == 100);
+  CHECK(b2.next(0) == 0);
+  CHECK(b2.next(0) == 0);
+  CHECK(b2.next(0) == 0);
+  CHECK(b2.next(0) == 0);
 }
 
 
@@ -100,9 +106,9 @@ TEST_CASE("Transformers, MergeFloat") {
   MergeFloat m = MergeFloat(c1, 0.5);
   m.add_source(c2, 0.1f);
   m.add_source(c3, 0.2f);
-  CHECK(m.next(0, 0) == 50 + 5 + 30);
+  CHECK(m.next(0) == 50 + 5 + 30);
   m.get_weight(0).set(0);
-  CHECK(m.next(0, 0) == 10 + 60);
+  CHECK(m.next(0) == 10 + 60);
 }
 
 
@@ -113,8 +119,8 @@ TEST_CASE("Transformers, Merge14") {
   Merge14 m = Merge14(c1, 0.5f);
   m.add_source(c2, 0.1f);
   m.add_source(c3, 0.2f);
-  CHECK(m.next(0, 0) == 50 + 5 + 30 - 2);  // close enough?
+  CHECK(m.next(0) == 50 + 5 + 30 - 2);  // close enough?
   m.get_weight(0).set(0);
-  CHECK(m.next(0, 0) == 10 + 60 - 2);  // ditto
+  CHECK(m.next(0) == 10 + 60 - 2);  // ditto
 }
 

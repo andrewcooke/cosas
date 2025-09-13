@@ -5,9 +5,28 @@
 
 
 TEST_CASE("Maths, SimpleRatio") {
+
   CHECK(SimpleRatio(0.1f) == SimpleRatio(-1, 1, false, true));
   CHECK(SimpleRatio(1) == SimpleRatio(0, 1, false, false));
   CHECK(SimpleRatio(10) == SimpleRatio(1, 5, false, false));
+
+  auto round_trip = [](float val) {
+    CHECK(SimpleRatio(val).as_float() == doctest::Approx(val));
+  };
+
+  round_trip(1);
+  round_trip(3.0f/2);  // p fifth
+  round_trip(2.0f/3);  // p fifth
+  round_trip(4.0f/3);  // p fourth
+  round_trip(3.0f/4);  // p fourth
+  round_trip(5.0f/3);  // mj sixth
+  round_trip(3.0f/5);  // mj sixth
+  round_trip(5.0f/4);  // mj third
+  round_trip(4.0f/5);  // mj third
+  round_trip(6.0f/5);  // mn third
+  round_trip(5.0f/6);  // mn third
+  round_trip(8.0f/5);  // mn sixth
+  round_trip(5.0f/8);  // mn sixth
 }
 
 /*

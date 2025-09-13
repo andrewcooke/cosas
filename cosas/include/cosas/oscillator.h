@@ -9,6 +9,7 @@
 #include "cosas/maths.h"
 #include "cosas/params.h"
 #include "cosas/wavelib.h"
+#include "cosas/node.h"
 
 
 // there is a lot of support structure here that ends up providing two
