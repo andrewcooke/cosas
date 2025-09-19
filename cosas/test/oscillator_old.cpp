@@ -1,8 +1,7 @@
 
 #include "doctest/doctest.h"
 
-#include "cosas/oscillator.h"
-
+#include "cosas/oscillator_old.h"
 
 int16_t ff1(RelSource& src, uint32_t n) {
   if (n) for (uint32_t i = 0; i < n-1; i++) { src.next(0); }

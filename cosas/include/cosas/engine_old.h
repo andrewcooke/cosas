@@ -7,10 +7,9 @@
 #include <memory>
 
 #include "cosas/engine_base.h"
-#include "cosas/wavelib.h"
-#include "cosas/oscillator.h"
+#include "cosas/oscillator_old.h"
 #include "cosas/params.h"
-
+#include "cosas/wavelib.h"
 
 // initial manager/engines that used too much memory
 

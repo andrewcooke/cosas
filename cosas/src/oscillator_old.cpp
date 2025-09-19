@@ -1,10 +1,10 @@
 
 #include <iostream>
 
-#include "cosas/debug.h"
 #include "cosas/constants.h"
+#include "cosas/debug.h"
 #include "cosas/engine_old.h"
-#include "cosas/oscillator.h"
+#include "cosas/oscillator_new.h"
 
 
 BaseOscillator::BaseOscillator(uint32_t f, Wavetable* t) {

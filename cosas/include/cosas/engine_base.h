@@ -6,12 +6,11 @@
 #include <vector>
 #include <memory>
 
+#include "cosas/oscillator_old.h"
+#include "cosas/pane.h"
+#include "cosas/params.h"
 #include "cosas/transformers.h"
 #include "cosas/wavelib.h"
-#include "cosas/oscillator.h"
-#include "cosas/params.h"
-#include "cosas/pane.h"
-
 
 // UNUSED - may be broken
 

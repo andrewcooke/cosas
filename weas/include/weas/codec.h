@@ -423,7 +423,7 @@ void CodecFactory<OVERSAMPLE_BITS, F>::handle_adc() {
     ctrls[Prev][ctrl] = ctrls[Now][ctrl];
     uint32_t ctrl_now = smooth_ctrls[ctrl] >> EXTRA;
     if (ctrl == CtrlEvent::Switch) {
-      ctrls[Now][CtrlEvent::Switch] = 2 - (ctrl_now > 1000) - (ctrl_now > 3000);
+      ctrls[Now][ctrl] = 2 - (ctrl_now > 1000) - (ctrl_now > 3000);
     } else {
       ctrls[Now][ctrl] = ctrl_now & adc_mask[Knobs];
     }
