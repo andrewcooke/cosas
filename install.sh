@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+git config --global http.postBuffer 524288000
+
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 # pico
@@ -14,6 +16,8 @@ fi
 if [ ! -e esp-idf ]; then
     git clone --recursive https://github.com/espressif/esp-idf.git
 fi
+esp-idf/install.sh
+source esp-idf/export.sh
 
 mkdir -p build-esp32
 pushd build-esp32 > /dev/null

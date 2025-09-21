@@ -11,6 +11,10 @@ fi
 export BUILD=$1
 shift
 
+if [ $BUILD == "esp32" ]; then
+    source esp-idf/export.sh
+fi
+
 pushd "build-$BUILD" > /dev/null
 cmake --build . "$@"
 
