@@ -12,8 +12,8 @@ if (BUILD STREQUAL "pico")
     pico_sdk_init()
     add_definitions(-DPICO)
 elseif (BUILD STREQUAL "esp32")
-    # add_definitions(-DESP_PLATFORM=1 -DCMAKE_TOOLCHAIN_FILE="esp-idf/tools/cmake/toolchain-esp32.cmake")
-    include($ENV{IDF_PATH}/tools/cmake/project.cmake)
+    add_definitions(-DESP_PLATFORM=1 -DCMAKE_TOOLCHAIN_FILE="esp-idf/tools/cmake/toolchain-esp32.cmake")
+    include("$ENV{IDF_PATH}/tools/cmake/project.cmake")
 endif ()
 
 project(cosas VERSION 0.0 DESCRIPTION "ac's code for mtm + protosynth" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
@@ -46,7 +46,7 @@ if (BUILD STREQUAL "pico")
 
 elseif (BUILD STREQUAL "esp32")
 
-    add_subdirectory(xqrias/src)
+    #add_subdirectory(components/xqrias)
 
 else ()
 
