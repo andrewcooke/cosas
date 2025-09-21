@@ -1,5 +1,5 @@
 
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.31)
 include(FetchContent)
 
 if (BUILD STREQUAL "pico")
@@ -10,18 +10,19 @@ if (BUILD STREQUAL "pico")
     set(PICO_CXX_ENABLE_EXCEPTIONS 1)
     include(pico_sdk_import.cmake)
     pico_sdk_init()
-
     add_definitions(-DPICO)
-endif()
+elseif (BUILD STREQUAL "esp32")
+    add_definitions(-DESP_PLATFORM=1 -DCMAKE_TOOLCHAIN_FILE="esp-idf/tools/cmake/toolchain-esp32.cmake")
+endif ()
 
-project(cosas VERSION 0.0 DESCRIPTION "ac's code for mtm" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
+project(cosas VERSION 0.0 DESCRIPTION "ac's code for mtm + protosynth" LANGUAGES CXX C)   # C for sdk - https://stackoverflow.com/a/74591212
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 add_compile_options(-Wdouble-promotion -Wfloat-conversion -Wall -Wextra -Werror)
 if (BUILD STREQUAL "amd64")
    add_compile_options(-g -O0)
-endif()
+endif ()
 add_link_options(-Wl,--print-memory-usage)
 
 FetchContent_Declare(RP2040Atomic GIT_REPOSITORY https://github.com/TSprech/RP2040_Pseudo_Atomic GIT_TAG main)
@@ -34,21 +35,25 @@ if (BUILD STREQUAL "pico")
     add_subdirectory(weas/src)  # weas_lib is pico-specific interface code
 
     # apps to deploy on cards
-    add_subdirectory(apps/hola)
-    add_subdirectory(apps/luz)
-    #add_subdirectory(apps/knob)
-    add_subdirectory(apps/diag)
-    add_subdirectory(apps/dnl)
-    add_subdirectory(apps/fifo)
-    add_subdirectory(apps/fome)
+    add_subdirectory(apps/pico/hola)
+    add_subdirectory(apps/pico/luz)
+    #add_subdirectory(apps/pico/knob)
+    add_subdirectory(apps/pico/diag)
+    add_subdirectory(apps/pico/dnl)
+    add_subdirectory(apps/pico/fifo)
+    add_subdirectory(apps/pico/fome)
 
-else()
+elseif (BUILD STREQUAL "esp32")
+
+    add_subdirectory(xqrias/src)
+
+else ()
 
     # testing is only on laptop
     FetchContent_Declare(doctest GIT_REPOSITORY "https://github.com/onqtam/doctest" GIT_TAG master)
     FetchContent_MakeAvailable(doctest)
     add_subdirectory(cosas/test)
     
-    add_subdirectory(apps/dump)
+    add_subdirectory(apps/amd64/dump)
 
-endif()
+endif ()

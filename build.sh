@@ -3,7 +3,7 @@
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 if [ $# -lt 1 ]; then
-    echo "./build.sh (pico|amd64) [...]"
+    echo "./build.sh (pico|esp32|amd64) [...]"
     echo "for example: ./build.sh pico --target luz"
     exit 1
 fi
