@@ -26,9 +26,9 @@ const uint POT_EMA_XBITS = 3;
 
 const uint NVOICES = NCTRLS;
 std::array<std::atomic<uint>, NVOICES> AMP = {0, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> DURN = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> FREQ = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
-std::array<std::atomic<uint>, NVOICES> DURN = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> TICK = {0, 0, 0, 0};
 
 SemaphoreHandle_t timer_semaphore;
@@ -92,7 +92,7 @@ void uiLoop(void*) {
   while (1) {
     set_ui_state();
     apply_ui_state();
-    taskYIELD();
+    // taskYIELD();
   }
 }
 
@@ -114,5 +114,12 @@ void set_ui_state() {
 }
 
 void apply_ui_state() {
+  if (BTN_STATE[0]) set_pots(AMP);
+  if (BTN_STATE[1]) set_pots(DURN);
+  if (BTN_STATE[2]) set_pots(FREQ);
+  if (BTN_STATE[3]) set_pots(NOISE);
+}
 
+void set_pots(std::array<std::atomic<uint>, NVOICES> &tgt) {
+  for (uint i = 0; i < NVOICES; i++) tgt[i] = POT_STATE[i];
 }
