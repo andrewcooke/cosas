@@ -23,16 +23,17 @@ const uint POT_EMA_NUM = 1;
 const uint POT_EMA_BITS = 3;
 const uint POT_EMA_DENOM = 1 << (POT_EMA_BITS - 1);
 const uint POT_EMA_XBITS = 3;
+const uint MAX12 = 1 << 11;
 
 const uint NVOICES = NCTRLS;
-std::array<std::atomic<uint>, NVOICES> AMP = {0, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> AMP = {MAX12, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> DURN = {0, 0, 0, 0};
-std::array<std::atomic<uint>, NVOICES> FREQ = {0, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> FREQ = {1000, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> TICK = {0, 0, 0, 0};
 
 SemaphoreHandle_t timer_semaphore;
-esp_timer_handle_t high_freq_timer;
+esp_timer_handle_t timer_handle;
 
 void IRAM_ATTR timer_callback(void*) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -40,13 +41,13 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-TaskHandle_t uiTask = NULL;
+TaskHandle_t ui_handle = NULL;
 
 void setup() {
 
   Serial.begin(115200);
 
-  esp_log_level_set("*", ESP_LOG_NONE);
+  // esp_log_level_set("*", ESP_LOG_NONE);
 
   for (uint i = 0; i < NCTRLS; i++) {
     pinMode(POT[i], INPUT);
@@ -64,11 +65,15 @@ void setup() {
     .callback = &timer_callback,
     .name = "high_freq_timer"
   };
-  esp_timer_create(&timer_args, &high_freq_timer);
-  esp_timer_start_periodic(high_freq_timer, TIMER_PERIOD_US);
+  esp_timer_create(&timer_args, &timer_handle);
+  esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
 
-  xTaskCreatePinnedToCore(uiLoop, "UI Loop", 1000000, NULL, 1, &uiTask, 0);
+  xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
+  flash_leds();
+}
+
+void flash_leds() {
   for (uint j = 0; j < 3; j++) {
     for (uint i = 0; i < 4; i++) digitalWrite(LED[i], HIGH);
     delay(100);
@@ -81,18 +86,22 @@ void loop() {
   unsigned int tick = 0;
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
-      dac_output_voltage(DAC_CHAN_0, static_cast<uint8_t>(127 + 127 * sin(2 * PI * tick * 440 / 48000.0)));
+      uint vol = calc_output(0);
+      dac_output_voltage(DAC_CHAN_0, vol);
+      // dac_output_voltage(DAC_CHAN_0, static_cast<uint8_t>(127 + 127 * sin(2 * PI * tick * 440 / 48000.0)));
       // dac_output_voltage(DAC_CHAN_0, tick & 0x4 ? 0 : 255);
       tick++;
+      // taskYIELD();
+      // vTaskDelay(1);
     }
   }
 }
 
-void uiLoop(void*) {
+void ui_loop(void*) {
   while (1) {
     set_ui_state();
     apply_ui_state();
-    // taskYIELD();
+    vTaskDelay(1);
   }
 }
 
@@ -121,5 +130,15 @@ void apply_ui_state() {
 }
 
 void set_pots(std::array<std::atomic<uint>, NVOICES> &tgt) {
-  for (uint i = 0; i < NVOICES; i++) tgt[i] = POT_STATE[i];
+  for (uint i = 0; i < NVOICES; i++) {
+    tgt[i] = POT_STATE[i];
+    analogWrite(LED[i], POT_STATE[i]);
+  }
+}
+
+uint calc_output(uint voice) {
+  uint tick = TICK[voice]++ % 48000;
+  uint amp = AMP[voice];
+  uint output = 128 + map(amp, 0, MAX12, 0, 127) * sin(FREQ[voice] * tick / 48000.0);
+  return output;
 }
