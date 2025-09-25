@@ -36,9 +36,9 @@ const uint MAX12 = N12 - 1;
 
 const uint NVOICES = NCTRLS;
 // these are all 12 bits
-std::array<std::atomic<uint>, NVOICES> AMP = {MAX12, 0, 0, 0};
-std::array<std::atomic<uint>, NVOICES> DURN = {0, 0, 0, 0};
-std::array<std::atomic<uint>, NVOICES> FREQ = {1000, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> AMP = {MAX12, MAX12, MAX12, MAX12};
+std::array<std::atomic<uint>, NVOICES> DURN = {1000, 2000, 3000, 4000};
+std::array<std::atomic<uint>, NVOICES> FREQ = {1000, 2000, 3000, 4000};
 std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
@@ -157,12 +157,16 @@ void set_pots(std::array<std::atomic<uint>, NVOICES> &tgt) {
 }
 
 int calc_output_12(uint voice) {
-  // uint tick = TICK[voice]++;
+  uint time = TIME[voice];
+  time = (time + 1) % (10 * NSAMPLES);  // arbitrary loop
+  TIME[voice] = time;
+  uint durn = DURN[voice] << 5;  // arbitrary scale
+  if (time > durn) return 0;
   uint freq = FREQ[voice];
   uint phase = PHASE[voice];
   phase = (phase + freq) % NSAMPLES;
   PHASE[voice] = phase;
-  uint amp = AMP[voice] >> 1;  // going to be signed
-  int output = amp * sin(2 * PI * phase / static_cast<float>(NSAMPLES));
+  float amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
+  int output = static_cast<int>(amp * sin(2 * PI * phase / static_cast<float>(NSAMPLES)));
   return output;
 }
