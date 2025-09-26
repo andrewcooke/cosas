@@ -6,6 +6,27 @@
 #include "driver/dac.h"
 #include "math.h"
 
+class Lfsr16 {
+private:
+  uint16_t state;
+public:
+  Lfsr16(uint16_t seed = 0xACE1) : state(seed) {}
+  uint next() {
+    uint16_t lsb = state & 0x1;
+    state >>= 1;
+    if (lsb) state ^= 0xB400;
+    return lsb;
+  }
+  uint n_bits(uint n) {
+    uint bits = 0;
+    while (n) {
+      bits = bits << 1 | next();
+      n--;
+    }
+    return bits;
+  }
+};
+
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
 
@@ -43,6 +64,8 @@ std::array<std::atomic<uint>, NVOICES> FREQ = {1000, 2000, 3000, 4000};
 std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
+
+Lfsr16 lfsr = Lfsr16();
 
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -139,8 +162,8 @@ void set_ui_state() {
 void apply_ui_state() {
   // for (uint i = 0; i < NCTRLS; i++) Serial.print(BTN_STATE[i]);
   // Serial.println(" buttons");
-  if (BTN_STATE[0]) set_pots();
-  if (BTN_STATE[1] && BTN_CHG[1]) reset_time();
+  set_pots();
+  if (BTN_STATE[0] && BTN_CHG[0]) reset_time();
 }
 
 void set_pots() {
@@ -161,13 +184,15 @@ void reset_time() {
 
 int calc_output_12(uint voice) {
   uint time = TIME[voice]++;
-  uint durn = DURN[voice] << 5;  // arbitrary scale
+  uint durn = DURN[voice] << 2;  // arbitrary scale
   if (time > durn) return 0;
   uint freq = FREQ[voice];
+  uint noise = NOISE[voice] >> 8;
   uint phase = PHASE[voice];
-  phase = (phase + freq) % NSAMPLES;
+  phase = (phase + freq + lfsr.n_bits(noise)) % NSAMPLES;
   PHASE[voice] = phase;
   float amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
   int output = static_cast<int>(amp * sin(2 * PI * phase / static_cast<float>(NSAMPLES)));
   return output;
 }
+
