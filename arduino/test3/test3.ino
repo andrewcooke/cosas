@@ -186,7 +186,7 @@ int calc_output_12(uint voice) {
   uint time = TIME[voice]++;
   uint durn = DURN[voice] << 2;  // arbitrary scale
   if (time > durn) return 0;
-  uint freq = FREQ[voice];
+  uint freq = FREQ[voice] >> 4;
   uint noise = NOISE[voice] >> 8;
   uint phase = PHASE[voice];
   phase = (phase + freq + lfsr.n_bits(noise)) % NSAMPLES;
