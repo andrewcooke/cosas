@@ -2,6 +2,7 @@
 #include <Arduino.h>
 #include <atomic>
 #include <array> 
+#include <numeric>
 #include "esp_timer.h"
 #include "driver/dac.h"
 #include "math.h"
@@ -27,8 +28,45 @@ public:
   }
 };
 
+class Euclidean {
+private:
+  uint n_places;
+  uint n_beats;
+  float frac_main;
+  std::vector<uint> place;
+  std::vector<float> error;
+  std::vector<uint> index_by_error;
+  std::vector<bool> is_main;
+  float n_main;
+  std::vector<int> index_by_place;
+public:
+  // n_beats must be <= n_places
+  Euclidean(uint n_places, uint n_beats, float frac_main) : n_places(n_places), n_beats(n_beats), frac_main(frac_main) {
+    for (uint i = 0; i < n_beats; i++) {
+      float x = i / static_cast<float>(n_places);
+      place.push_back(round(x));
+      error.push_back(x - place[i]);
+    };
+    index_by_error.resize(n_beats, 0);
+    std::iota(index_by_error.begin(), index_by_error.end(), 0);
+    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
+    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
+    is_main.resize(n_beats, false);
+    for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
+    index_by_place.resize(n_places, -1);
+    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
+  };
+  int voice(uint place) {
+    int beat = index_by_place[place % n_places];
+    if (beat < 0) return -1;
+    if (is_main[beat]) return 0;
+    return 1;
+  }
+};
+
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
+const uint BPM = 80;
 
 const uint NCTRLS = 4;
 const uint POT[NCTRLS] = {13, 14, 27, 12};
@@ -56,16 +94,22 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
-const uint NVOICES = NCTRLS;
+const uint NVOICES = 4;
 // these are all 12 bits
 std::array<std::atomic<uint>, NVOICES> AMP = {MAX12, MAX12, MAX12, MAX12};
-std::array<std::atomic<uint>, NVOICES> DURN = {1000, 2000, 3000, 4000};
-std::array<std::atomic<uint>, NVOICES> FREQ = {1000, 2000, 3000, 4000};
-std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> FREQ = {1600,  2400, 2133, 3200};
+std::array<std::atomic<uint>, NVOICES> DURN = {1200,  1000, 1300, 900};
+std::array<std::atomic<uint>, NVOICES> NOISE = {0,    2400, 1500, 2400};
+
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
 
 Lfsr16 lfsr = Lfsr16();
+
+Euclidean rhythm1 = Euclidean(16, 7, 0.33);
+Euclidean rhythm2 = Euclidean(25, 19, 0.25);
+
+uint tick = 0;
 
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -121,14 +165,23 @@ void flash_leds() {
 }
 
 void loop() {
+  uint beat = (NSAMPLES * 60) / (BPM * 40);
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
+      if (tick % beat == 0) {
+        uint place = tick / beat;
+        int voice = rhythm1.voice(place);
+        if (voice > -1) reset_time(voice);
+        voice = rhythm2.voice(place);
+        if (voice > -1) reset_time(2 + voice);
+      }
       int vol = 0;
-      vol = calc_output_12(0);
-      vol = vol / 16 + MAX7;  // 12 -> 8 bits
+      for (uint i = 0; i < NVOICES; i++) vol += calc_output_12(i);
+      vol = vol / 64 + MAX7;
       vol = vol > MAX8 ? MAX8 : vol;
       vol = vol < 0 ? 0 : vol;
       dac_output_voltage(DAC_CHAN_0, vol);
+      tick++;
     }
   }
 }
@@ -163,7 +216,6 @@ void apply_ui_state() {
   // for (uint i = 0; i < NCTRLS; i++) Serial.print(BTN_STATE[i]);
   // Serial.println(" buttons");
   set_pots();
-  if (BTN_STATE[0] && BTN_CHG[0]) reset_time();
 }
 
 void set_pots() {
@@ -173,13 +225,9 @@ void set_pots() {
   NOISE[0] = POT_STATE[3]; analogWrite(LED[3], POT_STATE[3] >> 4);
 }
 
-void reset_time() {
-  TIME[0] = 0;
-  PHASE[0] = 0;
-  Serial.print("amp "); Serial.println(AMP[0]);
-  Serial.print("freq "); Serial.println(FREQ[0]);
-  Serial.print("durn "); Serial.println(DURN[0]);
-  Serial.print("noise "); Serial.println(NOISE[0]);
+void reset_time(uint voice) {
+  TIME[voice] = 0;
+  PHASE[voice] = 0;  // really?
 }
 
 int calc_output_12(uint voice) {
