@@ -65,6 +65,8 @@ std::array<std::atomic<uint>, NVOICES> NOISE = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
 
+std::array<uint, NSAMPLES / 4> QSINE;
+
 Lfsr16 lfsr = Lfsr16();
 
 SemaphoreHandle_t timer_semaphore;
@@ -105,6 +107,8 @@ void setup() {
   };
   esp_timer_create(&timer_args, &timer_handle);
   esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
+
+  for (uint i = 0; i < NSAMPLES / 4; i++) QSINE[i] = MAX12 * sin(2 * PI * i / NSAMPLES);
 
   xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
@@ -182,6 +186,17 @@ void reset_time() {
   Serial.print("noise "); Serial.println(NOISE[0]);
 }
 
+int calc_sine(uint amp, int phase) {
+  if (phase < 0) phase += NSAMPLES;
+  int sign = 1;
+  if (phase > NSAMPLES / 2) {
+    phase = NSAMPLES - phase;
+    sign = -1;
+  };
+  if (phase > NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
+  return sign * ((amp * QSINE[phase]) >> 12);
+}
+
 int calc_output_12(uint voice) {
   uint time = TIME[voice]++;
   uint durn = DURN[voice] << 2;  // arbitrary scale
@@ -193,8 +208,8 @@ int calc_output_12(uint voice) {
   uint phase = PHASE[voice];
   phase = (phase + freq + noise) % NSAMPLES;
   PHASE[voice] = phase;
-  float amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
-  int output = static_cast<int>(amp * sin(2 * PI * phase / static_cast<float>(NSAMPLES)));
+  uint amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
+  int output = calc_sine(amp, phase);
   return output;
 }
 

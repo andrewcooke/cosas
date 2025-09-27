@@ -104,10 +104,12 @@ std::array<std::atomic<uint>, NVOICES> NOISE = {0,    2400, 1500, 2400};
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
 
+std::array<uint, NSAMPLES / 4> QSINE;
+
 Lfsr16 lfsr = Lfsr16();
 
 Euclidean rhythm1 = Euclidean(16, 7, 0.33);
-Euclidean rhythm2 = Euclidean(25, 19, 0.25);
+Euclidean rhythm2 = Euclidean(16, 9, 0.25);
 
 uint tick = 0;
 
@@ -149,6 +151,8 @@ void setup() {
   };
   esp_timer_create(&timer_args, &timer_handle);
   esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
+
+  for (uint i = 0; i < NSAMPLES / 4; i++) QSINE[i] = MAX12 * sin(2 * PI * i / NSAMPLES);
 
   xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
@@ -230,6 +234,17 @@ void reset_time(uint voice) {
   PHASE[voice] = 0;  // really?
 }
 
+int calc_sine(uint amp, int phase) {
+  if (phase < 0) phase += NSAMPLES;
+  int sign = 1;
+  if (phase > NSAMPLES / 2) {
+    phase = NSAMPLES - phase;
+    sign = -1;
+  };
+  if (phase > NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
+  return sign * ((amp * QSINE[phase]) >> 12);
+}
+
 int calc_output_12(uint voice) {
   uint time = TIME[voice]++;
   uint durn = DURN[voice] << 2;  // arbitrary scale
@@ -239,8 +254,8 @@ int calc_output_12(uint voice) {
   uint phase = PHASE[voice];
   phase = (phase + freq + lfsr.n_bits(noise)) % NSAMPLES;
   PHASE[voice] = phase;
-  float amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
-  int output = static_cast<int>(amp * sin(2 * PI * phase / static_cast<float>(NSAMPLES)));
+  uint amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
+  int output = calc_sine(amp, phase);
   return output;
 }
 
