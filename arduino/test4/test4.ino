@@ -28,45 +28,9 @@ public:
   }
 };
 
-class Euclidean {
-private:
-  uint n_places;
-  uint n_beats;
-  float frac_main;
-  std::vector<uint> place;
-  std::vector<float> error;
-  std::vector<uint> index_by_error;
-  std::vector<bool> is_main;
-  float n_main;
-  std::vector<int> index_by_place;
-public:
-  // n_beats must be <= n_places
-  Euclidean(uint n_places, uint n_beats, float frac_main) : n_places(n_places), n_beats(n_beats), frac_main(frac_main) {
-    for (uint i = 0; i < n_beats; i++) {
-      float x = i / static_cast<float>(n_places);
-      place.push_back(round(x));
-      error.push_back(x - place[i]);
-    };
-    index_by_error.resize(n_beats, 0);
-    std::iota(index_by_error.begin(), index_by_error.end(), 0);
-    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
-    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
-    is_main.resize(n_beats, false);
-    for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
-    index_by_place.resize(n_places, -1);
-    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
-  };
-  int voice(uint place) {
-    int beat = index_by_place[place % n_places];
-    if (beat < 0) return -1;
-    if (is_main[beat]) return 0;
-    return 1;
-  }
-};
-
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
-const uint BPM = 80;
+const uint BPM = 90;
 
 const uint NCTRLS = 4;
 const uint POT[NCTRLS] = {13, 14, 27, 12};
@@ -104,12 +68,54 @@ std::array<std::atomic<uint>, NVOICES> NOISE = {0,    2400, 1500, 2400};
 std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
 std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
 
+void reset_time(uint voice) {
+  TIME[voice] = 0;
+  PHASE[voice] = 0;  // really?
+}
+
 std::array<uint, NSAMPLES / 4> QSINE;
 
 Lfsr16 lfsr = Lfsr16();
 
-Euclidean rhythm1 = Euclidean(16, 7, 0.33);
-Euclidean rhythm2 = Euclidean(16, 9, 0.25);
+class Euclidean {
+private:
+  uint n_places;
+  uint n_beats;
+  float frac_main;
+  uint voice;
+  uint current_place = 0;
+  std::vector<uint> place;
+  std::vector<float> error;
+  std::vector<uint> index_by_error;
+  std::vector<bool> is_main;
+  float n_main;
+  std::vector<int> index_by_place;
+public:
+  // n_beats must be <= n_places
+  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice) : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
+    for (uint i = 0; i < n_beats; i++) {
+      float x = n_places * i / static_cast<float>(n_beats);
+      place.push_back(round(x));
+      error.push_back(x - place[i]);
+    };
+    index_by_error.resize(n_beats, 0);
+    std::iota(index_by_error.begin(), index_by_error.end(), 0);
+    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
+    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
+    is_main.resize(n_beats, false);
+    for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
+    index_by_place.resize(n_places, -1);
+    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
+  };
+  void on_beat() {
+    int beat = index_by_place[current_place];
+    if (beat != -1) reset_time(is_main[beat] ? voice : voice+1);
+    if (++current_place == n_places) current_place = 0;
+  }
+};
+
+Euclidean rhythm1 = Euclidean(16,  7, 0.33, 0);
+Euclidean rhythm2 = Euclidean(25, 13, 0.25, 2);
 
 uint tick = 0;
 
@@ -130,8 +136,7 @@ void setup() {
   delay(1000);
   Serial.println("hello world");
 
-
-  // esp_log_level_set("*", ESP_LOG_NONE);
+  esp_log_level_set("*", ESP_LOG_NONE);
 
   for (uint i = 0; i < NCTRLS; i++) {
     pinMode(POT[i], INPUT);
@@ -169,15 +174,12 @@ void flash_leds() {
 }
 
 void loop() {
-  uint beat = (NSAMPLES * 60) / (BPM * 40);
+  uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
-      if (tick % beat == 0) {
-        uint place = tick / beat;
-        int voice = rhythm1.voice(place);
-        if (voice > -1) reset_time(voice);
-        voice = rhythm2.voice(place);
-        if (voice > -1) reset_time(2 + voice);
+      if (tick == 0) {
+        rhythm1.on_beat();
+        rhythm2.on_beat();
       }
       int vol = 0;
       for (uint i = 0; i < NVOICES; i++) vol += calc_output_12(i);
@@ -185,7 +187,7 @@ void loop() {
       vol = vol > MAX8 ? MAX8 : vol;
       vol = vol < 0 ? 0 : vol;
       dac_output_voltage(DAC_CHAN_0, vol);
-      tick++;
+      if (++tick == beat) tick = 0;
     }
   }
 }
@@ -229,13 +231,7 @@ void set_pots() {
   NOISE[0] = POT_STATE[3]; analogWrite(LED[3], POT_STATE[3] >> 4);
 }
 
-void reset_time(uint voice) {
-  TIME[voice] = 0;
-  PHASE[voice] = 0;  // really?
-}
-
 int calc_sine(uint amp, int phase) {
-  if (phase < 0) phase += NSAMPLES;
   int sign = 1;
   if (phase > NSAMPLES / 2) {
     phase = NSAMPLES - phase;
@@ -252,7 +248,8 @@ int calc_output_12(uint voice) {
   uint freq = FREQ[voice] >> 4;
   uint noise = NOISE[voice] >> 8;
   uint phase = PHASE[voice];
-  phase = (phase + freq + lfsr.n_bits(noise)) % NSAMPLES;
+  phase = phase + freq + lfsr.n_bits(noise);
+  while (phase > NSAMPLES) phase -= NSAMPLES;
   PHASE[voice] = phase;
   uint amp = (durn - time) * (AMP[voice] >> 1) / static_cast<float>(durn);  // >> 1 because signed
   int output = calc_sine(amp, phase);
