@@ -28,6 +28,68 @@ public:
   }
 };
 
+class LEDs {
+private:
+  uint n_leds = 4;
+  std::array<uint, 4> pins = {23, 32, 5, 2};
+public:
+  void init() {for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT); all_off();}
+  void set(uint led, uint level) {analogWrite(pins[led], level);}
+  void on(uint led) {digitalWrite(pins[led], HIGH);}
+  void off(uint led) {digitalWrite(pins[led], LOW);}
+  void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
+  void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
+  void start_up() {all_on(); delay(1000); all_off(); delay(1000); all_on(); delay(1000); all_off();}
+};
+
+LEDs LEDS = LEDs();
+
+const uint NVOICES = 4;
+std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
+std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
+
+class Euclidean {
+private:
+  uint n_places;
+  uint n_beats;
+  float frac_main;
+  uint voice;
+  uint current_place = 0;
+  std::vector<uint> place;
+  std::vector<float> error;
+  std::vector<uint> index_by_error;
+  std::vector<bool> is_main;
+  float n_main;
+  std::vector<int> index_by_place;
+  void trigger(uint voice) {
+    TIME[voice] = 0;
+    PHASE[voice] = 0;  // really?
+    LEDS.on(voice);
+  }
+public:
+  // n_beats must be <= n_places
+  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice) : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
+    for (uint i = 0; i < n_beats; i++) {
+      float x = n_places * i / static_cast<float>(n_beats);
+      place.push_back(round(x));
+      error.push_back(x - place[i]);
+    };
+    index_by_error.resize(n_beats, 0);
+    std::iota(index_by_error.begin(), index_by_error.end(), 0);
+    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
+    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
+    is_main.resize(n_beats, false);
+    for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
+    index_by_place.resize(n_places, -1);
+    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
+  };
+  void on_beat() {
+    int beat = index_by_place[current_place];
+    if (beat != -1) trigger(is_main[beat] ? voice : voice+1);
+    if (++current_place == n_places) current_place = 0;
+  }
+};
+
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
 const uint BPM = 90;
@@ -35,7 +97,6 @@ const uint BPM = 90;
 const uint NCTRLS = 4;
 const uint POT[NCTRLS] = {13, 14, 27, 12};
 const uint BTN[NCTRLS] = {18, 4, 15, 19};
-const uint LED[NCTRLS] = {23, 32, 5, 2};
 
 uint BTN_TMP[NCTRLS] = {0};
 uint BTN_STATE[NCTRLS] = {0};
@@ -58,61 +119,15 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
-const uint NVOICES = 4;
 // these are all 12 bits
 std::array<std::atomic<uint>, NVOICES> AMP = {MAX12, MAX12, MAX12, MAX12};
 std::array<std::atomic<uint>, NVOICES> FREQ = {1600,  2400, 2133, 3200};
 std::array<std::atomic<uint>, NVOICES> DURN = {1200,  1000, 1300, 900};
 std::array<std::atomic<uint>, NVOICES> NOISE = {0,    2400, 1500, 2400};
 
-std::array<std::atomic<uint>, NVOICES> TIME = {0, 0, 0, 0};
-std::array<std::atomic<uint>, NVOICES> PHASE = {0, 0, 0, 0};
-
-void reset_time(uint voice) {
-  TIME[voice] = 0;
-  PHASE[voice] = 0;  // really?
-}
-
 std::array<uint, NSAMPLES / 4> QSINE;
 
 Lfsr16 lfsr = Lfsr16();
-
-class Euclidean {
-private:
-  uint n_places;
-  uint n_beats;
-  float frac_main;
-  uint voice;
-  uint current_place = 0;
-  std::vector<uint> place;
-  std::vector<float> error;
-  std::vector<uint> index_by_error;
-  std::vector<bool> is_main;
-  float n_main;
-  std::vector<int> index_by_place;
-public:
-  // n_beats must be <= n_places
-  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice) : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
-    for (uint i = 0; i < n_beats; i++) {
-      float x = n_places * i / static_cast<float>(n_beats);
-      place.push_back(round(x));
-      error.push_back(x - place[i]);
-    };
-    index_by_error.resize(n_beats, 0);
-    std::iota(index_by_error.begin(), index_by_error.end(), 0);
-    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
-    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
-    is_main.resize(n_beats, false);
-    for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
-    index_by_place.resize(n_places, -1);
-    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
-  };
-  void on_beat() {
-    int beat = index_by_place[current_place];
-    if (beat != -1) reset_time(is_main[beat] ? voice : voice+1);
-    if (++current_place == n_places) current_place = 0;
-  }
-};
 
 Euclidean rhythm1 = Euclidean(16,  7, 0.33, 0);
 Euclidean rhythm2 = Euclidean(25, 13, 0.25, 2);
@@ -138,11 +153,11 @@ void setup() {
 
   esp_log_level_set("*", ESP_LOG_NONE);
 
+  LEDS.init();
+
   for (uint i = 0; i < NCTRLS; i++) {
     pinMode(POT[i], INPUT);
     pinMode(BTN[i], INPUT_PULLUP);
-    pinMode(LED[i], OUTPUT);
-    digitalWrite(LED[i], LOW);
   }
   
   dac_output_enable(DAC_CHAN_0);
@@ -161,16 +176,7 @@ void setup() {
 
   xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
-  flash_leds();
-}
-
-void flash_leds() {
-  for (uint j = 0; j < 3; j++) {
-    for (uint i = 0; i < 4; i++) digitalWrite(LED[i], HIGH);
-    delay(100);
-    for (uint i = 0; i < 4; i++) digitalWrite(LED[i], LOW);
-    delay(100);
-  }
+  LEDS.start_up();
 }
 
 void loop() {
@@ -178,6 +184,7 @@ void loop() {
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       if (tick == 0) {
+        LEDS.all_off();
         rhythm1.on_beat();
         rhythm2.on_beat();
       }
@@ -225,10 +232,10 @@ void apply_ui_state() {
 }
 
 void set_pots() {
-  AMP[0] = POT_STATE[0]; analogWrite(LED[0], POT_STATE[0] >> 4);
-  FREQ[0] = POT_STATE[1]; analogWrite(LED[1], POT_STATE[1] >> 4);
-  DURN[0] = POT_STATE[2]; analogWrite(LED[2], POT_STATE[2] >> 4);
-  NOISE[0] = POT_STATE[3]; analogWrite(LED[3], POT_STATE[3] >> 4);
+  AMP[0] = POT_STATE[0];
+  FREQ[0] = POT_STATE[1];
+  DURN[0] = POT_STATE[2];
+  NOISE[0] = POT_STATE[3];
 }
 
 int calc_sine(uint amp, int phase) {
@@ -255,4 +262,3 @@ int calc_output_12(uint voice) {
   int output = calc_sine(amp, phase);
   return output;
 }
-
