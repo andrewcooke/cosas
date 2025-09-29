@@ -71,10 +71,12 @@ public:
     uint mask = 1 << idx;
     if (on) button_mask |= mask;
     else button_mask &= ~mask;
+    Serial.print("button "); Serial.print(idx); Serial.print(" "); Serial.print(on); Serial.print(" "); Serial.println(button_mask);
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
   void voice(uint idx, bool on) {if (! button_mask) leds.on(idx, on);}
+  void pot(uint idx) {leds.on(idx);}
 };
 
 CentralState STATE = CentralState();
@@ -222,14 +224,25 @@ public:
 
 class VoiceButton : public Button {
 private:
+  static const uint thresh = 10;
   Voice& voice;
+  std::array<bool, VOICES.size()> enabled = {false, false, false, false};
   void take_action() {
     if (state && STATE.n_buttons == 1) {
-      voice.amp = POTS[0].state;
-      voice.freq = POTS[1].state;
-      voice.durn = POTS[2].state;
-      voice.noise = POTS[3].state;
+      update(&voice.amp, 0);
+      update(&voice.freq, 1);
+      update(&voice.durn, 2);
+      update(&voice.noise, 3);
+    } else if (changed && !state) {
+      std::fill(std::begin(enabled), std::end(enabled), false);
     }
+  }
+  void update(uint* voice, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>(*voice) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      STATE.pot(pot);
+    }
+    if (enabled[pot]) *voice = POTS[pot].state;
   }
 public:
   VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), voice(voice) {};
@@ -294,8 +307,7 @@ void loop() {
       int vol = 0;
       for (Voice& voice: VOICES) vol += voice.output_12();
       vol = vol / 64 + MAX7;
-      vol = vol > MAX8 ? MAX8 : vol;
-      vol = vol < 0 ? 0 : vol;
+      vol = min(static_cast<int>(MAX8), max(0, vol));
       dac_output_voltage(DAC_CHAN_0, vol);
       if (++tick == beat) tick = 0;
     }
