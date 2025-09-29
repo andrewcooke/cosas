@@ -1,7 +1,7 @@
 
 #include <Arduino.h>
 #include <atomic>
-#include <array> 
+#include <array>
 #include <numeric>
 #include "esp_timer.h"
 #include "driver/dac.h"
@@ -10,6 +10,7 @@
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
 volatile static uint BPM = 90;
+volatile static uint SWING = 0;
 
 const uint N7 = 1 << 7;
 const uint MAX7 = N7 - 1;
@@ -20,11 +21,12 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
-class Lfsr16 {
+class LFSR16 {
 private:
   uint16_t state;
 public:
-  Lfsr16(uint16_t seed = 0xACE1) : state(seed) {}
+  LFSR16(uint16_t seed = 0xACE1)
+    : state(seed) {}
   uint next() {
     uint16_t lsb = state & 0x1;
     state >>= 1;
@@ -42,21 +44,32 @@ public:
   }
 };
 
-Lfsr16 LFSR = Lfsr16();
+LFSR16 LFSR = LFSR16();
 
 class LEDs {
 private:
   uint n_leds = 4;
-  std::array<uint, 4> pins = {23, 32, 5, 2};
+  std::array<uint, 4> pins = { 23, 32, 5, 2 };
 public:
-  void init() {for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT); all_off();}
+  void init() {
+    for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT);
+    all_off();
+  }
   void set(uint led, uint level) {analogWrite(pins[led], level);}
   void on(uint led) {digitalWrite(pins[led], HIGH);}
   void on(uint led, bool on) {digitalWrite(pins[led], on ? HIGH : LOW);}
   void off(uint led) {digitalWrite(pins[led], LOW);}
   void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
   void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
-  void start_up() {all_on(); delay(100); all_off(); delay(100); all_on(); delay(1000); all_off();}
+  void start_up() {
+    all_on();
+    delay(100);
+    all_off();
+    delay(100);
+    all_on();
+    delay(100);
+    all_off();
+  }
 };
 
 class CentralState {
@@ -66,7 +79,10 @@ public:
   uint button_mask = 0;
   uint n_buttons = 0;
   CentralState() = default;
-  void init() {leds.init(); leds.start_up();}
+  void init() {
+    leds.init();
+    leds.start_up();
+  }
   void button(uint idx, bool on) {
     uint mask = 1 << idx;
     if (on) button_mask |= mask;
@@ -74,8 +90,12 @@ public:
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
-  void voice(uint idx, bool on) {if (! button_mask) leds.on(idx, on);}
-  void pot(uint idx) {leds.on(idx);}
+  void voice(uint idx, bool on) {
+    if (!button_mask) leds.on(idx, on);
+  }
+  void pot(uint idx) {
+    leds.on(idx);
+  }
 };
 
 CentralState STATE = CentralState();
@@ -84,7 +104,9 @@ class Sine {
 private:
   std::array<uint, NSAMPLES / 4> table;
 public:
-  Sine() {for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  Sine() {
+    for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);
+  }
   int operator()(uint amp, int phase) {
     int sign = 1;
     if (phase > NSAMPLES / 2) {
@@ -108,8 +130,12 @@ public:
   volatile uint freq;   // 12 bits
   volatile uint durn;   // 12 bits
   volatile uint noise;  // 12 bits
-  Voice(uint idx, uint amp, uint freq, uint durn, uint noise) : idx(idx), amp(amp), freq(freq), durn(durn), noise(noise) {};
-  void trigger() {time = 0; phase = 0;}
+  Voice(uint idx, uint amp, uint freq, uint durn, uint noise)
+    : idx(idx), amp(amp), freq(freq), durn(durn), noise(noise){};
+  void trigger() {
+    time = 0;
+    phase = 0;
+  }
   int output_12() {
     time++;
     uint freq_scaled = freq >> 4;
@@ -125,10 +151,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, MAX12, 1600, 1200, 0),
-                               Voice(1, MAX12, 2400, 1000, 2400),
-                               Voice(2, MAX12, 2133, 1300, 1500),
-                               Voice(3, MAX12, 3200,  900, 2400)};
+std::array<Voice, 4> VOICES = { Voice(0, MAX12, 1600, 1200, 0),
+                                Voice(1, MAX12, 2400, 1000, 2400),
+                                Voice(2, MAX12, 2133, 1300, 1500),
+                                Voice(3, MAX12, 3200, 900, 2400) };
 
 class Euclidean {
 private:
@@ -144,12 +170,13 @@ private:
   float n_main;
   std::vector<int> index_by_place;
   void trigger(uint delta) {
-    VOICES[voice+delta].trigger();
+    VOICES[voice + delta].trigger();
     STATE.voice(voice + delta, true);
   }
 public:
   // n_beats must be <= n_places
-  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice) : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
+  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice)
+    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
     for (uint i = 0; i < n_beats; i++) {
       float x = n_places * i / static_cast<float>(n_beats);
       place.push_back(round(x));
@@ -157,25 +184,36 @@ public:
     };
     index_by_error.resize(n_beats, 0);
     std::iota(index_by_error.begin(), index_by_error.end(), 0);
-    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {return abs(this->error[i]) < abs(this->error[j]);});
+    std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {
+      return abs(this->error[i]) < abs(this->error[j]);
+    });
     n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
     is_main.resize(n_beats, false);
     for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
   };
-  void on_beat() {
+  void on_beat(bool main) {
     int beat = index_by_place[current_place];
-    if (beat != -1) trigger(is_main[beat] ? 0 : 1);
-    if (++current_place == n_places) current_place = 0;
+    if (beat != -1 && is_main[beat] == main) {
+      trigger(main ? 0 : 1);
+      // Serial.print(voice); Serial.print(": "); Serial.print(current_place); Serial.print("/"); Serial.print(n_places);
+      // Serial.print(" "); Serial.print(beat); Serial.print(" ("); Serial.print(main); Serial.println(")");
+    }
+    if (main) {  // minor is done before main
+      if (++current_place == n_places) current_place = 0;
+    }
   }
 };
 
-Euclidean rhythm1 = Euclidean(16,  7, 0.33, 0);
-Euclidean rhythm2 = Euclidean(25, 13, 0.25, 2);
+
+std::array<Euclidean, 2> rhythm1_store = {Euclidean(16,  7, 0.33, 0), Euclidean(16,  7, 0.33, 0)};
+volatile uint rhythm1_idx = 0;
+std::array<Euclidean, 2> rhythm2_store = {Euclidean(25, 13, 0.25, 2), Euclidean(25, 13, 0.25, 2)};
+volatile uint rhythm2_idx = 0;
 
 class Pot {
-private: 
+private:
   static const uint ema_bits = 3;
   static const uint ema_num = 1;
   static const uint ema_denom = 1 << ema_bits;
@@ -184,8 +222,11 @@ private:
   uint ema = 0;
 public:
   uint state = 0;
-  Pot(uint pin) : pin(pin) {};
-  void init() {pinMode(pin, INPUT);}
+  Pot(uint pin)
+    : pin(pin){};
+  void init() {
+    pinMode(pin, INPUT);
+  }
   void set_state() {
     uint tmp = analogRead(pin);
     ema = (ema * (ema_denom - ema_num) + (tmp << ema_xbits) * ema_num) >> ema_bits;
@@ -193,7 +234,7 @@ public:
   }
 };
 
-std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
+std::array<Pot, 4> POTS = { Pot(13), Pot(14), Pot(27), Pot(12) };
 
 class Button {
 private:
@@ -206,8 +247,11 @@ private:
 public:
   bool state = false;
   bool changed = false;
-  Button(uint idx, uint pin) : idx(idx), pin(pin) {};
-  void init() {pinMode(pin, INPUT_PULLUP);}
+  Button(uint idx, uint pin)
+    : idx(idx), pin(pin){};
+  void init() {
+    pinMode(pin, INPUT_PULLUP);
+  }
   void set_state() {
     changed = false;
     bool current = !digitalRead(pin);  // inverted
@@ -228,7 +272,7 @@ class VoiceButton : public Button {
 private:
   static const uint thresh = 10;
   Voice& voice;
-  std::array<bool, 4> enabled = {false, false, false, false};
+  std::array<bool, 4> enabled = { false, false, false, false };
   void take_action() {
     if (state && STATE.n_buttons == 1) {
       update(&voice.amp, 0);
@@ -247,35 +291,58 @@ private:
     if (enabled[pot]) *voice = POTS[pot].state;
   }
 public:
-  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), voice(voice) {};
+  VoiceButton(uint idx, uint pin, Voice& voice)
+    : Button(idx, pin), voice(voice){};
 };
 
-std::array<VoiceButton, 4> BUTTONS = {VoiceButton(0, 18, VOICES[0]), 
-                                      VoiceButton(1, 4,  VOICES[1]), 
-                                      VoiceButton(2, 15, VOICES[2]), 
-                                      VoiceButton(3, 19, VOICES[3])};
+std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
+                                       VoiceButton(1, 4, VOICES[1]),
+                                       VoiceButton(2, 15, VOICES[2]),
+                                       VoiceButton(3, 19, VOICES[3]) };
 
 class GlobalButtons {
 private:
   const uint thresh = 10;
-  const uint bpm_bits = 5;
-  std::array<bool, 4> enabled = {false, false, false, false};  
+  std::array<bool, 4> enabled = { false, false, false, false };
+  void update(volatile uint* param, uint zero, uint bits, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      STATE.pot(pot);
+    }
+    if (enabled[pot]) *param = zero + (POTS[pot].state >> bits);
+  }
 public:
   GlobalButtons() = default;
   void set_state() {
     if (STATE.button_mask == 0x6) {
-      if (!enabled[0] && abs(static_cast<int>(BPM << bpm_bits) - static_cast<int>(POTS[0].state)) < thresh) {
-        enabled[0] = true;
-        STATE.pot(0);
-      }
-      if (enabled[0]) BPM = POTS[0].state >> bpm_bits;
+      update(&BPM, 30, 5, 0);
+      update(&SWING, 0, 1, 1);
     } else {
-      enabled[0] = false;
+      std::fill(std::begin(enabled), std::end(enabled), false);
     }
   }
 };
 
 GlobalButtons GBUTTONS = GlobalButtons();
+
+class EuclideanButtons {
+private:
+  const uint thresh = 10;
+  uint mask;
+  std::array<Euclidean, 2> *store;
+  uint *idx;
+  std::array<bool, 4> enabled = { false, false, false, false };
+public:
+  EuclideanButtons(uint mask, std::array<Euclidean, 2> *store, uint *idx) : mask(mask), store(store), idx(idx) {};
+  void set_state() {
+    if (STATE.button_mask == mask) {
+
+    } else {
+      // TODO - commit if changed
+      std::fill(std::begin(enabled), std::end(enabled), false);
+    }
+  }
+};
 
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -296,12 +363,12 @@ void setup() {
 
   // esp_log_level_set("*", ESP_LOG_NONE);
 
-  for (Button& b: BUTTONS) b.init();
-  for (Pot& p: POTS) p.init();
-  
+  for (Button& b : BUTTONS) b.init();
+  for (Pot& p : POTS) p.init();
+
   dac_output_enable(DAC_CHAN_0);
-  dac_output_voltage(DAC_CHAN_0, 128); // Silencio inicial
-  
+  dac_output_voltage(DAC_CHAN_0, 128);  // Silencio inicial
+
   timer_semaphore = xSemaphoreCreateBinary();
 
   const esp_timer_create_args_t timer_args = {
@@ -319,18 +386,31 @@ void setup() {
 void loop() {
   uint tick = 0;
   uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
+  uint swing = (SWING * beat) >> 12;
+  Euclidean* rhythm1 = nullptr;
+  Euclidean* rhythm2 = nullptr;
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       // spread out the load
-      if (tick == 0) {
-        rhythm1.on_beat();
+      if (tick == 0) {  // update on first beat
+        rhythm1 = &(rhythm1_store[rhythm1_idx]);
+        rhythm2 = &(rhythm2_store[rhythm2_idx]);
       } else if (tick == 1) {
-        rhythm2.on_beat();
-      } else if (tick == 2) {
         beat = (NSAMPLES * 60) / (BPM * 4);
+        swing = (SWING * beat) >> 12;
+      } else if (tick == 2) {
+        rhythm1->on_beat(true);
+      } else if (tick == 3) {
+        rhythm2->on_beat(true);
+      }
+      uint offset = beat - tick;
+      if (offset == swing + 2) {
+        rhythm1->on_beat(false);
+      } else if (offset == swing + 1) {
+        rhythm2->on_beat(false);
       }
       int vol = 0;
-      for (Voice& voice: VOICES) vol += voice.output_12();
+      for (Voice& voice : VOICES) vol += voice.output_12();
       vol = vol / 64 + MAX7;
       vol = min(static_cast<int>(MAX8), max(0, vol));
       dac_output_voltage(DAC_CHAN_0, vol);
@@ -341,13 +421,9 @@ void loop() {
 
 void ui_loop(void*) {
   while (1) {
-    set_ui_state();
+    for (Button& b : BUTTONS) b.set_state();
+    for (Pot& p : POTS) p.set_state();
+    GBUTTONS.set_state();
     vTaskDelay(1);
   }
-}
-
-void set_ui_state() {
-  for (Button& b: BUTTONS) b.set_state();
-  for (Pot& p: POTS) p.set_state();
-  GBUTTONS.set_state();
 }
