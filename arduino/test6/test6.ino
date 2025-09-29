@@ -9,7 +9,7 @@
 
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
-const uint BPM = 90;
+volatile static uint BPM = 90;
 
 const uint N7 = 1 << 7;
 const uint MAX7 = N7 - 1;
@@ -71,7 +71,6 @@ public:
     uint mask = 1 << idx;
     if (on) button_mask |= mask;
     else button_mask &= ~mask;
-    Serial.print("button "); Serial.print(idx); Serial.print(" "); Serial.print(on); Serial.print(" "); Serial.println(button_mask);
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
@@ -105,10 +104,10 @@ private:
   uint time = 0;
   uint phase = 0;
 public:
-  uint amp;    // 12 bits
-  uint freq;   // 12 bits
-  uint durn;   // 12 bits
-  uint noise;  // 12 bits
+  volatile uint amp;    // 12 bits
+  volatile uint freq;   // 12 bits
+  volatile uint durn;   // 12 bits
+  volatile uint noise;  // 12 bits
   Voice(uint idx, uint amp, uint freq, uint durn, uint noise) : idx(idx), amp(amp), freq(freq), durn(durn), noise(noise) {};
   void trigger() {time = 0; phase = 0;}
   int output_12() {
@@ -172,6 +171,9 @@ public:
   }
 };
 
+Euclidean rhythm1 = Euclidean(16,  7, 0.33, 0);
+Euclidean rhythm2 = Euclidean(25, 13, 0.25, 2);
+
 class Pot {
 private: 
   static const uint ema_bits = 3;
@@ -226,7 +228,7 @@ class VoiceButton : public Button {
 private:
   static const uint thresh = 10;
   Voice& voice;
-  std::array<bool, VOICES.size()> enabled = {false, false, false, false};
+  std::array<bool, 4> enabled = {false, false, false, false};
   void take_action() {
     if (state && STATE.n_buttons == 1) {
       update(&voice.amp, 0);
@@ -237,7 +239,7 @@ private:
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
   }
-  void update(uint* voice, uint pot) {
+  void update(volatile uint* voice, uint pot) {
     if (!enabled[pot] && abs(static_cast<int>(*voice) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
       STATE.pot(pot);
@@ -253,8 +255,27 @@ std::array<VoiceButton, 4> BUTTONS = {VoiceButton(0, 18, VOICES[0]),
                                       VoiceButton(2, 15, VOICES[2]), 
                                       VoiceButton(3, 19, VOICES[3])};
 
-Euclidean rhythm1 = Euclidean(16,  7, 0.33, 0);
-Euclidean rhythm2 = Euclidean(25, 13, 0.25, 2);
+class GlobalButtons {
+private:
+  const uint thresh = 10;
+  const uint bpm_bits = 5;
+  std::array<bool, 4> enabled = {false, false, false, false};  
+public:
+  GlobalButtons() = default;
+  void set_state() {
+    if (STATE.button_mask == 0x6) {
+      if (!enabled[0] && abs(static_cast<int>(BPM << bpm_bits) - static_cast<int>(POTS[0].state)) < thresh) {
+        enabled[0] = true;
+        STATE.pot(0);
+      }
+      if (enabled[0]) BPM = POTS[0].state >> bpm_bits;
+    } else {
+      enabled[0] = false;
+    }
+  }
+};
+
+GlobalButtons GBUTTONS = GlobalButtons();
 
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -270,7 +291,7 @@ TaskHandle_t ui_handle = NULL;
 void setup() {
 
   Serial.begin(115200);
-  delay(1000);
+  delay(100);
   Serial.println("hello world");
 
   // esp_log_level_set("*", ESP_LOG_NONE);
@@ -300,9 +321,13 @@ void loop() {
   uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
+      // spread out the load
       if (tick == 0) {
         rhythm1.on_beat();
+      } else if (tick == 1) {
         rhythm2.on_beat();
+      } else if (tick == 2) {
+        beat = (NSAMPLES * 60) / (BPM * 4);
       }
       int vol = 0;
       for (Voice& voice: VOICES) vol += voice.output_12();
@@ -324,4 +349,5 @@ void ui_loop(void*) {
 void set_ui_state() {
   for (Button& b: BUTTONS) b.set_state();
   for (Pot& p: POTS) p.set_state();
+  GBUTTONS.set_state();
 }
