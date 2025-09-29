@@ -64,12 +64,14 @@ private:
   LEDs leds = LEDs();
 public:
   uint button_mask = 0;
+  uint n_buttons = 0;
   CentralState() = default;
   void init() {leds.init(); leds.start_up();}
   void button(uint idx, bool on) {
     uint mask = 1 << idx;
     if (on) button_mask |= mask;
     else button_mask &= ~mask;
+    n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
   void voice(uint idx, bool on) {if (! button_mask) leds.on(idx, on);}
@@ -216,7 +218,7 @@ class VoiceButton : public Button {
 private:
   Voice& voice;
   void take_action() {
-    if (state) {
+    if (state && STATE.n_buttons == 1) {
       voice.amp = POTS[0].state;
       voice.freq = POTS[1].state;
       voice.durn = POTS[2].state;
