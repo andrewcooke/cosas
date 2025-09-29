@@ -79,17 +79,23 @@ public:
 
 CentralState STATE = CentralState();
 
-std::array<uint, NSAMPLES / 4> QSINE;
+class Sine {
+private:
+  std::array<uint, NSAMPLES / 4> table;
+public:
+  Sine() {for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  int operator()(uint amp, int phase) {
+    int sign = 1;
+    if (phase > NSAMPLES / 2) {
+      phase = NSAMPLES - phase;
+      sign = -1;
+    };
+    if (phase > NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
+    return sign * ((amp * table[phase]) >> 12);
+  }
+};
 
-int calc_sine(uint amp, int phase) {
-  int sign = 1;
-  if (phase > NSAMPLES / 2) {
-    phase = NSAMPLES - phase;
-    sign = -1;
-  };
-  if (phase > NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
-  return sign * ((amp * QSINE[phase]) >> 12);
-}
+Sine SINE = Sine();
 
 class Voice {
 private:
@@ -114,7 +120,7 @@ public:
     if (time > durn_scaled) return 0;
     uint amp_scaled = amp >> 1;  // because signed output is 12 bits
     amp_scaled *= (durn_scaled - time) / static_cast<float>(durn_scaled);
-    return calc_sine(amp_scaled, phase);
+    return SINE(amp_scaled, phase);
   }
 };
 
@@ -270,8 +276,6 @@ void setup() {
   };
   esp_timer_create(&timer_args, &timer_handle);
   esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
-
-  for (uint i = 0; i < NSAMPLES / 4; i++) QSINE[i] = MAX12 * sin(2 * PI * i / NSAMPLES);
 
   xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
