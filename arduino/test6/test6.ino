@@ -3,13 +3,15 @@
 #include <atomic>
 #include <array>
 #include <numeric>
+#include <mutex>
+#include <thread>
 #include "esp_timer.h"
 #include "driver/dac.h"
 #include "math.h"
 
 const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
-volatile static uint BPM = 90;
+volatile static uint BPM = 90;  // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
 
 const uint N7 = 1 << 7;
@@ -55,12 +57,24 @@ public:
     for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT);
     all_off();
   }
-  void set(uint led, uint level) {analogWrite(pins[led], level);}
-  void on(uint led) {digitalWrite(pins[led], HIGH);}
-  void on(uint led, bool on) {digitalWrite(pins[led], on ? HIGH : LOW);}
-  void off(uint led) {digitalWrite(pins[led], LOW);}
-  void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
-  void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
+  void set(uint led, uint level) {
+    analogWrite(pins[led], level);
+  }
+  void on(uint led) {
+    digitalWrite(pins[led], HIGH);
+  }
+  void on(uint led, bool on) {
+    digitalWrite(pins[led], on ? HIGH : LOW);
+  }
+  void off(uint led) {
+    digitalWrite(pins[led], LOW);
+  }
+  void all_on() {
+    for (uint i = 0; i < n_leds; i++) on(i);
+  }
+  void all_off() {
+    for (uint i = 0; i < n_leds; i++) off(i);
+  }
   void start_up() {
     all_on();
     delay(100);
@@ -94,8 +108,12 @@ public:
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
-  void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
-  void pot(uint idx) {leds.on(idx);}
+  void voice(uint idx, bool on) {
+    if (!button_mask) leds.on(idx, on);
+  }
+  void pot(uint idx) {
+    leds.on(idx);
+  }
 };
 
 CentralState STATE = CentralState();
@@ -193,6 +211,8 @@ public:
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
   };
+  Euclidean()
+    : Euclidean(2, 1, 0.5, 0){};  // used only as temp value in arrays
   void on_beat(bool main) {
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
@@ -206,11 +226,6 @@ public:
   }
 };
 
-
-std::array<Euclidean, 2> rhythm1_store = {Euclidean(16,  7, 0.33, 0), Euclidean(16,  7, 0.33, 0)};
-volatile uint rhythm1_idx = 0;
-std::array<Euclidean, 2> rhythm2_store = {Euclidean(25, 13, 0.25, 2), Euclidean(25, 13, 0.25, 2)};
-volatile uint rhythm2_idx = 0;
 
 class Pot {
 private:
@@ -272,7 +287,7 @@ class VoiceButton : public Button {
 private:
   static const uint thresh = 10;
   Voice& voice;
-  std::array<bool, 4> enabled = {false, false, false, false};
+  std::array<bool, 4> enabled = { false, false, false, false };
   void take_action() {
     if (state && STATE.n_buttons == 1) {
       update(&voice.amp, 0);
@@ -303,7 +318,7 @@ std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
 class GlobalButtons {
 private:
   const uint thresh = 10;
-  std::array<bool, 4> enabled = {false, false, false, false};
+  std::array<bool, 4> enabled = { false, false, false, false };
   void update(volatile uint* param, uint zero, uint bits, uint pot) {
     if (!enabled[pot] && abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
@@ -331,59 +346,54 @@ GlobalButtons GBUTTONS = GlobalButtons();
 // - a "current" euclidean object that is used for sound generation
 // it is responsible for:
 // - creating of the "next" instance when editing finishes
-// - moving "next" to "current" when a new cycle begins
+// - moving "next" to "current" when a new cycle begins (avoiding copy/assignment)
 // - holding the "current" instance in memory while it is in use
-// - avoiding access conflicts (largely over the "next" instance)
+// - avoiding access conflicts
 class EuclideanVault {
 private:
   uint voice;
-  std::mutex access_next;
-  Eucliean next;
-  Euclidean current;
+  std::mutex access;
+  Euclidean euclideans[2];
+  uint current = 0;
+  uint next = 1;
 public:
   uint n_places;
   uint n_beats;
   float frac_main;
   EuclideanVault(uint n_places, uint n_beats, float frac_main, uint voice)
-    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice),
-      next(Euclidean(n_places, n_beats, frac_main, voice)),
-      current(Euclidean(n_places, n_beats, frac_main, voice)) {};
+    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
+    euclideans[0] = Euclidean(n_places, n_beats, frac_main, voice);
+    euclideans[1] = Euclidean(n_places, n_beats, frac_main, voice);
+  }
   void end_of_edit() {
-    std::lock_guard<std::mutex> lock(access_next);
-    next = Euclidean(n_places, n_beats, frac_main, voice); 
+    std::lock_guard<std::mutex> lock(access);
+    euclideans[next] = Euclidean(n_places, n_beats, frac_main, voice);
   };
-  Euclidean& new_cycle() {
-    std::unique_lock<std::mutex> lock(access_next, std::defer_lock);
-    if (lock.try_lock()) {current = next;}
-    return next;
+  Euclidean* get() {
+    std::unique_lock<std::mutex> lock(access, std::defer_lock);
+    if (lock.try_lock()) { std::swap(current, next); }
+    return &euclideans[current];
   }
 };
+
+EuclideanVault vault1 = EuclideanVault(16, 7, 0.33, 0);
+EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, 2);
 
 class EuclideanButtons {
 private:
   const uint thresh = 10;
   uint mask;
-  std::array<Euclidean, 2> *store;
-  uint *idx;
-  std::array<bool, 4> enabled = {false, false, false, false};
+  EuclideanVault &vault;
+  std::array<bool, 4> enabled = { false, false, false, false };
   bool changed = false;
-  uint n_places = 0;
-  uint n_beats = 0;
-  float frac_main = 0;
 public:
-  EuclideanButtons(uint mask, std::array<Euclidean, 2> *store, uint *idx) : mask(mask), store(store), idx(idx) {};
+  EuclideanButtons(uint mask, EuclideanVault &vault) : mask(mask), vault(vault) {};
   void set_state() {
     if (STATE.button_mask == mask) {
       if (STATE.button_mask_changed) {
-        Euclidean *e = &(*store)[*idx];
-        n_places = e->n_places;
-        n_beats = e->n_beats;
-        frac_main = e->frac_main;
       }
-
     } else {
       if (changed) {
-        
         changed = false;
       }
       std::fill(std::begin(enabled), std::end(enabled), false);
@@ -440,8 +450,8 @@ void loop() {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       // spread out the load
       if (tick == 0) {  // update on first beat
-        rhythm1 = &(rhythm1_store[rhythm1_idx]);
-        rhythm2 = &(rhythm2_store[rhythm2_idx]);
+        rhythm1 = vault1.get();
+        rhythm2 = vault2.get();
       } else if (tick == 1) {
         beat = (NSAMPLES * 60) / (BPM * 4);
         swing = (SWING * beat) >> 12;
