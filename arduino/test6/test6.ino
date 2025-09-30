@@ -77,6 +77,7 @@ private:
   LEDs leds = LEDs();
 public:
   uint button_mask = 0;
+  uint button_mask_changed = false;
   uint n_buttons = 0;
   CentralState() = default;
   void init() {
@@ -85,17 +86,16 @@ public:
   }
   void button(uint idx, bool on) {
     uint mask = 1 << idx;
-    if (on) button_mask |= mask;
-    else button_mask &= ~mask;
+    uint new_button_mask = button_mask;
+    if (on) new_button_mask |= mask;
+    else new_button_mask &= ~mask;
+    button_mask_changed = new_button_mask != button_mask;
+    button_mask = new_button_mask;
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
-  void voice(uint idx, bool on) {
-    if (!button_mask) leds.on(idx, on);
-  }
-  void pot(uint idx) {
-    leds.on(idx);
-  }
+  void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
+  void pot(uint idx) {leds.on(idx);}
 };
 
 CentralState STATE = CentralState();
@@ -272,7 +272,7 @@ class VoiceButton : public Button {
 private:
   static const uint thresh = 10;
   Voice& voice;
-  std::array<bool, 4> enabled = { false, false, false, false };
+  std::array<bool, 4> enabled = {false, false, false, false};
   void take_action() {
     if (state && STATE.n_buttons == 1) {
       update(&voice.amp, 0);
@@ -303,7 +303,7 @@ std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
 class GlobalButtons {
 private:
   const uint thresh = 10;
-  std::array<bool, 4> enabled = { false, false, false, false };
+  std::array<bool, 4> enabled = {false, false, false, false};
   void update(volatile uint* param, uint zero, uint bits, uint pot) {
     if (!enabled[pot] && abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
@@ -325,20 +325,67 @@ public:
 
 GlobalButtons GBUTTONS = GlobalButtons();
 
+// this stores three things:
+// - a set of values to create "the next" euclidean object while editing is in progress
+// - a "next" euclidean object created when editing last exited
+// - a "current" euclidean object that is used for sound generation
+// it is responsible for:
+// - creating of the "next" instance when editing finishes
+// - moving "next" to "current" when a new cycle begins
+// - holding the "current" instance in memory while it is in use
+// - avoiding access conflicts (largely over the "next" instance)
+class EuclideanVault {
+private:
+  uint voice;
+  std::mutex access_next;
+  Eucliean next;
+  Euclidean current;
+public:
+  uint n_places;
+  uint n_beats;
+  float frac_main;
+  EuclideanVault(uint n_places, uint n_beats, float frac_main, uint voice)
+    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice),
+      next(Euclidean(n_places, n_beats, frac_main, voice)),
+      current(Euclidean(n_places, n_beats, frac_main, voice)) {};
+  void end_of_edit() {
+    std::lock_guard<std::mutex> lock(access_next);
+    next = Euclidean(n_places, n_beats, frac_main, voice); 
+  };
+  Euclidean& new_cycle() {
+    std::unique_lock<std::mutex> lock(access_next, std::defer_lock);
+    if (lock.try_lock()) {current = next;}
+    return next;
+  }
+};
+
 class EuclideanButtons {
 private:
   const uint thresh = 10;
   uint mask;
   std::array<Euclidean, 2> *store;
   uint *idx;
-  std::array<bool, 4> enabled = { false, false, false, false };
+  std::array<bool, 4> enabled = {false, false, false, false};
+  bool changed = false;
+  uint n_places = 0;
+  uint n_beats = 0;
+  float frac_main = 0;
 public:
   EuclideanButtons(uint mask, std::array<Euclidean, 2> *store, uint *idx) : mask(mask), store(store), idx(idx) {};
   void set_state() {
     if (STATE.button_mask == mask) {
+      if (STATE.button_mask_changed) {
+        Euclidean *e = &(*store)[*idx];
+        n_places = e->n_places;
+        n_beats = e->n_beats;
+        frac_main = e->frac_main;
+      }
 
     } else {
-      // TODO - commit if changed
+      if (changed) {
+        
+        changed = false;
+      }
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
   }
