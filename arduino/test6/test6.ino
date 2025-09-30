@@ -57,24 +57,12 @@ public:
     for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT);
     all_off();
   }
-  void set(uint led, uint level) {
-    analogWrite(pins[led], level);
-  }
-  void on(uint led) {
-    digitalWrite(pins[led], HIGH);
-  }
-  void on(uint led, bool on) {
-    digitalWrite(pins[led], on ? HIGH : LOW);
-  }
-  void off(uint led) {
-    digitalWrite(pins[led], LOW);
-  }
-  void all_on() {
-    for (uint i = 0; i < n_leds; i++) on(i);
-  }
-  void all_off() {
-    for (uint i = 0; i < n_leds; i++) off(i);
-  }
+  void set(uint led, uint level) {analogWrite(pins[led], level);}
+  void on(uint led) {digitalWrite(pins[led], HIGH);}
+  void on(uint led, bool on) {digitalWrite(pins[led], on ? HIGH : LOW);}
+  void off(uint led) {digitalWrite(pins[led], LOW);}
+  void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
+  void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
   void start_up() {
     all_on();
     delay(100);
@@ -108,12 +96,9 @@ public:
     n_buttons = std::popcount(button_mask);
     leds.all_off();
   }
-  void voice(uint idx, bool on) {
-    if (!button_mask) leds.on(idx, on);
-  }
-  void pot(uint idx) {
-    leds.on(idx);
-  }
+  void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
+  void pot(uint idx) {leds.on(idx);}
+  void pot_clear() {leds.all_off();}
 };
 
 CentralState STATE = CentralState();
@@ -237,11 +222,8 @@ private:
   uint ema = 0;
 public:
   uint state = 0;
-  Pot(uint pin)
-    : pin(pin){};
-  void init() {
-    pinMode(pin, INPUT);
-  }
+  Pot(uint pin) : pin(pin) {};
+  void init() {pinMode(pin, INPUT);}
   void set_state() {
     uint tmp = analogRead(pin);
     ema = (ema * (ema_denom - ema_num) + (tmp << ema_xbits) * ema_num) >> ema_bits;
@@ -367,7 +349,7 @@ public:
   }
   void end_of_edit() {
     std::lock_guard<std::mutex> lock(access);
-    euclideans[next] = Euclidean(n_places, n_beats, frac_main, voice);
+    euclideans[next] = Euclidean(n_places, min(n_beats, n_places), frac_main, voice);
   };
   Euclidean* get() {
     std::unique_lock<std::mutex> lock(access, std::defer_lock);
@@ -382,24 +364,36 @@ EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, 2);
 class EuclideanButtons {
 private:
   const uint thresh = 10;
+  const std::array<uint, 4> prime = {2, 3, 5, 7};
   uint mask;
   EuclideanVault &vault;
   std::array<bool, 4> enabled = { false, false, false, false };
-  bool changed = false;
+  bool editing = false;
+  void update(uint* param, uint zero, uint bits, uint pot) {
+    enabled[pot] = enabled[pot] || abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh;
+    if (enabled[pot]) {
+      *param = zero + (POTS[pot].state >> bits);
+      STATE.pot_clear();
+      for (uint i = 0; i < 4; i++) if (*param % prime[i] == 0) STATE.pot(i);
+    }
+  }
 public:
   EuclideanButtons(uint mask, EuclideanVault &vault) : mask(mask), vault(vault) {};
   void set_state() {
     if (STATE.button_mask == mask) {
-      if (STATE.button_mask_changed) {
-      }
-    } else {
-      if (changed) {
-        changed = false;
-      }
+      if (STATE.button_mask_changed) editing = true;
+      update(&vault.n_places, 2, 6, 0);
+      update(&vault.n_beats, 2, 6, 1);
+    } else if (editing) {
+      vault.end_of_edit();
       std::fill(std::begin(enabled), std::end(enabled), false);
+      editing = false;
     }
   }
 };
+
+EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
+EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -481,6 +475,8 @@ void ui_loop(void*) {
     for (Button& b : BUTTONS) b.set_state();
     for (Pot& p : POTS) p.set_state();
     GBUTTONS.set_state();
+    EBUTTONS1.set_state();
+    EBUTTONS2.set_state();
     vTaskDelay(1);
   }
 }
