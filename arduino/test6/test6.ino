@@ -99,6 +99,14 @@ public:
   void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
   void pot(uint idx) {leds.on(idx);}
   void pot_clear() {leds.all_off();}
+  void pots(float frac) {
+    frac *= 4;
+    for (uint i = 0; i < 4; i++) {
+      if (frac > 1) {leds.on(i); frac -= 1;}
+      else if (frac > 0) {leds.set(i, static_cast<uint>(frac * MAX8)); frac = 0;}
+      else leds.off(i);
+    }
+  }
 };
 
 CentralState STATE = CentralState();
@@ -246,9 +254,7 @@ public:
   bool changed = false;
   Button(uint idx, uint pin)
     : idx(idx), pin(pin){};
-  void init() {
-    pinMode(pin, INPUT_PULLUP);
-  }
+  void init() {pinMode(pin, INPUT_PULLUP);}
   void set_state() {
     changed = false;
     bool current = !digitalRead(pin);  // inverted
@@ -288,8 +294,7 @@ private:
     if (enabled[pot]) *voice = POTS[pot].state;
   }
 public:
-  VoiceButton(uint idx, uint pin, Voice& voice)
-    : Button(idx, pin), voice(voice){};
+  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), voice(voice){};
 };
 
 std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
@@ -331,11 +336,13 @@ GlobalButtons GBUTTONS = GlobalButtons();
 // - moving "next" to "current" when a new cycle begins (avoiding copy/assignment)
 // - holding the "current" instance in memory while it is in use
 // - avoiding access conflicts
+
 class EuclideanVault {
 private:
   uint voice;
   std::mutex access;
   Euclidean euclideans[2];
+  bool updated = false;
   uint current = 0;
   uint next = 1;
 public:
@@ -350,10 +357,11 @@ public:
   void end_of_edit() {
     std::lock_guard<std::mutex> lock(access);
     euclideans[next] = Euclidean(n_places, min(n_beats, n_places), frac_main, voice);
+    updated = true;
   };
   Euclidean* get() {
     std::unique_lock<std::mutex> lock(access, std::defer_lock);
-    if (lock.try_lock()) { std::swap(current, next); }
+    if (lock.try_lock() && updated) {std::swap(current, next); updated = false;}
     return &euclideans[current];
   }
 };
@@ -377,6 +385,13 @@ private:
       for (uint i = 0; i < 4; i++) if (*param % prime[i] == 0) STATE.pot(i);
     }
   }
+  void update_float(float* param, uint pot) {
+    enabled[pot] = enabled[pot] || abs(*param * MAX12 - POTS[pot].state) < thresh;
+    if (enabled[pot]) {
+      *param = static_cast<float>(POTS[pot].state) / MAX12;
+      STATE.pots(*param);
+    }
+  }
 public:
   EuclideanButtons(uint mask, EuclideanVault &vault) : mask(mask), vault(vault) {};
   void set_state() {
@@ -384,6 +399,7 @@ public:
       if (STATE.button_mask_changed) editing = true;
       update(&vault.n_places, 2, 6, 0);
       update(&vault.n_beats, 2, 6, 1);
+      update_float(&vault.frac_main, 2);
     } else if (editing) {
       vault.end_of_edit();
       std::fill(std::begin(enabled), std::end(enabled), false);
