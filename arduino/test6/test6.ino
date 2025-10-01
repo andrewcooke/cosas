@@ -13,7 +13,7 @@ const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that h
 const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with integer phase inc
 volatile static uint BPM = 90;  // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
-volatile static uint VOL_BITS = 4;
+volatile static uint GAIN_BITS = 4;
 volatile static uint COMP_BITS = 6;
 
 const uint N6 = 1 << 6;
@@ -157,7 +157,7 @@ class Voice {
 private:
   uint idx;
   uint time = 0;
-  uint phase = 0;
+  int phase = 0;
 public:
   volatile uint amp;    // 12 bits
   volatile uint freq;   // 12 bits
@@ -173,7 +173,9 @@ public:
     time++;
     uint freq_scaled = freq >> 4;
     uint noise_scaled = noise >> 8;
-    phase += freq_scaled + LFSR.n_bits(noise_scaled);
+    if (noise_scaled < 4) phase += freq_scaled - (time >> 4 + noise_scaled);
+    else phase += freq_scaled + LFSR.n_bits(noise_scaled);
+    while (phase < 0) phase += NSAMPLES;
     while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
     if (time == durn_scaled) STATE.voice(idx, false);
@@ -354,7 +356,8 @@ public:
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, 5, 0);
       update(&SWING, 0, 0, 1);
-      update(&VOL_BITS, 0, 8, 2);
+      // both inverted to make pots work in right direcn
+      update(&GAIN_BITS, 0, 9, 2);
       update(&COMP_BITS, 0, 9, 3);
     } else {
       std::fill(std::begin(enabled), std::end(enabled), false);
@@ -490,12 +493,12 @@ void setup() {
 }
 
 uint scale_and_clip(int vol) {
-  int scaled = vol >> VOL_BITS;
+  int scaled = vol >> (8 - GAIN_BITS);
   int sign = sgn(scaled);
   int absolute = abs(scaled);
   int soft_clipped = absolute;
   if (DBG_COMP) Serial.println(COMP_BITS);
-  for (uint i = COMP_BITS; i < 8; i++) {
+  for (uint i = (8 - COMP_BITS); i < 8; i++) {
     uint limit = 1 << i;
     if (soft_clipped > limit) soft_clipped = limit + (soft_clipped - limit) / 2;
   }
@@ -503,7 +506,8 @@ uint scale_and_clip(int vol) {
   int offset = soft_clipped + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
   if (DBG_VOLUME && !random(10000)) {
-    Serial.print("v "); Serial.print(vol); Serial.print(", s "); Serial.print(scaled);
+    Serial.print("G "); Serial.print(8 - GAIN_BITS); Serial.print(", C "); Serial.print(8 - COMP_BITS); 
+    Serial.print(", v "); Serial.print(vol); Serial.print(", s "); Serial.print(scaled);
     Serial.print(", sc "); Serial.print(soft_clipped); Serial.print(", hc "); Serial.println(hard_clipped);
   }
   return hard_clipped;
