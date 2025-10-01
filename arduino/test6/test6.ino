@@ -31,7 +31,8 @@ const bool DBG_PATTERN = false;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
-const bool DBG_SWING = true;
+const bool DBG_SWING = false;
+const bool DBG_COMP = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -354,7 +355,7 @@ public:
       update(&BPM, 30, 5, 0);
       update(&SWING, 0, 0, 1);
       update(&VOL_BITS, 0, 8, 2);
-      update(&COMP_BITS, 4, 10, 3);
+      update(&COMP_BITS, 0, 9, 3);
     } else {
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
@@ -493,6 +494,7 @@ uint scale_and_clip(int vol) {
   int sign = sgn(scaled);
   int absolute = abs(scaled);
   int soft_clipped = absolute;
+  if (DBG_COMP) Serial.println(COMP_BITS);
   for (uint i = COMP_BITS; i < 8; i++) {
     uint limit = 1 << i;
     if (soft_clipped > limit) soft_clipped = limit + (soft_clipped - limit) / 2;
