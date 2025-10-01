@@ -9,11 +9,14 @@
 #include "driver/dac.h"
 #include "math.h"
 
-const uint TIMER_PERIOD_US = 50;  // about as fast as we can go :(
-const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;
+const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high
+const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with integer phase inc
 volatile static uint BPM = 90;  // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
+volatile static uint VOL_BITS = 4;
 
+const uint N6 = 1 << 6;
+const uint MAX6 = N6 - 1;
 const uint N7 = 1 << 7;
 const uint MAX7 = N7 - 1;
 const uint N8 = 1 << 8;
@@ -23,12 +26,19 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
+const bool DBG_PATTERN = false;
+const bool DBG_VOICE = false;
+const bool DBG_LFSR = false;
+const bool DBG_OUTPUT = true;
+
+template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
+
+// a source of random bits
 class LFSR16 {
 private:
   uint16_t state;
 public:
-  LFSR16(uint16_t seed = 0xACE1)
-    : state(seed) {}
+  LFSR16(uint16_t seed = 0xACE1) : state(seed) {}
   uint next() {
     uint16_t lsb = state & 0x1;
     state >>= 1;
@@ -36,18 +46,26 @@ public:
     return lsb;
   }
   int n_bits(uint n) {
+    static uint line = 0;
     int bits = 0;
     while (n) {
-      bits = bits << 1 | next();
+      uint bit = next();
+      if (DBG_LFSR) {
+        Serial.print(bit ? "1" : "0");
+        if (line++ == 80) {line = 0; Serial.println();}
+      }
+      bits = bits << 1 | bit;
       n--;
     }
-    if (n > 0) bits -= 1 << (n - 1);
+    // remove most of bias (shift to be around zero rather than all +ve)
+    if (n > 0) bits -= 1 << (n - 1);  
     return bits;
   }
 };
 
 LFSR16 LFSR = LFSR16();
 
+// wrapper for LEDs
 class LEDs {
 private:
   uint n_leds = 4;
@@ -64,16 +82,15 @@ public:
   void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
   void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
   void start_up() {
-    all_on();
-    delay(100);
-    all_off();
-    delay(100);
-    all_on();
-    delay(100);
+    all_on(); delay(100);
+    all_off(); delay(100);
+    all_on(); delay(100);
     all_off();
   }
 };
 
+// central location for coordinating (utliple) button presses
+// also wraps leds
 class CentralState {
 private:
   LEDs leds = LEDs();
@@ -111,26 +128,28 @@ public:
 
 CentralState STATE = CentralState();
 
+// lookup table for sine
 class Sine {
 private:
   std::array<uint, NSAMPLES / 4> table;
 public:
-  Sine() {
-    for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);
-  }
+  Sine() {for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
   int operator()(uint amp, int phase) {
     int sign = 1;
-    if (phase > NSAMPLES / 2) {
+    if (phase >= NSAMPLES / 2) {
       phase = NSAMPLES - phase;
       sign = -1;
     };
-    if (phase > NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
-    return sign * ((amp * table[phase]) >> 12);
+    if (phase >= NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
+    // i had to draw this out on a piece of paper before i was convinced
+    if (phase == NSAMPLES / 4) return sign * amp;
+    else return sign * ((amp * table[phase]) >> 12);
   }
 };
 
 Sine SINE = Sine();
 
+// linear decay of sine with noise added as fm modulation
 class Voice {
 private:
   uint idx;
@@ -152,7 +171,7 @@ public:
     uint freq_scaled = freq >> 4;
     uint noise_scaled = noise >> 8;
     phase += freq_scaled + LFSR.n_bits(noise_scaled);
-    while (phase > NSAMPLES) phase -= NSAMPLES;
+    while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
@@ -162,11 +181,13 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = { Voice(0, MAX12, 1600, 1200, 0),
-                                Voice(1, MAX12, 2400, 1000, 2400),
-                                Voice(2, MAX12, 2133, 1300, 1500),
-                                Voice(3, MAX12, 3200, 900, 2400) };
+std::array<Voice, 4> VOICES = {Voice(0, MAX12, 1600, 1200, 0),
+                               Voice(1, MAX12, 2400, 1000, 2400),
+                               Voice(2, MAX12, 2133, 1300, 1500),
+                               Voice(3, MAX12, 3200, 900, 2400)};
 
+// standard euclidean pattern
+// TODO - add variations (biased towards beats with largest errors)
 class Euclidean {
 private:
   uint n_places;
@@ -210,8 +231,10 @@ public:
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
       trigger(main ? 0 : 1);
-      // Serial.print(voice); Serial.print(": "); Serial.print(current_place); Serial.print("/"); Serial.print(n_places);
-      // Serial.print(" "); Serial.print(beat); Serial.print(" ("); Serial.print(main); Serial.println(")");
+      if (DBG_PATTERN) {
+        Serial.print(voice); Serial.print(": "); Serial.print(current_place); Serial.print("/"); Serial.print(n_places);
+        Serial.print(" "); Serial.print(beat); Serial.print(" ("); Serial.print(main); Serial.println(")");
+      }
     }
     if (main) {  // minor is done before main
       if (++current_place == n_places) current_place = 0;
@@ -219,7 +242,7 @@ public:
   }
 };
 
-
+// ema smooth pot values
 class Pot {
 private:
   static const uint ema_bits = 3;
@@ -239,8 +262,11 @@ public:
   }
 };
 
-std::array<Pot, 4> POTS = { Pot(13), Pot(14), Pot(27), Pot(12) };
+// the smoothed pots
+std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
 
+// debounce buttons
+// subclass to provide actions (although i think there's only one subclass...)
 class Button {
 private:
   static const uint debounce = 50;
@@ -271,6 +297,7 @@ public:
   }
 };
 
+// subclass button to edit voice parameters
 class VoiceButton : public Button {
 private:
   static const uint thresh = 10;
@@ -282,6 +309,10 @@ private:
       update(&voice.freq, 1);
       update(&voice.durn, 2);
       update(&voice.noise, 3);
+      if (DBG_VOICE) {
+        Serial.print("a "); Serial.print(voice.amp); Serial.print(", f "); Serial.print(voice.freq);
+        Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.noise);
+      }
     } else if (changed && !state) {
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
@@ -302,6 +333,7 @@ std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
                                        VoiceButton(2, 15, VOICES[2]),
                                        VoiceButton(3, 19, VOICES[3]) };
 
+// global parameters - hold down middle two buttons
 class GlobalButtons {
 private:
   const uint thresh = 10;
@@ -319,6 +351,7 @@ public:
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, 5, 0);
       update(&SWING, 0, 1, 1);
+      update(&VOL_BITS, 0, 8, 2);
     } else {
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
@@ -336,7 +369,6 @@ GlobalButtons GBUTTONS = GlobalButtons();
 // - moving "next" to "current" when a new cycle begins (avoiding copy/assignment)
 // - holding the "current" instance in memory while it is in use
 // - avoiding access conflicts
-
 class EuclideanVault {
 private:
   uint voice;
@@ -369,6 +401,7 @@ public:
 EuclideanVault vault1 = EuclideanVault(16, 7, 0.33, 0);
 EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, 2);
 
+// edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons {
 private:
   const uint thresh = 10;
@@ -411,6 +444,7 @@ public:
 EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
 EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
+// regular sampling
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
 
@@ -420,6 +454,7 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
+// ui on other core
 TaskHandle_t ui_handle = NULL;
 
 void setup() {
@@ -450,6 +485,17 @@ void setup() {
   STATE.init();
 }
 
+uint scale_and_clip(int vol) {
+  int scaled = vol >> VOL_BITS;
+  int sign = sgn(scaled);
+  int absolute = abs(scaled);
+  int soft_clipped = sign * (absolute > MAX6 ? MAX6 + (absolute - MAX6) / 2 : absolute);
+  int offset = soft_clipped + MAX7;
+  int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
+  return hard_clipped;
+}
+
+// semaphore gives regular sampleas as long as no single iteration takes too long
 void loop() {
   uint tick = 0;
   uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
@@ -459,7 +505,7 @@ void loop() {
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       // spread out the load
-      if (tick == 0) {  // update on first beat
+      if (tick == 0) {  // update on first beat TODO - change to ends of cycles
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
       } else if (tick == 1) {
@@ -478,14 +524,13 @@ void loop() {
       }
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
-      vol = vol / 64 + MAX7;
-      vol = min(static_cast<int>(MAX8), max(0, vol));
-      dac_output_voltage(DAC_CHAN_0, vol);
+      dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
       if (++tick == beat) tick = 0;
     }
   }
 }
 
+// runs on other core so can do slow operations
 void ui_loop(void*) {
   while (1) {
     for (Button& b : BUTTONS) b.set_state();
