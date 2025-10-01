@@ -14,6 +14,7 @@ const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with in
 volatile static uint BPM = 90;  // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
 volatile static uint VOL_BITS = 4;
+volatile static uint COMP_BITS = 6;
 
 const uint N6 = 1 << 6;
 const uint MAX6 = N6 - 1;
@@ -29,7 +30,8 @@ const uint MAX12 = N12 - 1;
 const bool DBG_PATTERN = false;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
-const bool DBG_OUTPUT = true;
+const bool DBG_VOLUME = false;
+const bool DBG_SWING = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -350,8 +352,9 @@ public:
   void set_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, 5, 0);
-      update(&SWING, 0, 1, 1);
+      update(&SWING, 0, 0, 1);
       update(&VOL_BITS, 0, 8, 2);
+      update(&COMP_BITS, 4, 10, 3);
     } else {
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
@@ -489,9 +492,18 @@ uint scale_and_clip(int vol) {
   int scaled = vol >> VOL_BITS;
   int sign = sgn(scaled);
   int absolute = abs(scaled);
-  int soft_clipped = sign * (absolute > MAX6 ? MAX6 + (absolute - MAX6) / 2 : absolute);
+  int soft_clipped = absolute;
+  for (uint i = COMP_BITS; i < 8; i++) {
+    uint limit = 1 << i;
+    if (soft_clipped > limit) soft_clipped = limit + (soft_clipped - limit) / 2;
+  }
+  soft_clipped *= sign;
   int offset = soft_clipped + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
+  if (DBG_VOLUME && !random(10000)) {
+    Serial.print("v "); Serial.print(vol); Serial.print(", s "); Serial.print(scaled);
+    Serial.print(", sc "); Serial.print(soft_clipped); Serial.print(", hc "); Serial.println(hard_clipped);
+  }
   return hard_clipped;
 }
 
@@ -511,6 +523,7 @@ void loop() {
       } else if (tick == 1) {
         beat = (NSAMPLES * 60) / (BPM * 4);
         swing = (SWING * beat) >> 12;
+        if (DBG_SWING) {Serial.print(swing); Serial.print("/"); Serial.println(beat);}
       } else if (tick == 2) {
         rhythm1->on_beat(true);
       } else if (tick == 3) {
