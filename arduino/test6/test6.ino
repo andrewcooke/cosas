@@ -9,12 +9,14 @@
 #include "driver/dac.h"
 #include "math.h"
 
-const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high
-const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with integer phase inc
-volatile static uint BPM = 90;  // TODO - should be atomic, not volatile?
+const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high   see DBG_TIMING
+const uint LOWEST_F = 10;  // with integer phase inc
+const uint NSAMPLES = 1000000 / (LOWEST_F * TIMER_PERIOD_US);
+                                                  // framing things this way gives constant frequency even if period changes
+volatile static uint BPM = 90;    // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
-volatile static uint GAIN_BITS = 4;
-volatile static uint COMP_BITS = 6;
+volatile static uint GAIN_BITS = 8;
+volatile static uint COMP_BITS = 0;
 
 const uint N6 = 1 << 6;
 const uint MAX6 = N6 - 1;
@@ -33,6 +35,7 @@ const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_SWING = false;
 const bool DBG_COMP = false;
+const bool DBG_TIMING = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -152,7 +155,7 @@ public:
 
 Sine SINE = Sine();
 
-// linear decay of sine with noise added as fm modulation
+// linear decay of sine with fm based on time or noise
 class Voice {
 private:
   uint idx;
@@ -162,9 +165,9 @@ public:
   volatile uint amp;    // 12 bits
   volatile uint freq;   // 12 bits
   volatile uint durn;   // 12 bits
-  volatile uint noise;  // 12 bits
-  Voice(uint idx, uint amp, uint freq, uint durn, uint noise)
-    : idx(idx), amp(amp), freq(freq), durn(durn), noise(noise){};
+  volatile uint fm;  // 12 bits
+  Voice(uint idx, uint amp, uint freq, uint durn, uint fm)
+    : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm){};
   void trigger() {
     time = 0;
     phase = 0;
@@ -173,9 +176,10 @@ public:
     time++;
     uint freq_scaled = freq >> 4;
     freq_scaled = (freq_scaled * freq_scaled) >> 6;
-    uint noise_scaled = noise >> 8;
-    if (noise_scaled < 5) phase += freq_scaled - (time >> (3 + noise_scaled));
-    else phase += freq_scaled + LFSR.n_bits(noise_scaled / 5);
+    uint fm_scaled = fm >> 8;
+    fm_scaled = (fm_scaled * fm_scaled) >> 3;
+    if (fm_scaled < 5) phase += freq_scaled - (time >> (3 + fm_scaled));
+    else phase += freq_scaled + LFSR.n_bits(fm_scaled - 5);
     while (phase < 0) phase += NSAMPLES;
     while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
@@ -187,10 +191,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, MAX12, 1600, 1200, 0),
-                               Voice(1, MAX12, 2400, 1000, 2400),
-                               Voice(2, MAX12, 2133, 1300, 1500),
-                               Voice(3, MAX12, 3200, 900, 2400)};
+std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 120, 0),
+                               Voice(1, MAX12, 240, 100, 2400),
+                               Voice(2, MAX12, 213, 130, 1500),
+                               Voice(3, MAX12, 320,  90, 2400)};
 
 // standard euclidean pattern
 // TODO - add variations (biased towards beats with largest errors)
@@ -315,14 +319,14 @@ private:
       update(&voice.amp, 0);
       update(&voice.freq, 1);
       update(&voice.durn, 2);
-      update(&voice.noise, 3);
+      update(&voice.fm, 3);
       if (DBG_VOICE) {
         Serial.print("a "); Serial.print(voice.amp); Serial.print(", f "); Serial.print(voice.freq);
-        Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.noise);
+        Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.fm);
       }
     } else if (changed && !pressed) {
       Serial.print("Voice("); Serial.print(idx); Serial.print(","); Serial.print(voice.amp); Serial.print(","); Serial.print(voice.freq);
-      Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.noise); Serial.println(")");
+      Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.fm); Serial.println(")");
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
   }
@@ -519,19 +523,27 @@ uint scale_and_clip(int vol) {
 
 // semaphore gives regular sampleas as long as no single iteration takes too long
 void loop() {
+  unsigned long start = 0;
+  uint accum = 0;
   uint tick = 0;
-  uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
+  uint beat = 1000000 * 60 / (BPM * TIMER_PERIOD_US * 4);  // if it's 4/4 time
   uint swing = (SWING * beat) >> 12;
   Euclidean* rhythm1 = nullptr;
   Euclidean* rhythm2 = nullptr;
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
+      if (DBG_TIMING) {
+        unsigned long now = micros();
+        if (start) accum = (15 * accum + ((now - start) << 3)) >> 4;
+        start = now;
+        if (!random(1000)) Serial.println(accum >> 3);
+      }
       // spread out the load
       if (tick == 0) {  // update on first beat TODO - change to ends of cycles
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
       } else if (tick == 1) {
-        beat = (NSAMPLES * 60) / (BPM * 4);
+        beat = 1000000 * 60 / (BPM * TIMER_PERIOD_US * 4);
         swing = (SWING * beat) >> 12;
         if (DBG_SWING) {Serial.print(swing); Serial.print("/"); Serial.println(beat);}
       } else if (tick == 2) {
