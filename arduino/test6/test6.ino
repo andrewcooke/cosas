@@ -172,9 +172,10 @@ public:
   int output_12() {
     time++;
     uint freq_scaled = freq >> 4;
+    freq_scaled = (freq_scaled * freq_scaled) >> 6;
     uint noise_scaled = noise >> 8;
-    if (noise_scaled < 4) phase += freq_scaled - (time >> 4 + noise_scaled);
-    else phase += freq_scaled + LFSR.n_bits(noise_scaled);
+    if (noise_scaled < 5) phase += freq_scaled - (time >> (3 + noise_scaled));
+    else phase += freq_scaled + LFSR.n_bits(noise_scaled / 5);
     while (phase < 0) phase += NSAMPLES;
     while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
@@ -275,14 +276,15 @@ std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
 class Button {
 private:
   static const uint debounce = 50;
-  uint idx;
   uint pin;
-  bool tmp_state = false;
+  bool tmp_pressed = false;
   uint tmp_change = 0;
   virtual void take_action() = 0;
-public:
-  bool state = false;
+protected:
+  uint idx;
+  bool pressed = false;
   bool changed = false;
+public:
   Button(uint idx, uint pin)
     : idx(idx), pin(pin){};
   void init() {pinMode(pin, INPUT_PULLUP);}
@@ -290,13 +292,13 @@ public:
     changed = false;
     bool current = !digitalRead(pin);  // inverted
     uint now = millis();
-    if (tmp_change == 0 || current != tmp_state) {
-      tmp_state = current;
+    if (tmp_change == 0 || current != tmp_pressed) {
+      tmp_pressed = current;
       tmp_change = now;
-    } else if (now - tmp_change > debounce && tmp_state != state) {
-      state = tmp_state;
+    } else if (now - tmp_change > debounce && tmp_pressed != pressed) {
+      pressed = tmp_pressed;
       changed = true;
-      STATE.button(idx, state);
+      STATE.button(idx, pressed);
     }
     take_action();
   }
@@ -309,7 +311,7 @@ private:
   Voice& voice;
   std::array<bool, 4> enabled = { false, false, false, false };
   void take_action() {
-    if (state && STATE.n_buttons == 1) {
+    if (pressed && STATE.n_buttons == 1) {
       update(&voice.amp, 0);
       update(&voice.freq, 1);
       update(&voice.durn, 2);
@@ -318,7 +320,9 @@ private:
         Serial.print("a "); Serial.print(voice.amp); Serial.print(", f "); Serial.print(voice.freq);
         Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.noise);
       }
-    } else if (changed && !state) {
+    } else if (changed && !pressed) {
+      Serial.print("Voice("); Serial.print(idx); Serial.print(","); Serial.print(voice.amp); Serial.print(","); Serial.print(voice.freq);
+      Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.noise); Serial.println(")");
       std::fill(std::begin(enabled), std::end(enabled), false);
     }
   }
