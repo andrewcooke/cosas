@@ -10,8 +10,9 @@
 #include "math.h"
 
 const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high   see DBG_TIMING
-                                  // manually setting this lower can give interesting sounds.
-const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with integer phase inc
+const uint LOWEST_F_HZ = 10;  // with integer phase inc
+const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
+const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
 volatile static uint BPM = 90;    // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
 volatile static uint GAIN_BITS = 8;
@@ -177,8 +178,8 @@ public:
     freq_scaled = (freq_scaled * freq_scaled) >> 6;
     uint fm_scaled = fm >> 8;
     fm_scaled = (fm_scaled * fm_scaled) >> 3;
-    if (fm_scaled < 5) phase += freq_scaled - (time >> (3 + fm_scaled));
-    else phase += freq_scaled + LFSR.n_bits(fm_scaled - 5);
+    if (fm_scaled < 6) phase += freq_scaled - (time >> (7 + fm_scaled));
+    else phase += freq_scaled + LFSR.n_bits(fm_scaled - 6);
     while (phase < 0) phase += NSAMPLES;
     while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
@@ -190,10 +191,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, MAX12, 1600, 1200, 0),
-                               Voice(1, MAX12, 2400, 1000, 2400),
-                               Voice(2, MAX12, 2133, 1300, 1500),
-                               Voice(3, MAX12, 3200, 900, 2400)};
+std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 1200, 0),
+                               Voice(1, MAX12, 240, 1000, 240),
+                               Voice(2, MAX12, 213, 1300, 150),
+                               Voice(3, MAX12, 320,  900, 240)};
 
 // standard euclidean pattern
 // TODO - add variations (biased towards beats with largest errors)
@@ -525,7 +526,7 @@ void loop() {
   unsigned long start = 0;
   uint accum = 0;
   uint tick = 0;
-  uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
+  uint beat = BEAT_SCALE / BPM;  // if it's 4/4 time
   uint swing = (SWING * beat) >> 12;
   Euclidean* rhythm1 = nullptr;
   Euclidean* rhythm2 = nullptr;
@@ -542,7 +543,7 @@ void loop() {
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
       } else if (tick == 1) {
-        beat = (NSAMPLES * 60) / (BPM * 4);
+        beat = BEAT_SCALE / BPM;
         swing = (SWING * beat) >> 12;
         if (DBG_SWING) {Serial.print(swing); Serial.print("/"); Serial.println(beat);}
       } else if (tick == 2) {
