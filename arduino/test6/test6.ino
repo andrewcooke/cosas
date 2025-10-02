@@ -10,9 +10,8 @@
 #include "math.h"
 
 const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high   see DBG_TIMING
-const uint LOWEST_F = 10;  // with integer phase inc
-const uint NSAMPLES = 1000000 / (LOWEST_F * TIMER_PERIOD_US);
-                                                  // framing things this way gives constant frequency even if period changes
+                                  // manually setting this lower can give interesting sounds.
+const uint NSAMPLES = 1000000 / TIMER_PERIOD_US;  // slowest freq is 1hz with integer phase inc
 volatile static uint BPM = 90;    // TODO - should be atomic, not volatile?
 volatile static uint SWING = 0;
 volatile static uint GAIN_BITS = 8;
@@ -191,10 +190,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 120, 0),
-                               Voice(1, MAX12, 240, 100, 2400),
-                               Voice(2, MAX12, 213, 130, 1500),
-                               Voice(3, MAX12, 320,  90, 2400)};
+std::array<Voice, 4> VOICES = {Voice(0, MAX12, 1600, 1200, 0),
+                               Voice(1, MAX12, 2400, 1000, 2400),
+                               Voice(2, MAX12, 2133, 1300, 1500),
+                               Voice(3, MAX12, 3200, 900, 2400)};
 
 // standard euclidean pattern
 // TODO - add variations (biased towards beats with largest errors)
@@ -526,7 +525,7 @@ void loop() {
   unsigned long start = 0;
   uint accum = 0;
   uint tick = 0;
-  uint beat = 1000000 * 60 / (BPM * TIMER_PERIOD_US * 4);  // if it's 4/4 time
+  uint beat = (NSAMPLES * 60) / (BPM * 4);  // if it's 4/4 time
   uint swing = (SWING * beat) >> 12;
   Euclidean* rhythm1 = nullptr;
   Euclidean* rhythm2 = nullptr;
@@ -543,7 +542,7 @@ void loop() {
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
       } else if (tick == 1) {
-        beat = 1000000 * 60 / (BPM * TIMER_PERIOD_US * 4);
+        beat = (NSAMPLES * 60) / (BPM * 4);
         swing = (SWING * beat) >> 12;
         if (DBG_SWING) {Serial.print(swing); Serial.print("/"); Serial.println(beat);}
       } else if (tick == 2) {
