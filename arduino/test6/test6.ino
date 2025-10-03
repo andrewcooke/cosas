@@ -35,7 +35,7 @@ const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_SWING = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -173,13 +173,17 @@ public:
     phase = 0;
   }
   int output_12() {
+    static int noise = 0;
     time++;
     uint freq_scaled = freq >> 4;
-    freq_scaled = (freq_scaled * freq_scaled) >> 6;
+    freq_scaled = (freq_scaled * freq_scaled) >> 8;
     uint fm_scaled = fm >> 8;
     fm_scaled = (fm_scaled * fm_scaled) >> 3;
     if (fm_scaled < 6) phase += freq_scaled - (time >> (7 + fm_scaled));
-    else phase += freq_scaled + LFSR.n_bits(fm_scaled - 6);
+    else {
+      if (time & 0x1) noise = LFSR.n_bits(fm_scaled - 6);  // de-alias
+      phase += freq_scaled + noise;
+    }
     while (phase < 0) phase += NSAMPLES;
     while (phase >= NSAMPLES) phase -= NSAMPLES;
     uint durn_scaled = durn << 2;
