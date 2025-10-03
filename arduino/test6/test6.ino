@@ -35,7 +35,7 @@ const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_SWING = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -239,8 +239,10 @@ public:
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
   };
-  Euclidean()
-    : Euclidean(2, 1, 0.5, 0){};  // used only as temp value in arrays
+  Euclidean() : Euclidean(2, 1, 0.5, 0){};  // used only as temp value in arrays
+  bool operator==(const Euclidean other) {
+    return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.voice == voice;
+  }
   void on_beat(bool main) {
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
@@ -405,10 +407,16 @@ public:
     euclideans[0] = Euclidean(n_places, n_beats, frac_main, voice);
     euclideans[1] = Euclidean(n_places, n_beats, frac_main, voice);
   }
-  void end_of_edit() {
+  void apply_edit(bool dump) {
     std::lock_guard<std::mutex> lock(access);
-    euclideans[next] = Euclidean(n_places, min(n_beats, n_places), frac_main, voice);
-    updated = true;
+    n_beats = min(n_beats, n_places);
+    Euclidean candidate = Euclidean(n_places, n_beats, frac_main, voice);;
+    if (euclideans[updated ? next : current] != candidate) {
+      Serial.print("Euclidean("); Serial.print(n_places); Serial.print(","); Serial.print(n_beats); 
+      Serial.print(","); Serial.print(frac_main); Serial.print(","); Serial.print("voice"); Serial.println(")");
+      euclideans[next] = candidate;
+      updated = true;
+    }
   };
   Euclidean* get() {
     std::unique_lock<std::mutex> lock(access, std::defer_lock);
@@ -452,8 +460,9 @@ public:
       update(&vault.n_places, 2, 6, 0);
       update(&vault.n_beats, 2, 6, 1);
       update_float(&vault.frac_main, 2);
+      vault.apply_edit(false);
     } else if (editing) {
-      vault.end_of_edit();
+      vault.apply_edit(true);
       std::fill(std::begin(enabled), std::end(enabled), false);
       editing = false;
     }
@@ -540,7 +549,7 @@ void loop() {
         unsigned long now = micros();
         if (start) accum = (15 * accum + ((now - start) << 3)) >> 4;
         start = now;
-        if (!random(1000)) Serial.println(accum >> 3);
+        if (!random(100000)) Serial.println(accum >> 3);
       }
       // spread out the load
       if (tick == 0) {  // update on first beat TODO - change to ends of cycles
