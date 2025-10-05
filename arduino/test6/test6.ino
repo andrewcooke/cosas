@@ -174,9 +174,8 @@ public:
   }
   int output_12() {
     static int noise = 0;
-    time++;
     uint freq_scaled = freq >> 4;
-    freq_scaled = (freq_scaled * freq_scaled) >> 8;
+    freq_scaled = ((freq_scaled * freq_scaled) >> 8) & 0xff0;  // quantisation?
     uint fm_scaled = fm >> 8;
     fm_scaled = (fm_scaled * fm_scaled) >> 3;
     if (fm_scaled < 6) phase += freq_scaled - (time >> (7 + fm_scaled));
@@ -191,6 +190,7 @@ public:
     if (time > durn_scaled) return 0;
     uint amp_scaled = amp >> 1;  // because signed output is 12 bits
     amp_scaled *= (durn_scaled - time) / static_cast<float>(durn_scaled);
+    time++;
     return SINE(amp_scaled, phase);
   }
 };
