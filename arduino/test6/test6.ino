@@ -9,11 +9,11 @@
 #include "driver/dac.h"
 #include "math.h"
 
-const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high   see DBG_TIMING
-const uint LOWEST_F_HZ = 10;  // with integer phase inc
+const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high - see DBG_TIMING
+const uint LOWEST_F_HZ = 20;  // assuming integer phase increment
 const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
 const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
-volatile static uint BPM = 90;    // TODO - should be atomic, not volatile?
+volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint GAIN_BITS = 8;
 volatile static uint COMP_BITS = 0;
@@ -137,9 +137,9 @@ CentralState STATE = CentralState();
 // lookup table for sine
 class Sine {
 private:
-  std::array<uint, NSAMPLES / 4> table;
+  std::array<uint, 1 + NSAMPLES / 4> table;
 public:
-  Sine() {for (uint i = 0; i < NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  Sine() {for (uint i = 0; i < 1 + NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
   int operator()(uint amp, int phase) {
     int sign = 1;
     if (phase >= NSAMPLES / 2) {
@@ -147,9 +147,7 @@ public:
       sign = -1;
     };
     if (phase >= NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
-    // i had to draw this out on a piece of paper before i was convinced
-    if (phase == NSAMPLES / 4) return sign * amp;
-    else return sign * ((amp * table[phase]) >> 12);
+    return sign * ((amp * table[phase]) >> 12);
   }
 };
 
