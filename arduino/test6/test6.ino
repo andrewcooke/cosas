@@ -35,7 +35,7 @@ const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_SWING = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -170,7 +170,7 @@ public:
     time = 0;
     phase = 0;
   }
-  int output_12() {
+  int output_12_old() {
     static int noise = 0;
     uint freq_scaled = freq >> 4;
     freq_scaled = ((freq_scaled * freq_scaled) >> 8) & 0xff0;  // quantisation?
@@ -190,6 +190,28 @@ public:
     amp_scaled *= (durn_scaled - time) / static_cast<float>(durn_scaled);
     time++;
     return SINE(amp_scaled, phase);
+  }
+  int output_12() {
+    uint durn_scaled = durn << 2;
+    if (time == durn_scaled) STATE.voice(idx, false);
+    if (time > durn_scaled) return 0;
+    uint freq_scaled = freq >> 4;
+    freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 8);
+    uint linear = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
+    uint noise = (fm >> 10) << 4;
+    uint chirp = (fm & ((1 << 10) - 1)) >> 7;
+    phase += freq_scaled - (time >> (14 - chirp));
+    while (phase < 0) phase += NSAMPLES;
+    while (phase >= NSAMPLES) phase -= NSAMPLES;
+    int out = SINE(MAX12, phase);
+    out += (noise * linear * LFSR.next());
+    uint amp_scaled = amp >> 1;
+    out *= amp_scaled;
+    time++;
+    if (!random(1000) && amp > 0) {
+      Serial.print("chirp "); Serial.print(chirp); Serial.print(", noise "); Serial.print(noise); Serial.print(", freq_scaled "); Serial.println(freq_scaled);
+    }
+    return out >> 12;
   }
 };
 
@@ -260,7 +282,7 @@ public:
 class Pot {
 private:
   static const uint ema_bits = 3;
-  static const uint ema_num = 1;
+  static const uint ema_num = 3;
   static const uint ema_denom = 1 << ema_bits;
   static const uint ema_xbits = 3;
   uint pin;
