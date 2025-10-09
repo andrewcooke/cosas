@@ -13,6 +13,8 @@ const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that h
 const uint LOWEST_F_HZ = 20;  // assuming integer phase increment
 const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
 const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
+const uint PHASE_EXTN = 2;
+const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint GAIN_BITS = 8;
@@ -200,12 +202,12 @@ public:
     uint linear = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
     uint noise = (fm >> 10) << 4;
     uint chirp = (fm & ((1 << 10) - 1)) >> 7;
-    phase += freq_scaled - (time >> (14 - chirp));
-    while (phase < 0) phase += NSAMPLES;
-    while (phase >= NSAMPLES) phase -= NSAMPLES;
-    int out = SINE(MAX12, phase);
+    phase += freq_scaled - (time >> (14 - PHASE_EXTN - chirp));
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    int out = SINE(MAX12, phase >> PHASE_EXTN);
     out += (noise * linear * LFSR.next());
-    uint amp_scaled = amp >> 1;
+    uint amp_scaled = amp >> 1; 
     out *= amp_scaled;
     time++;
     if (!random(1000) && amp > 0) {
