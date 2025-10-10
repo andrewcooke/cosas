@@ -38,6 +38,7 @@ const bool DBG_VOLUME = false;
 const bool DBG_SWING = false;
 const bool DBG_COMP = false;
 const bool DBG_TIMING = false;
+const bool DBG_FM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -77,13 +78,13 @@ LFSR16 LFSR = LFSR16();
 class LEDs {
 private:
   uint n_leds = 4;
-  std::array<uint, 4> pins = { 23, 32, 5, 2 };
+  std::array<uint, 4> pins = {23, 32, 5, 2};
 public:
   void init() {
     for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT);
     all_off();
   }
-  void set(uint led, uint level) {analogWrite(pins[led], level);}
+  void set(uint led, uint level) {analogWrite(pins[led], level & 0xff);}
   void on(uint led) {digitalWrite(pins[led], HIGH);}
   void on(uint led, bool on) {digitalWrite(pins[led], on ? HIGH : LOW);}
   void off(uint led) {digitalWrite(pins[led], LOW);}
@@ -130,6 +131,13 @@ public:
       if (frac > 1) {leds.on(i); frac -= 1;}
       else if (frac > 0) {leds.set(i, static_cast<uint>(frac * MAX8)); frac = 0;}
       else leds.off(i);
+    }
+  }
+  void pots(uint val12) {
+    val12 >>= 2;
+    for (uint i = 0; i < 4; i++) {
+      if (val12 >= N8) {leds.on(i); val12 -= N8;}
+      else {leds.set(i, val12); val12 = 0;}
     }
   }
 };
@@ -191,8 +199,9 @@ public:
     uint amp_scaled = amp >> 1; 
     out *= amp_scaled;
     time++;
-    if (!random(1000) && amp > 0) {
-      Serial.print("chirp "); Serial.print(chirp); Serial.print(", noise "); Serial.print(noise); Serial.print(", freq_scaled "); Serial.println(freq_scaled);
+    if (DBG_FM && !random(1000) && amp > 0) {
+      Serial.print("chirp "); Serial.print(chirp); Serial.print(", noise "); Serial.print(noise); 
+      Serial.print(", freq_scaled "); Serial.println(freq_scaled);
     }
     return out >> 12;
   }
@@ -210,6 +219,7 @@ private:
   uint n_places;
   uint n_beats;
   float frac_main;
+  uint prob;
   uint voice;
   uint current_place = 0;
   std::vector<uint> place;
@@ -224,8 +234,8 @@ private:
   }
 public:
   // n_beats must be <= n_places
-  Euclidean(uint n_places, uint n_beats, float frac_main, uint voice)
-    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
+  Euclidean(uint n_places, uint n_beats, float frac_main, uint prob, uint voice)
+    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), prob(prob), voice(voice) {
     for (uint i = 0; i < n_beats; i++) {
       float x = n_places * i / static_cast<float>(n_beats);
       place.push_back(round(x));
@@ -242,13 +252,13 @@ public:
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
   };
-  Euclidean() : Euclidean(2, 1, 0.5, 0){};  // used only as temp value in arrays
+  Euclidean() : Euclidean(2, 1, 0.5, MAX12, 0){};  // used only as temp value in arrays
   bool operator==(const Euclidean other) {
-    return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.voice == voice;
+    return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
   }
   void on_beat(bool main) {
     int beat = index_by_place[current_place];
-    if (beat != -1 && is_main[beat] == main) {
+    if (beat != -1 && is_main[beat] == main && random(MAX12) < prob) {
       trigger(main ? 0 : 1);
       if (DBG_PATTERN) {
         Serial.print(voice); Serial.print(": "); Serial.print(current_place); Serial.print("/"); Serial.print(n_places);
@@ -317,14 +327,68 @@ public:
   }
 };
 
-// subclass button to edit voice parameters
-class VoiceButton : public Button {
+class PotsReader {
 private:
   static const uint thresh = 10;
-  Voice& voice;
   std::array<bool, 4> enabled = { false, false, false, false };
+  const std::array<uint, 4> prime = {2, 3, 5, 7};
+protected:
+  void disable() {
+    std::fill(std::begin(enabled), std::end(enabled), false);
+  }
+  void update(volatile uint* destn, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      STATE.pot(pot);
+    }
+    if (enabled[pot]) *destn = POTS[pot].state;
+  }
+  void update(float* destn, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      STATE.pot(pot);
+    }
+    if (enabled[pot]) *destn = static_cast<float>(POTS[pot].state) / MAX12;
+  }
+  void update(volatile uint* destn, uint zero, uint bits, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>((*destn - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      STATE.pot(pot);
+    }
+    if (enabled[pot]) *destn = zero + (POTS[pot].state >> bits);
+  }
+  void update_prime(uint* destn, uint zero, uint bits, uint pot) {
+    enabled[pot] = enabled[pot] || abs(static_cast<int>((*destn - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh;
+    if (enabled[pot]) {
+      *destn = zero + (POTS[pot].state >> bits);
+      STATE.pot_clear();
+      for (uint i = 0; i < 4; i++) if (*destn % prime[i] == 0) STATE.pot(i);
+    }
+  }
+  void update_scale(float* destn, uint pot) {
+    enabled[pot] = enabled[pot] || abs(*destn * MAX12 - POTS[pot].state) < thresh;
+    if (enabled[pot]) {
+      *destn = static_cast<float>(POTS[pot].state) / MAX12;
+      STATE.pots(*destn);
+    }
+  }
+  void update_scale(uint* destn, uint pot) {
+    enabled[pot] = enabled[pot] || abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh;
+    if (enabled[pot]) {
+      *destn = POTS[pot].state;
+      STATE.pots(*destn);
+    }
+  }
+};
+
+// subclass button to edit voice parameters
+class VoiceButton : public Button, public PotsReader {
+private:
+bool editing = false;
+  Voice& voice;
   void take_action() {
     if (pressed && STATE.n_buttons == 1) {
+      editing = true;
       update(&voice.amp, 0);
       update(&voice.freq, 1);
       update(&voice.durn, 2);
@@ -333,21 +397,17 @@ private:
         Serial.print("a "); Serial.print(voice.amp); Serial.print(", f "); Serial.print(voice.freq);
         Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.fm);
       }
-    } else if (changed && !pressed) {
-      Serial.print("Voice("); Serial.print(idx); Serial.print(","); Serial.print(voice.amp); Serial.print(","); Serial.print(voice.freq);
-      Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.fm); Serial.println(")");
-      std::fill(std::begin(enabled), std::end(enabled), false);
+    } else {
+      if (editing) {
+        Serial.print("Voice("); Serial.print(idx); Serial.print(","); Serial.print(voice.amp); Serial.print(","); Serial.print(voice.freq);
+        Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.fm); Serial.println(")");
+        editing = false;
+      }
+      disable();
     }
-  }
-  void update(volatile uint* voice, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>(*voice) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      STATE.pot(pot);
-    }
-    if (enabled[pot]) *voice = POTS[pot].state;
   }
 public:
-  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), voice(voice){};
+  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
 std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
@@ -356,20 +416,10 @@ std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
                                        VoiceButton(3, 19, VOICES[3]) };
 
 // global parameters - hold down middle two buttons
-class GlobalButtons {
-private:
-  const uint thresh = 10;
-  std::array<bool, 4> enabled = { false, false, false, false };
-  void update(volatile uint* param, uint zero, uint bits, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      STATE.pot(pot);
-    }
-    if (enabled[pot]) *param = zero + (POTS[pot].state >> bits);
-  }
+class GlobalButtons : public PotsReader {
 public:
   GlobalButtons() = default;
-  void set_state() {
+  void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, 5, 0);
       update(&SWING, 0, 0, 1);
@@ -377,7 +427,7 @@ public:
       update(&GAIN_BITS, 0, 9, 2);
       update(&COMP_BITS, 0, 9, 3);
     } else {
-      std::fill(std::begin(enabled), std::end(enabled), false);
+      disable();
     }
   }
 };
@@ -405,18 +455,20 @@ public:
   uint n_places;
   uint n_beats;
   float frac_main;
-  EuclideanVault(uint n_places, uint n_beats, float frac_main, uint voice)
-    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), voice(voice) {
-    euclideans[0] = Euclidean(n_places, n_beats, frac_main, voice);
-    euclideans[1] = Euclidean(n_places, n_beats, frac_main, voice);
+  uint prob;
+  EuclideanVault(uint n_places, uint n_beats, float frac_main, uint prob, uint voice)
+    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), prob(prob), voice(voice) {
+    euclideans[0] = Euclidean(n_places, n_beats, frac_main, prob, voice);
+    euclideans[1] = Euclidean(n_places, n_beats, frac_main, prob, voice);
   }
   void apply_edit(bool dump) {
     std::lock_guard<std::mutex> lock(access);
     n_beats = min(n_beats, n_places);
-    Euclidean candidate = Euclidean(n_places, n_beats, frac_main, voice);;
+    Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);;
     if (euclideans[updated ? next : current] != candidate) {
       Serial.print("Euclidean("); Serial.print(n_places); Serial.print(","); Serial.print(n_beats); 
-      Serial.print(","); Serial.print(frac_main); Serial.print(","); Serial.print("voice"); Serial.println(")");
+      Serial.print(","); Serial.print(frac_main); Serial.print(","); Serial.print(prob); 
+      Serial.print(","); Serial.print(voice); Serial.println(")");
       euclideans[next] = candidate;
       updated = true;
     }
@@ -428,45 +480,32 @@ public:
   }
 };
 
-EuclideanVault vault1 = EuclideanVault(16, 7, 0.33, 0);
-EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, 2);
+EuclideanVault vault1 = EuclideanVault(16, 7, 0.33, MAX12, 0);
+EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, MAX12, 2);
 
 // edit patterns - hold down left or right two buttons (mask)
-class EuclideanButtons {
+class EuclideanButtons : public PotsReader {
 private:
-  const uint thresh = 10;
-  const std::array<uint, 4> prime = {2, 3, 5, 7};
   uint mask;
   EuclideanVault &vault;
-  std::array<bool, 4> enabled = { false, false, false, false };
   bool editing = false;
-  void update(uint* param, uint zero, uint bits, uint pot) {
-    enabled[pot] = enabled[pot] || abs(static_cast<int>((*param - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh;
-    if (enabled[pot]) {
-      *param = zero + (POTS[pot].state >> bits);
-      STATE.pot_clear();
-      for (uint i = 0; i < 4; i++) if (*param % prime[i] == 0) STATE.pot(i);
-    }
-  }
-  void update_float(float* param, uint pot) {
-    enabled[pot] = enabled[pot] || abs(*param * MAX12 - POTS[pot].state) < thresh;
-    if (enabled[pot]) {
-      *param = static_cast<float>(POTS[pot].state) / MAX12;
-      STATE.pots(*param);
-    }
-  }
 public:
-  EuclideanButtons(uint mask, EuclideanVault &vault) : mask(mask), vault(vault) {};
-  void set_state() {
+  EuclideanButtons(uint mask, EuclideanVault &vault) : PotsReader(), mask(mask), vault(vault) {};
+  void read_state() {
     if (STATE.button_mask == mask) {
-      if (STATE.button_mask_changed) editing = true;
+      editing = true;
+      // update_prime(&vault.n_places, 2, 6, 0);
       update(&vault.n_places, 2, 6, 0);
+      // update_prime(&vault.n_beats, 2, 6, 1);
       update(&vault.n_beats, 2, 6, 1);
-      update_float(&vault.frac_main, 2);
+      // update_scale(&vault.frac_main, 2);
+      update(&vault.frac_main, 2);
+      // update_scale(&vault.prob, 3)u
+      update(&vault.prob, 3);
       vault.apply_edit(false);
     } else if (editing) {
       vault.apply_edit(true);
-      std::fill(std::begin(enabled), std::end(enabled), false);
+      disable();
       editing = false;
     }
   }
@@ -586,9 +625,9 @@ void ui_loop(void*) {
   while (1) {
     for (Button& b : BUTTONS) b.set_state();
     for (Pot& p : POTS) p.set_state();
-    GBUTTONS.set_state();
-    EBUTTONS1.set_state();
-    EBUTTONS2.set_state();
+    GBUTTONS.read_state();
+    EBUTTONS1.read_state();
+    EBUTTONS2.read_state();
     vTaskDelay(1);
   }
 }
