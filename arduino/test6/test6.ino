@@ -125,21 +125,6 @@ public:
   void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
   void pot(uint idx) {leds.on(idx);}
   void pot_clear() {leds.all_off();}
-  void pots(float frac) {
-    frac *= 4;
-    for (uint i = 0; i < 4; i++) {
-      if (frac > 1) {leds.on(i); frac -= 1;}
-      else if (frac > 0) {leds.set(i, static_cast<uint>(frac * MAX8)); frac = 0;}
-      else leds.off(i);
-    }
-  }
-  void pots(uint val12) {
-    val12 >>= 2;
-    for (uint i = 0; i < 4; i++) {
-      if (val12 >= N8) {leds.on(i); val12 -= N8;}
-      else {leds.set(i, val12); val12 = 0;}
-    }
-  }
 };
 
 CentralState STATE = CentralState();
@@ -365,20 +350,6 @@ protected:
       for (uint i = 0; i < 4; i++) if (*destn % prime[i] == 0) STATE.pot(i);
     }
   }
-  void update_scale(float* destn, uint pot) {
-    enabled[pot] = enabled[pot] || abs(*destn * MAX12 - POTS[pot].state) < thresh;
-    if (enabled[pot]) {
-      *destn = static_cast<float>(POTS[pot].state) / MAX12;
-      STATE.pots(*destn);
-    }
-  }
-  void update_scale(uint* destn, uint pot) {
-    enabled[pot] = enabled[pot] || abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh;
-    if (enabled[pot]) {
-      *destn = POTS[pot].state;
-      STATE.pots(*destn);
-    }
-  }
 };
 
 // subclass button to edit voice parameters
@@ -494,13 +465,9 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      // update_prime(&vault.n_places, 2, 6, 0);
-      update(&vault.n_places, 2, 6, 0);
-      // update_prime(&vault.n_beats, 2, 6, 1);
-      update(&vault.n_beats, 2, 6, 1);
-      // update_scale(&vault.frac_main, 2);
+      update_prime(&vault.n_places, 2, 6, 0);
+      update_prime(&vault.n_beats, 2, 6, 1);
       update(&vault.frac_main, 2);
-      // update_scale(&vault.prob, 3)u
       update(&vault.prob, 3);
       vault.apply_edit(false);
     } else if (editing) {
