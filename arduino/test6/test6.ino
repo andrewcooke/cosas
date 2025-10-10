@@ -172,44 +172,22 @@ public:
     time = 0;
     phase = 0;
   }
-  int output_12_old() {
-    static int noise = 0;
-    uint freq_scaled = freq >> 4;
-    freq_scaled = ((freq_scaled * freq_scaled) >> 8) & 0xff0;  // quantisation?
-    uint fm_scaled = fm >> 8;
-    fm_scaled = (fm_scaled * fm_scaled) >> 3;
-    if (fm_scaled < 6) phase += freq_scaled - (time >> (7 + fm_scaled));
-    else {
-      if (time & 0x1) noise = LFSR.n_bits(fm_scaled - 6);  // de-alias
-      phase += freq_scaled + noise;
-    }
-    while (phase < 0) phase += NSAMPLES;
-    while (phase >= NSAMPLES) phase -= NSAMPLES;
-    uint durn_scaled = durn << 2;
-    if (time == durn_scaled) STATE.voice(idx, false);
-    if (time > durn_scaled) return 0;
-    uint amp_scaled = amp >> 1;  // because signed output is 12 bits
-    amp_scaled *= (durn_scaled - time) / static_cast<float>(durn_scaled);
-    time++;
-    return SINE(amp_scaled, phase);
-  }
   int output_12() {
     uint durn_scaled = durn << 2;
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
     uint freq_scaled = freq >> 4;
     freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 8);
-    uint linear = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
-    uint quad = linear = (linear * linear) >> 10;
+    uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
+    uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
     uint noise = (fm >> 10) << 4;
     uint chirp = (fm & ((1 << 10) - 1)) >> 4;
     phase += freq_scaled;
-    if (chirp < 12) phase -= (time >> (14 - PHASE_EXTN - chirp));
-    else phase += (time >> (14 - PHASE_EXTN - (chirp - 11)));
+    phase += (quad_dec * chirp) >> 8;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
-    int out = SINE(linear << 6, phase >> PHASE_EXTN);
-    out += (noise * quad * LFSR.next());
+    int out = SINE(linear_dec << 6, phase >> PHASE_EXTN);
+    out += (noise * quad_dec * LFSR.next());
     uint amp_scaled = amp >> 1; 
     out *= amp_scaled;
     time++;
@@ -287,7 +265,7 @@ public:
 class Pot {
 private:
   static const uint ema_bits = 3;
-  static const uint ema_num = 2;
+  static const uint ema_num = 1;
   static const uint ema_denom = 1 << ema_bits;
   static const uint ema_xbits = 3;
   uint pin;
