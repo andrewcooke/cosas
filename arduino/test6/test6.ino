@@ -347,7 +347,7 @@ protected:
     if (enabled[pot]) *destn = static_cast<float>(POTS[pot].state) / MAX12;
   }
   // -ve bits imply value loaded into destn is smaller than pot
-  void update(volatile uint* destn, uint zero, uint bits, uint pot) {
+  void update(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
@@ -407,11 +407,8 @@ public:
   GlobalButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
-      update(&BPM, 30, -5, 0);
+      update(&BPM, 30, -4, 0);
       update(&SWING, 0, 0, 1);
-      // both inverted to make pots work in right direcn
-      update(&GAIN_BITS, 0, -9, 2);
-      update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -480,8 +477,8 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update_prime(&vault.n_places, 2, -6, 0);
-      update_prime(&vault.n_beats, 2, -6, 1);
+      update(&vault.n_places, 2, -6, 0);
+      update(&vault.n_beats, 2, -6, 1);
       update(&vault.frac_main, 2);
       update(&vault.prob, 3);
       vault.apply_edit(false);
@@ -531,6 +528,9 @@ public:
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, 1, 0);
       update(&REVERB.ema.num, 1);
+      // both inverted to make pots work in right direcn
+      update(&GAIN_BITS, 0, -9, 2);
+      update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
