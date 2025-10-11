@@ -256,24 +256,35 @@ public:
   }
 };
 
-// ema smooth pot values
+template <typename T> class EMA {
+private:
+  uint bits;
+  uint denom;
+  uint xtra;
+  T state;
+protected:
+  virtual T get_state() {return state;}
+  virtual void set_state(T s) {state = s;}
+public:
+  uint num;
+  EMA(uint bits, uint num, uint xtra, T state)
+  : bits(bits), num(num), denom(1 << bits), xtra(xtra), state(state) {};
+  T next(T val) {
+    set_state((get_state() * (denom - num) + (val << xtra) * num) >> bits);
+    return get_state() >> xtra;
+  }
+};
+
 class Pot {
 private:
-  static const uint ema_bits = 3;
-  static const uint ema_num = 1;
-  static const uint ema_denom = 1 << ema_bits;
   static const uint ema_xbits = 3;
   uint pin;
-  uint ema = 0;
+  EMA<uint> ema = EMA<uint>(3, 1, 3, 0);
 public:
-  uint state = 0;
+  uint state;
   Pot(uint pin) : pin(pin) {};
   void init() {pinMode(pin, INPUT);}
-  void set_state() {
-    uint tmp = analogRead(pin);
-    ema = (ema * (ema_denom - ema_num) + (tmp << ema_xbits) * ema_num) >> ema_bits;
-    state = MAX12 - (ema >> ema_xbits) - 1;  // inverted and hack to zero
-  }
+  void set_state() {state = MAX12 - ema.next(analogRead(pin)) - 1;}  // inverted and hack to zero
 };
 
 // the smoothed pots
@@ -481,6 +492,33 @@ public:
 EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
 EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
+template <int SCALE> class Reverb {
+private:
+  static const uint max_size = SCALE < 0 ? N12 >> -SCALE : N12 << SCALE;
+  int tape[max_size];
+  uint size = max_size;
+  uint head = 0;
+  class TapeEMA : public EMA<int> {
+  private:
+    Reverb<SCALE> *reverb;
+  protected:
+    int get_state() {return reverb->tape[reverb->head];}
+    void set_state(int val) {reverb->tape[reverb->head] = val;}
+  public:
+    TapeEMA(Reverb<SCALE> *reverb, uint bits, uint num, uint xtra, int state) 
+    : reverb(reverb), EMA<int>(bits, num, xtra, state) {};
+  };
+public:
+  TapeEMA ema;
+  Reverb() : ema(TapeEMA(this, 12, 3000, 8, 0)) {};
+  int next(int val) {
+    head = (head + 1) % size;
+    return ema.next(val);
+  }
+};
+
+Reverb REVERB = Reverb<1>();
+
 // regular sampling
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -540,7 +578,7 @@ uint scale_and_clip(int vol) {
     Serial.print(", v "); Serial.print(vol); Serial.print(", s "); Serial.print(scaled);
     Serial.print(", sc "); Serial.print(soft_clipped); Serial.print(", hc "); Serial.println(hard_clipped);
   }
-  return hard_clipped;
+  return REVERB.next(hard_clipped);
 }
 
 // semaphore gives regular sampleas as long as no single iteration takes too long
