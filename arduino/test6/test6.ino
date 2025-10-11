@@ -346,17 +346,21 @@ protected:
     }
     if (enabled[pot]) *destn = static_cast<float>(POTS[pot].state) / MAX12;
   }
+  // -ve bits imply value loaded into destn is smaller than pot
   void update(volatile uint* destn, uint zero, uint bits, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>((*destn - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh) {
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
       STATE.pot(pot);
     }
-    if (enabled[pot]) *destn = zero + (POTS[pot].state >> bits);
+    if (enabled[pot]) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
   }
+  // -ve bits imply value loaded into destn is smaller than pot
   void update_prime(uint* destn, uint zero, uint bits, uint pot) {
-    enabled[pot] = enabled[pot] || abs(static_cast<int>((*destn - zero) << bits) - static_cast<int>(POTS[pot].state)) < thresh;
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    enabled[pot] = enabled[pot] || abs(target - static_cast<int>(POTS[pot].state)) < thresh;
     if (enabled[pot]) {
-      *destn = zero + (POTS[pot].state >> bits);
+      *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
       STATE.pot_clear();
       for (uint i = 0; i < 4; i++) if (*destn % prime[i] == 0) STATE.pot(i);
     }
@@ -403,11 +407,11 @@ public:
   GlobalButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
-      update(&BPM, 30, 5, 0);
+      update(&BPM, 30, -5, 0);
       update(&SWING, 0, 0, 1);
       // both inverted to make pots work in right direcn
-      update(&GAIN_BITS, 0, 9, 2);
-      update(&COMP_BITS, 0, 9, 3);
+      update(&GAIN_BITS, 0, -9, 2);
+      update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -476,8 +480,8 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update_prime(&vault.n_places, 2, 6, 0);
-      update_prime(&vault.n_beats, 2, 6, 1);
+      update_prime(&vault.n_places, 2, -6, 0);
+      update_prime(&vault.n_beats, 2, -6, 1);
       update(&vault.frac_main, 2);
       update(&vault.prob, 3);
       vault.apply_edit(false);
@@ -496,7 +500,6 @@ template <int SCALE> class Reverb {
 private:
   static const uint max_size = SCALE < 0 ? N12 >> -SCALE : N12 << SCALE;
   int tape[max_size];
-  uint size = max_size;
   uint head = 0;
   class TapeEMA : public EMA<int> {
   private:
@@ -509,15 +512,32 @@ private:
     : reverb(reverb), EMA<int>(bits, num, xtra, state) {};
   };
 public:
+  uint size = max_size;
   TapeEMA ema;
   Reverb() : ema(TapeEMA(this, 12, 3000, 8, 0)) {};
   int next(int val) {
-    head = (head + 1) % size;
+    head = (head + 1) % max(1u, size);
     return ema.next(val);
   }
 };
 
 Reverb REVERB = Reverb<1>();
+
+// post-process - outer two buttons
+class PostButtons : public PotsReader {
+public:
+  PostButtons() = default;
+  void read_state() {
+    if (STATE.button_mask == 0x9) {
+      update(&REVERB.size, 0, 1, 0);
+      update(&REVERB.ema.num, 1);
+    } else {
+      disable();
+    }
+  }
+};
+
+PostButtons PBUTTONS = PostButtons();
 
 // regular sampling
 SemaphoreHandle_t timer_semaphore;
@@ -633,6 +653,7 @@ void ui_loop(void*) {
     GBUTTONS.read_state();
     EBUTTONS1.read_state();
     EBUTTONS2.read_state();
+    PBUTTONS.read_state();
     vTaskDelay(1);
   }
 }
