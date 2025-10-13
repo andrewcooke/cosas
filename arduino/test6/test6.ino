@@ -642,7 +642,7 @@ void loop() {
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
       dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
-      if (++tick == beat) tick = 0;
+      if (++tick >= beat) tick = 0;
     }
   }
 }
