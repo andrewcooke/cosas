@@ -409,6 +409,9 @@ public:
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
       update(&SWING, 0, 0, 1);
+      // both inverted to make pots work in right direcn
+      update(&GAIN_BITS, 0, -9, 2);
+      update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -497,24 +500,25 @@ template <int SCALE> class Reverb {
 private:
   static const uint max_size = SCALE < 0 ? N12 >> -SCALE : N12 << SCALE;
   int tape[max_size];
-  uint head = 0;
+  uint write = 0;
   class TapeEMA : public EMA<int> {
   private:
     Reverb<SCALE> *reverb;
   protected:
-    int get_state() {return reverb->tape[reverb->head];}
-    void set_state(int val) {reverb->tape[reverb->head] = val;}
+    int get_state() {return smear.next(reverb->tape[reverb->write]);}
+    void set_state(int val) {reverb->tape[reverb->write] = val;}
   public:
-    TapeEMA(Reverb<SCALE> *reverb, uint bits, uint num, uint xtra, int state) 
-    : reverb(reverb), EMA<int>(bits, num, xtra, state) {};
+    EMA<int> smear;
+    TapeEMA(Reverb<SCALE> *reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra) 
+    : reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)), EMA<int>(bits, num, xtra, 0) {};
   };
 public:
   uint size = max_size;
-  TapeEMA ema;
-  Reverb() : ema(TapeEMA(this, 12, 3000, 8, 0)) {};
+  TapeEMA head;
+  Reverb() : head(TapeEMA(this, 12, 3000, 4, 12, 3000, 4)) {};
   int next(int val) {
-    head = (head + 1) % max(1u, size);
-    return ema.next(val);
+    write = (write + 1) % max(1u, size);
+    return head.next(val);
   }
 };
 
@@ -527,10 +531,8 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, 1, 0);
-      update(&REVERB.ema.num, 1);
-      // both inverted to make pots work in right direcn
-      update(&GAIN_BITS, 0, -9, 2);
-      update(&COMP_BITS, 0, -9, 3);
+      update(&REVERB.head.num, 1);
+      update(&REVERB.head.smear.num, 2);
     } else {
       disable();
     }
