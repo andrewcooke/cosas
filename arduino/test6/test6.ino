@@ -218,7 +218,7 @@ private:
     STATE.voice(voice + delta, true);
   }
 public:
-  // n_beats must be <= n_places
+  // 1 <= n_beats <= n_places
   Euclidean(uint n_places, uint n_beats, float frac_main, uint prob, uint voice)
     : n_places(n_places), n_beats(n_beats), frac_main(frac_main), prob(prob), voice(voice) {
     for (uint i = 0; i < n_beats; i++) {
@@ -438,17 +438,17 @@ private:
   uint next = 1;
 public:
   uint n_places;
-  uint n_beats;
+  float frac_beats;
   float frac_main;
   uint prob;
-  EuclideanVault(uint n_places, uint n_beats, float frac_main, uint prob, uint voice)
-    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), prob(prob), voice(voice) {
-    euclideans[0] = Euclidean(n_places, n_beats, frac_main, prob, voice);
-    euclideans[1] = Euclidean(n_places, n_beats, frac_main, prob, voice);
+  EuclideanVault(uint n_places, float frac_beats, float frac_main, uint prob, uint voice)
+    : n_places(n_places), frac_beats(frac_beats), frac_main(frac_main), prob(prob), voice(voice) {
+    euclideans[0] = Euclidean(n_places, max(1u, static_cast<uint>(n_places * frac_beats)), frac_main, prob, voice);
+    euclideans[1] = Euclidean(n_places, max(1u, static_cast<uint>(n_places * frac_beats)), frac_main, prob, voice);
   }
   void apply_edit(bool dump) {
     std::lock_guard<std::mutex> lock(access);
-    n_beats = min(n_beats, n_places);
+    uint n_beats = max(1u, static_cast<uint>(n_places * frac_beats));
     Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);;
     if (euclideans[updated ? next : current] != candidate) {
       Serial.print("Euclidean("); Serial.print(n_places); Serial.print(","); Serial.print(n_beats); 
@@ -465,8 +465,8 @@ public:
   }
 };
 
-EuclideanVault vault1 = EuclideanVault(16, 7, 0.33, MAX12, 0);
-EuclideanVault vault2 = EuclideanVault(25, 13, 0.25, MAX12, 2);
+EuclideanVault vault1 = EuclideanVault(16, 0.5, 0.5, MAX12, 0);
+EuclideanVault vault2 = EuclideanVault(25, 0.5, 0.5, MAX12, 2);
 
 // edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons : public PotsReader {
@@ -479,8 +479,8 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update(&vault.n_places, 2, -6, 0);
-      update(&vault.n_beats, 2, -6, 1);
+      update(&vault.n_places, 2, -7, 0);
+      update(&vault.frac_beats, 1);
       update(&vault.frac_main, 2);
       update(&vault.prob, 3);
       vault.apply_edit(false);
