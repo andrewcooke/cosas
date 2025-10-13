@@ -514,7 +514,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, 3000, 4, 12, 3000, 4)) {};
+  Reverb() : head(TapeEMA(this, 12, MAX12, 4, 12, MAX12, 4)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);
     return head.next(val);
