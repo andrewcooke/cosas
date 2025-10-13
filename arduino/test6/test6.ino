@@ -17,6 +17,7 @@ const uint PHASE_EXTN = 2;
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
+volatile static uint PLETS = 1;
 volatile static uint GAIN_BITS = 8;
 volatile static uint COMP_BITS = 0;
 
@@ -35,9 +36,8 @@ const bool DBG_PATTERN = false;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
-const bool DBG_SWING = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
@@ -408,10 +408,9 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
-      update(&SWING, 0, 0, 1);
-      // both inverted to make pots work in right direcn
-      update(&GAIN_BITS, 0, -9, 2);
-      update(&COMP_BITS, 0, -9, 3);
+      update(&PLETS, 1, -9, 1);
+      update(&SWING, 2);
+      update(&GAIN_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -533,6 +532,7 @@ public:
       update(&REVERB.size, 0, 1, 0);
       update(&REVERB.head.num, 1);
       update(&REVERB.head.smear.num, 2);
+      update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -607,42 +607,50 @@ uint scale_and_clip(int vol) {
 void loop() {
   unsigned long start = 0;
   uint accum = 0;
-  uint tick = 0;
-  uint beat = BEAT_SCALE / BPM;  // if it's 4/4 time
-  uint swing = (SWING * beat) >> 12;
+  uint tick1 = 0;
+  uint tick2 = 0;
+  uint beat1 = BEAT_SCALE / BPM;  // if it's 4/4 time
+  uint beat2 = 1 + beat1 / PLETS;
+  uint swing = (SWING * beat1) >> 13;
   Euclidean* rhythm1 = nullptr;
   Euclidean* rhythm2 = nullptr;
+  // have to be careful about a few points here
+  // - swing is earlier notes, so we need to trigger at the end of the beat so that there is room before for swing
+  // - beat2 is slightly larger than the exact size so that when time1 resets, so does time2, keeping the two in synch
+  // - so we need to trigger a little before the end of beat2 to be sure that we aren't blocked by beat1 triggering
+  // - so we cannot allow swing to extend to a full beat
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       if (DBG_TIMING) {
         unsigned long now = micros();
         if (start) accum = (15 * accum + ((now - start) << 3)) >> 4;
         start = now;
-        if (!random(100000)) Serial.println(accum >> 3);
+        if (!random(100000)) Serial.printf("%d %d %d %d %d %dms\n", PLETS, BPM, beat1, beat1 / PLETS, swing, accum >> 3);
       }
-      // spread out the load
-      if (tick == 0) {  // update on first beat TODO - change to ends of cycles
+      if (tick1 == 0) {
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
-      } else if (tick == 1) {
-        beat = BEAT_SCALE / BPM;
-        swing = (SWING * beat) >> 12;
-        if (DBG_SWING) {Serial.print(swing); Serial.print("/"); Serial.println(beat);}
-      } else if (tick == 2) {
-        rhythm1->on_beat(true);
-      } else if (tick == 3) {
-        rhythm2->on_beat(true);
+        beat1 = BEAT_SCALE / BPM;
+        beat2 = 1 + beat1 / PLETS;
+        swing = (SWING * beat1) >> 13;
       }
-      uint offset = beat - tick;
-      if (offset == swing + 2) {
-        rhythm1->on_beat(false);
-      } else if (offset == swing + 1) {
+      if (tick1 == beat1 - 1 - swing) {
+        rhythm1->on_beat(false);  // order here important - see increment of current_place
+      } else if (tick1 == beat1) {
+        rhythm1->on_beat(true);
+      }
+      if (tick2 == beat2 - 1 - PLETS - (PLETS == 1 ? swing : 0)) {  // swing second rhthm only if PLETS is 1 (and not sure even that makes sense)
         rhythm2->on_beat(false);
+      } else if (tick2 == beat2 - PLETS) {
+        rhythm2->on_beat(true);
       }
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
       dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
-      if (++tick >= beat) tick = 0;
+      tick2++; tick1++;
+      // careful here to not double-trigger tick2
+      if (tick1 > beat1) {tick1 = 0; tick2 = 0;}
+      else if (tick2 > beat2) tick2 = 0;
     }
   }
 }
