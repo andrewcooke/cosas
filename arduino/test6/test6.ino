@@ -38,7 +38,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
@@ -175,21 +175,25 @@ public:
     uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
     uint noise = (fm >> 10) << 4;
-    uint chirp = (fm & ((1 << 10) - 1)) >> 4;
+    uint chirp = ((fm & ((1 << 10) - 1)) >> 7) << 2;
     phase += freq_scaled;
     phase += (quad_dec * chirp * freq_scaled) >> 10;
     if (FM_NOISE) phase += (noise * quad_dec * LFSR.next()) >> 2;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
-    int out = SINE(linear_dec << 6, phase >> PHASE_EXTN);
+    int env = linear_dec;
+    if (!chirp) {
+      uint rise = durn_scaled >> 2;
+      uint decay = durn_scaled - rise;
+      if (time < rise) env = MAX8 * time / (rise + 1);
+      else env = MAX8 * (durn_scaled - time) / (decay + 1);
+    }
+    int out = SINE(env << 6, phase >> PHASE_EXTN);
     if (!FM_NOISE) out += noise * quad_dec * LFSR.next();
     uint amp_scaled = (amp * amp) >> 13; 
     out *= amp_scaled;
     time++;
-    if (DBG_FM && !random(1000) && amp > 0) {
-      Serial.print("chirp "); Serial.print(chirp); Serial.print(", noise "); Serial.print(noise); 
-      Serial.print(", freq_scaled "); Serial.println(freq_scaled);
-    }
+    if (DBG_FM && !random(1000) && amp > 0) Serial.printf("fm %d, chirp %d, noise %d\n", fm, chirp, noise);
     return out >> 12;
   }
 };
@@ -247,10 +251,7 @@ public:
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main && random(MAX12) < prob) {
       trigger(main ? 0 : 1);
-      if (DBG_PATTERN) {
-        Serial.print(voice); Serial.print(": "); Serial.print(current_place); Serial.print("/"); Serial.print(n_places);
-        Serial.print(" "); Serial.print(beat); Serial.print(" ("); Serial.print(main); Serial.println(")");
-      }
+      if (DBG_PATTERN) Serial.printf("%d: %d/%d %d (%d)\n", voice, current_place, n_places, beat, main);
     }
     if (main) {  // minor is done before main
       if (++current_place == n_places) current_place = 0;
@@ -381,14 +382,10 @@ bool editing = false;
       update(&voice.freq, 1);
       update(&voice.durn, 2);
       update(&voice.fm, 3);
-      if (DBG_VOICE) {
-        Serial.print("a "); Serial.print(voice.amp); Serial.print(", f "); Serial.print(voice.freq);
-        Serial.print(", d "); Serial.print(voice.durn); Serial.print(", n "); Serial.println(voice.fm);
-      }
+      if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
       if (editing) {
-        Serial.print("Voice("); Serial.print(idx); Serial.print(","); Serial.print(voice.amp); Serial.print(","); Serial.print(voice.freq);
-        Serial.print(","); Serial.print(voice.durn); Serial.print(","); Serial.print(voice.fm); Serial.println(")");
+        Serial.printf("Voice(%d, %d, %d, %d, %d)\n", idx, voice.amp, voice.freq, voice.durn, voice.fm);
         editing = false;
       }
       disable();
@@ -451,11 +448,9 @@ public:
   void apply_edit(bool dump) {
     std::lock_guard<std::mutex> lock(access);
     uint n_beats = max(1u, static_cast<uint>(n_places * frac_beats));
-    Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);;
+    Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);
     if (euclideans[updated ? next : current] != candidate) {
-      Serial.print("Euclidean("); Serial.print(n_places); Serial.print(","); Serial.print(n_beats); 
-      Serial.print(","); Serial.print(frac_main); Serial.print(","); Serial.print(prob); 
-      Serial.print(","); Serial.print(voice); Serial.println(")");
+      Serial.printf("Euclidean(%d, %d, %f.3, %d, %d)\n", n_places, n_beats, frac_main, prob, voice);
       euclideans[next] = candidate;
       updated = true;
     }
