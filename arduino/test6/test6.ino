@@ -158,7 +158,7 @@ public:
   volatile uint amp;    // 12 bits
   volatile uint freq;   // 12 bits
   volatile uint durn;   // 12 bits
-  volatile uint fm;  // 12 bits
+  volatile uint fm;     // 12 bits
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm)
     : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm){};
   void trigger() {
@@ -170,18 +170,19 @@ public:
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
     uint freq_scaled = freq >> 4;
-    freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 8);
+    freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 6);
     uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
     uint noise = (fm >> 10) << 4;
     uint chirp = (fm & ((1 << 10) - 1)) >> 4;
     phase += freq_scaled;
-    phase += (quad_dec * chirp) >> 8;
+    phase += (quad_dec * chirp * freq_scaled) >> 10;
+    phase += (noise * quad_dec * LFSR.next()) >> 2;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(linear_dec << 6, phase >> PHASE_EXTN);
-    out += (noise * quad_dec * LFSR.next());
-    uint amp_scaled = amp >> 1; 
+    // out += noise * quad_dec * LFSR.next();
+    uint amp_scaled = (amp * amp) >> 13; 
     out *= amp_scaled;
     time++;
     if (DBG_FM && !random(1000) && amp > 0) {
@@ -340,7 +341,7 @@ protected:
     if (enabled[pot]) *destn = POTS[pot].state;
   }
   void update(float* destn, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
+    if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
       STATE.pot(pot);
     }
@@ -595,11 +596,9 @@ uint scale_and_clip(int vol) {
   soft_clipped *= sign;
   int offset = soft_clipped + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
-  if (DBG_VOLUME && !random(10000)) {
-    Serial.print("G "); Serial.print(8 - GAIN_BITS); Serial.print(", C "); Serial.print(8 - COMP_BITS); 
-    Serial.print(", v "); Serial.print(vol); Serial.print(", s "); Serial.print(scaled);
-    Serial.print(", sc "); Serial.print(soft_clipped); Serial.print(", hc "); Serial.println(hard_clipped);
-  }
+  if (DBG_VOLUME && !random(10000))
+    Serial.printf("gain %d; comp %d; vol %d; scale %d; soft %d; hard %d\n", 
+                  8 - GAIN_BITS, 8 - COMP_BITS, vol, scaled, soft_clipped, hard_clipped);
   return REVERB.next(hard_clipped);
 }
 
