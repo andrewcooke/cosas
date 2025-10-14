@@ -15,6 +15,7 @@ const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing thi
 const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
 const uint PHASE_EXTN = 2;
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
+const bool FM_NOISE = true;
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint PLETS = 1;
@@ -177,11 +178,11 @@ public:
     uint chirp = (fm & ((1 << 10) - 1)) >> 4;
     phase += freq_scaled;
     phase += (quad_dec * chirp * freq_scaled) >> 10;
-    phase += (noise * quad_dec * LFSR.next()) >> 2;
+    if (FM_NOISE) phase += (noise * quad_dec * LFSR.next()) >> 2;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(linear_dec << 6, phase >> PHASE_EXTN);
-    // out += noise * quad_dec * LFSR.next();
+    if (!FM_NOISE) out += noise * quad_dec * LFSR.next();
     uint amp_scaled = (amp * amp) >> 13; 
     out *= amp_scaled;
     time++;
@@ -515,7 +516,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, MAX12, 4, 12, MAX12, 4)) {};  // by default disabled
+  Reverb() : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);
     return head.next(val);
@@ -531,8 +532,8 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, 1, 0);
-      update(&REVERB.head.num, 1);
-      update(&REVERB.head.smear.num, 2);
+      update(&REVERB.head.num, 1, 0, 1);
+      update(&REVERB.head.smear.num, 1, 0, 2);
       update(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
