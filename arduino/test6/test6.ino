@@ -38,7 +38,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
