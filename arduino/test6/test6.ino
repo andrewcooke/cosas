@@ -16,9 +16,10 @@ const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
 const uint PHASE_EXTN = 2;
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
 const bool FM_NOISE = true;
-const uint NOISE_BITS = 5;
+const uint NOISE_BITS = 4;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
+
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint PLETS = 1;
@@ -62,6 +63,12 @@ public:
     return lsb;
   }
   int n_bits(uint n) {
+    int bits = un_bits(n);
+    // remove most of the bias (shift to be around zero rather than all +ve)
+    if (n > 0) bits -= 1 << (n - 1);  
+    return bits;
+  }
+  uint un_bits(uint n) {
     static uint line = 0;
     int bits = 0;
     while (n) {
@@ -73,8 +80,6 @@ public:
       bits = bits << 1 | bit;
       n--;
     }
-    // remove most of bias (shift to be around zero rather than all +ve)
-    if (n > 0) bits -= 1 << (n - 1);  
     return bits;
   }
 };
@@ -200,26 +205,23 @@ public:
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = (linear_dec * linear_dec) >> 12;
     noise[noise_idx] = LFSR.next();
-    bool dbg = !random(10000);
     int out = 0;
     int count = 0;  // ugh must be signed
     int scale = MAX12;
-    uint step = 1 + ((N_NOISE >> 1) * fm) / (1 << 11);
-    for (uint i = 0; i < N_NOISE; i += step) {
+    uint step = 1 + (((N_NOISE >> 1) * fm) >> 10);
+    uint i = 0;
+    while (i < N_NOISE) {
       out += noise[(noise_idx + i) & NOISE_MASK] * scale;
       scale *= -1;
       count++;
-      if (dbg) Serial.printf("i %d, out %d, scale %d, count %d\n", i, out, scale, count);
+      i += (step + (time > (durn_scaled / 2)));
     }
     noise_idx = (noise_idx + 1) & NOISE_MASK;
     out /= count;
-    if (dbg) Serial.printf("%d\n", out);
     uint nv_amp = amp;
     uint amp_scaled = (nv_amp * nv_amp) >> 13; 
     out = (out * static_cast<int>(amp * quad_dec >> 12)) >> 10;
-    if (dbg) Serial.printf("%d\n", out);
-    // if (DBG_CRASH && !random(10000))
-    if (dbg)
+    if (DBG_CRASH && !random(10000))
       Serial.printf("voice %d, count %d, step %d, quad_dec %d, out %d\n", idx, count, step, quad_dec, out);
     return out;
   }
