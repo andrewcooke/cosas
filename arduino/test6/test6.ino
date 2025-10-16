@@ -16,6 +16,9 @@ const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
 const uint PHASE_EXTN = 2;
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
 const bool FM_NOISE = true;
+const uint NOISE_BITS = 5;
+const uint N_NOISE = 1 << NOISE_BITS;
+const uint NOISE_MASK = N_NOISE - 1;
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint PLETS = 1;
@@ -38,8 +41,11 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_FM = false;
+const bool DBG_BEEP = false;
+const bool DBG_DRUM = false;
+const bool DBG_CRASH = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -155,6 +161,8 @@ private:
   uint idx;
   uint time = 0;
   int phase = 0;
+  uint noise[N_NOISE] = {0};
+  uint noise_idx = 0;
 public:
   volatile uint amp;    // 12 bits
   volatile uint freq;   // 12 bits
@@ -170,32 +178,111 @@ public:
     uint durn_scaled = durn << 2;
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
-    uint freq_scaled = freq >> 4;
-    freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 6);
+    uint nv_fm = fm;
+    uint fm_low10 = nv_fm & 0x3ff;
+    int out = 0;
+    switch (nv_fm >> 10) {
+      case 0:
+      out = crash(durn_scaled, fm_low10);
+      break;
+      case 1:
+      out = drum(durn_scaled, fm_low10);
+      break;
+      case 2:
+      case 3:
+      default:
+      out = beep(durn_scaled, fm_low10);
+    }
+    time++;
+    return out >> 4;
+  }
+  int crash(uint durn_scaled, uint fm) {
+    uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
+    uint quad_dec = (linear_dec * linear_dec) >> 12;
+    noise[noise_idx] = LFSR.next();
+    bool dbg = !random(10000);
+    int out = 0;
+    int count = 0;  // ugh must be signed
+    int scale = MAX12;
+    uint step = 1 + ((N_NOISE >> 1) * fm) / (1 << 11);
+    for (uint i = 0; i < N_NOISE; i += step) {
+      out += noise[(noise_idx + i) & NOISE_MASK] * scale;
+      scale *= -1;
+      count++;
+      if (dbg) Serial.printf("i %d, out %d, scale %d, count %d\n", i, out, scale, count);
+    }
+    noise_idx = (noise_idx + 1) & NOISE_MASK;
+    out /= count;
+    if (dbg) Serial.printf("%d\n", out);
+    uint nv_amp = amp;
+    uint amp_scaled = (nv_amp * nv_amp) >> 13; 
+    out = (out * static_cast<int>(amp * quad_dec >> 12)) >> 10;
+    if (dbg) Serial.printf("%d\n", out);
+    // if (DBG_CRASH && !random(10000))
+    if (dbg)
+      Serial.printf("voice %d, count %d, step %d, quad_dec %d, out %d\n", idx, count, step, quad_dec, out);
+    return out;
+  }
+  int drum(uint durn_scaled, uint fm) {
+    uint nv_freq = freq;
+    uint freq_scaled = 1 + ((nv_freq * nv_freq) >> 15);
     uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
-    uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
-    uint noise = (fm >> 10) << 4;
-    uint chirp = ((fm & ((1 << 10) - 1)) >> 7) << 2;
+    uint quad_dec = (linear_dec * linear_dec) >> 10;
     phase += freq_scaled;
-    phase += (quad_dec * chirp * freq_scaled) >> 10;
-    if (FM_NOISE) phase += (noise * quad_dec * LFSR.next()) >> 2;
+    phase += (quad_dec * fm * freq_scaled) >> 13;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
-    int env = linear_dec;
-    if (!chirp) {
-      uint rise = durn_scaled >> 2;
-      uint decay = durn_scaled - rise;
-      if (time < rise) env = MAX8 * time / (rise + 1);
-      else env = MAX8 * (durn_scaled - time) / (decay + 1);
-    }
-    int out = SINE(env << 6, phase >> PHASE_EXTN);
-    if (!FM_NOISE) out += noise * quad_dec * LFSR.next();
-    uint amp_scaled = (amp * amp) >> 13; 
-    out *= amp_scaled;
-    time++;
-    if (DBG_FM && !random(1000) && amp > 0) Serial.printf("fm %d, chirp %d, noise %d\n", fm, chirp, noise);
-    return out >> 12;
+    uint nv_amp = amp;
+    uint amp_scaled = (nv_amp * nv_amp) >> 13; 
+    int out = SINE(amp_scaled, phase >> PHASE_EXTN);
+    if (DBG_DRUM && !idx && !random(10000)) 
+      Serial.printf("voice %d, time %d, durn_scaled %d, freq_scaled %d, phase %d, amp_scaled %d, fm %d, out %d\n", 
+                    idx, time, durn_scaled, freq_scaled, phase, amp_scaled, fm, out);
+    return out;
   }
+  int beep(uint durn_scaled, uint fm) {
+    uint nv_freq = freq;
+    uint freq_scaled = 1 + ((nv_freq * nv_freq) >> 13);
+    phase += freq_scaled + LFSR.n_bits(fm >> 7);
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    uint nv_amp = amp;
+    uint amp_scaled = (nv_amp * nv_amp) >> 13; 
+    uint env_phase = (NSAMPLES * time) / (1 + 2 * durn_scaled);
+    uint env = abs(SINE(amp_scaled, env_phase));
+    int out = SINE(env, phase >> PHASE_EXTN);
+    if (DBG_BEEP && !idx && !random(10000)) 
+      Serial.printf("voice %d, time %d, durn_scaled %d, freq_scaled %d, phase %d, amp_scaled %d, env_phase %d, env %d, out %d\n", 
+                    idx, time, durn_scaled, freq_scaled, phase, amp_scaled, env_phase, env, out);
+    return out;
+  }
+
+
+    // uint freq_scaled = freq >> 4;
+    // freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 6);
+    // uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
+    // uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
+    // uint noise = (fm >> 10) << 4;
+    // uint chirp = ((fm & ((1 << 10) - 1)) >> 7) << 2;
+    // phase += freq_scaled;
+    // phase += (quad_dec * chirp * freq_scaled) >> 10;
+    // if (FM_NOISE) phase += (noise * quad_dec * LFSR.next()) >> 2;
+    // while (phase < 0) phase += NSAMPLES_EXTN;
+    // while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    // int env = linear_dec;
+    // if (!chirp) {
+    //   uint rise = durn_scaled >> 2;
+    //   uint decay = durn_scaled - rise;
+    //   if (time < rise) env = MAX8 * time / (rise + 1);
+    //   else env = MAX8 * (durn_scaled - time) / (decay + 1);
+    // }
+    // int out = SINE(env << 6, phase >> PHASE_EXTN);
+    // if (!FM_NOISE) out += noise * quad_dec * LFSR.next();
+    // uint amp_scaled = (amp * amp) >> 13; 
+    // out *= amp_scaled;
+    // time++;
+    // if (DBG_FM && !random(1000) && amp > 0) Serial.printf("fm %d, chirp %d, noise %d\n", fm, chirp, noise);
+    // return out >> 12;
 };
 
 std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 1200, 0),
@@ -595,6 +682,7 @@ uint scale_and_clip(int vol) {
   if (DBG_VOLUME && !random(10000))
     Serial.printf("gain %d; comp %d; vol %d; scale %d; soft %d; hard %d\n", 
                   8 - GAIN_BITS, 8 - COMP_BITS, vol, scaled, soft_clipped, hard_clipped);
+  // TODO _ whyy is reverb offset?!
   return REVERB.next(hard_clipped);
 }
 
@@ -639,8 +727,9 @@ void loop() {
       } else if (tick2 == beat2 - PLETS) {
         rhythm2->on_beat(true);
       }
-      int vol = 0;
-      for (Voice& voice : VOICES) vol += voice.output_12();
+      // int vol = 0;
+      // for (Voice& voice : VOICES) vol += voice.output_12();
+      int vol = VOICES[0].output_12();
       dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
       tick2++; tick1++;
       // careful here to not double-trigger tick2
