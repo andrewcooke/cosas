@@ -141,12 +141,11 @@ public:
 
 CentralState STATE = CentralState();
 
-// lookup table for sine
-class Sine {
+class Quarter {
 private:
-  std::array<uint, 1 + NSAMPLES / 4> table;
+  virtual uint lookup(uint phase);
 public:
-  Sine() {for (uint i = 0; i < 1 + NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  Quarter() = default;
   int operator()(uint amp, int phase) {
     int sign = 1;
     if (phase >= NSAMPLES / 2) {
@@ -154,11 +153,27 @@ public:
       sign = -1;
     };
     if (phase >= NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
-    return sign * ((amp * table[phase]) >> 12);
+    return sign * ((amp * lookup(phase)) >> 12);
   }
 };
 
-Sine SINE = Sine();
+class Sine : public Quarter {
+private:
+  std::array<uint, 1 + NSAMPLES / 4> table;
+public:
+  Sine() : Quarter() {for (uint i = 0; i < 1 + NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  uint lookup(uint phase) override {return table[phase];}
+};
+
+Sine SINE;
+
+class Square : public Quarter {
+public:
+  Square() : Quarter() {}
+  uint lookup(uint phase) override {return MAX12;}
+};
+
+Square SQUARE;
 
 // linear decay of sine with fm based on time or noise
 class Voice {
@@ -191,12 +206,12 @@ public:
       out = crash(durn_scaled, fm_low10);
       break;
       case 1:
-      out = drum(durn_scaled, fm_low10);
+      out = beep(durn_scaled, fm_low10);
       break;
       case 2:
+      out = drum(durn_scaled, fm_low10);
       case 3:
       default:
-      out = beep(durn_scaled, fm_low10);
     }
     time++;
     return out >> 4;
@@ -204,6 +219,13 @@ public:
   int crash(uint durn_scaled, uint fm) {
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = (linear_dec * linear_dec) >> 12;
+    uint nv_freq = freq;
+    uint freq_scaled = 1 + ((nv_freq * nv_freq) >> 13);
+    uint nv_amp = amp;
+    uint amp_scaled = (nv_amp * nv_amp) >> 13; 
+    phase += freq_scaled;
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     noise[noise_idx] = LFSR.next();
     int out = 0;
     int count = 0;  // ugh must be signed
@@ -212,14 +234,13 @@ public:
     uint i = 0;
     while (i < N_NOISE) {
       out += noise[(noise_idx + i) & NOISE_MASK] * scale;
+      i += step;
       scale *= -1;
       count++;
-      i += (step + (time > (durn_scaled / 2)));
     }
     noise_idx = (noise_idx + 1) & NOISE_MASK;
     out /= count;
-    uint nv_amp = amp;
-    uint amp_scaled = (nv_amp * nv_amp) >> 13; 
+    out += SQUARE(1 << 7, phase >> PHASE_EXTN);
     out = (out * static_cast<int>(amp * quad_dec >> 12)) >> 10;
     if (DBG_CRASH && !random(10000))
       Serial.printf("voice %d, count %d, step %d, quad_dec %d, out %d\n", idx, count, step, quad_dec, out);
