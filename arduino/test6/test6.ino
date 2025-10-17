@@ -210,8 +210,10 @@ public:
       break;
       case 2:
       out = drum(durn_scaled, fm_low10);
+      break;
       case 3:
       default:
+      out = beep(durn_scaled, fm_low10);
     }
     time++;
     return out >> 4;
@@ -241,7 +243,9 @@ public:
     noise_idx = (noise_idx + 1) & NOISE_MASK;
     out /= count;
     out += SQUARE(1 << 7, phase >> PHASE_EXTN);
-    out = (out * static_cast<int>(amp * quad_dec >> 12)) >> 10;
+    uint env_phase = (NSAMPLES * time) / (1 + 2 * durn_scaled);
+    uint env = abs(SINE(amp_scaled, env_phase));
+    out = (out * static_cast<int>(env * quad_dec >> 12)) >> 10;
     if (DBG_CRASH && !random(10000))
       Serial.printf("voice %d, count %d, step %d, quad_dec %d, out %d\n", idx, count, step, quad_dec, out);
     return out;
@@ -279,33 +283,6 @@ public:
                     idx, time, durn_scaled, freq_scaled, phase, amp_scaled, env_phase, env, out);
     return out;
   }
-
-
-    // uint freq_scaled = freq >> 4;
-    // freq_scaled = 1 + ((freq_scaled * freq_scaled) >> 6);
-    // uint linear_dec = MAX8 * (durn_scaled - time) / (durn_scaled + 1);
-    // uint quad_dec = linear_dec = (linear_dec * linear_dec) >> 10;
-    // uint noise = (fm >> 10) << 4;
-    // uint chirp = ((fm & ((1 << 10) - 1)) >> 7) << 2;
-    // phase += freq_scaled;
-    // phase += (quad_dec * chirp * freq_scaled) >> 10;
-    // if (FM_NOISE) phase += (noise * quad_dec * LFSR.next()) >> 2;
-    // while (phase < 0) phase += NSAMPLES_EXTN;
-    // while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
-    // int env = linear_dec;
-    // if (!chirp) {
-    //   uint rise = durn_scaled >> 2;
-    //   uint decay = durn_scaled - rise;
-    //   if (time < rise) env = MAX8 * time / (rise + 1);
-    //   else env = MAX8 * (durn_scaled - time) / (decay + 1);
-    // }
-    // int out = SINE(env << 6, phase >> PHASE_EXTN);
-    // if (!FM_NOISE) out += noise * quad_dec * LFSR.next();
-    // uint amp_scaled = (amp * amp) >> 13; 
-    // out *= amp_scaled;
-    // time++;
-    // if (DBG_FM && !random(1000) && amp > 0) Serial.printf("fm %d, chirp %d, noise %d\n", fm, chirp, noise);
-    // return out >> 12;
 };
 
 std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 1200, 0),
@@ -750,9 +727,9 @@ void loop() {
       } else if (tick2 == beat2 - PLETS) {
         rhythm2->on_beat(true);
       }
-      // int vol = 0;
-      // for (Voice& voice : VOICES) vol += voice.output_12();
-      int vol = VOICES[0].output_12();
+      int vol = 0;
+      for (Voice& voice : VOICES) vol += voice.output_12();
+      // int vol = VOICES[0].output_12();
       dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
       tick2++; tick1++;
       // careful here to not double-trigger tick2
