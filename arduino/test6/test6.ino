@@ -42,12 +42,12 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
-const bool DBG_MINIFM = true;
+const bool DBG_MINIFM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -218,13 +218,13 @@ public:
     int out = 0;
     switch (nv_fm >> 10) {
       case 0:
-      out = crash(fm_low10, final_amp, freq_scaled);
+      out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
       break;
       case 1:
       out = beep(fm_low10, final_amp, freq_scaled);
       break;
       case 2:
-      out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
+      out = crash(fm_low10, final_amp, freq_scaled);
       break;
       case 3:
       default:
@@ -731,8 +731,8 @@ void loop() {
         rhythm2->on_beat(true);
       }
       int vol = 0;
-      // for (Voice& voice : VOICES) vol += voice.output_12();
-      vol = VOICES[0].output_12();
+      for (Voice& voice : VOICES) vol += voice.output_12();
+      // vol = VOICES[0].output_12();
       dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
       tick2++; tick1++;
       // careful here to not double-trigger tick2
