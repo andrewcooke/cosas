@@ -46,7 +46,8 @@ const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
-const bool DBG_CRASH = true;
+const bool DBG_CRASH = false;
+const bool DBG_MINIFM = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -211,28 +212,35 @@ public:
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
     uint freq_scaled = 1 + ((nv_freq * nv_freq) >> 13);
-    if ((DBG_BEEP | DBG_CRASH | DBG_DRUM) && !idx && !random(10000))
+    if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(10000))
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
     switch (nv_fm >> 10) {
       case 0:
-      // out = crash(fm_low10, final_amp, freq_scaled);
-      // break;
+      out = crash(fm_low10, final_amp, freq_scaled);
+      break;
       case 1:
-      // out = beep(fm_low10, final_amp, freq_scaled);
-      // break;
+      out = beep(fm_low10, final_amp, freq_scaled);
+      break;
       case 2:
-      // out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
-      // break;
+      out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
+      break;
       case 3:
       default:
-      // out = beep(fm_low10, final_amp, freq_scaled);
-      // out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
-      out = crash(fm_low10, final_amp, freq_scaled);
+      out = minifm(fm_low10, final_amp, freq_scaled);
     }
     time++;
     return out >> 4;
+  }
+  int minifm(uint fm, uint final_amp, uint freq_scaled) {
+    phase += freq_scaled + fm;
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    int out = SINE(final_amp, phase >> PHASE_EXTN);
+    if (DBG_MINIFM && !idx && !random(10000)) 
+      Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
+    return out;
   }
   int crash(uint fm, uint final_amp, uint freq_scaled) {
     noise[noise_idx] = LFSR.next() ? 1 : -1;
