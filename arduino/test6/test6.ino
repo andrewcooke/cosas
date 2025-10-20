@@ -16,7 +16,7 @@ const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
 const uint PHASE_EXTN = 2;
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
 const bool FM_NOISE = true;
-const uint NOISE_BITS = 4;
+const uint NOISE_BITS = 5;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 
@@ -181,7 +181,7 @@ private:
   uint idx;
   uint time = 0;
   int phase = 0;
-  uint noise[N_NOISE] = {0};
+  int noise[N_NOISE] = {0};
   uint noise_idx = 0;
 public:
   volatile uint amp;    // 12 bits
@@ -235,27 +235,27 @@ public:
     return out >> 4;
   }
   int crash(uint fm, uint final_amp, uint freq_scaled) {
-    phase += freq_scaled;
-    while (phase < 0) phase += NSAMPLES_EXTN;
-    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
-    noise[noise_idx] = LFSR.next();
+    noise[noise_idx] = LFSR.next() ? 1 : -1;
     int out = 0;
     int count = 0;  // ugh must be signed
-    int scale = MAX12;
-    uint step = 1 + (((N_NOISE >> 1) * fm) >> 10);
+    uint conv_phase = 0;
+    uint conv_freq = (1 + fm) << (PHASE_EXTN);
     uint i = 0;
     while (i < N_NOISE) {
-      out += noise[(noise_idx + i) & NOISE_MASK] * scale;
-      i += step;
-      scale *= -1;
+      conv_phase += conv_freq;
+      while (conv_phase >= NSAMPLES_EXTN) conv_phase -= NSAMPLES_EXTN;
+      out += (noise[(noise_idx + i++) & NOISE_MASK] * SINE(N12, conv_phase >> PHASE_EXTN));
       count++;
     }
     noise_idx = (noise_idx + 1) & NOISE_MASK;
     out /= count;
-    out += SQUARE(1 << 7, phase >> PHASE_EXTN);
-    out = (out * final_amp) >> 10;
+    phase += freq_scaled;
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    out += SQUARE(MAX8, phase >> PHASE_EXTN);
+    out = (out * static_cast<int>(final_amp)) >> 8;
     if (DBG_CRASH && !random(10000))
-      Serial.printf("count %d, step %d, out %d\n", count, step, out);
+      Serial.printf("count %d, conv_freq %d, out %d\n", count, conv_freq, out);
     return out;
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec) {
