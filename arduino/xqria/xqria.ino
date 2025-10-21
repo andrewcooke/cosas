@@ -12,14 +12,15 @@
 const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high - see DBG_TIMING
 const uint LOWEST_F_HZ = 20;  // assuming integer phase increment
 const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
-const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);
-const uint PHASE_EXTN = 2;
-const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN;
+const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);  // convert to bpm assuming 4/4 (not sure this is correct)
+const uint PHASE_EXTN = 2;  // extra bits for phase to extend low freqs
+const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN; 
 const bool FM_NOISE = true;
 const uint NOISE_BITS = 5;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 
+// global parameters tha can be changed during use
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint PLETS = 1;
@@ -51,7 +52,7 @@ const bool DBG_MINIFM = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
-// a source of random bits
+// efficient random bits from an LFSR (random quality is not important here!)
 class LFSR16 {
 private:
   uint16_t state;
@@ -111,8 +112,7 @@ public:
   }
 };
 
-// central location for coordinating (utliple) button presses
-// also wraps leds
+// central location for coordinating (multiple) button presses, also wraps leds
 class CentralState {
 private:
   LEDs leds = LEDs();
@@ -142,6 +142,7 @@ public:
 
 CentralState STATE = CentralState();
 
+// quarter wave lookup (don't need to store complete sine wave; only first quarter)
 class Quarter {
 private:
   virtual uint lookup(uint phase);
@@ -158,6 +159,7 @@ public:
   }
 };
 
+// implement sine as lookup
 class Sine : public Quarter {
 private:
   std::array<uint, 1 + NSAMPLES / 4> table;
@@ -168,6 +170,7 @@ public:
 
 Sine SINE;
 
+// implement square (no need for table, can just use constant)
 class Square : public Quarter {
 public:
   Square() : Quarter() {}
@@ -176,7 +179,7 @@ public:
 
 Square SQUARE;
 
-// linear decay of sine with fm based on time or noise
+// generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
   uint idx;
@@ -185,6 +188,7 @@ private:
   int noise[N_NOISE] = {0};
   uint noise_idx = 0;
 public:
+  // parameters madified by UI
   volatile uint amp;    // 12 bits
   volatile uint freq;   // 12 bits
   volatile uint durn;   // 12 bits
@@ -288,13 +292,13 @@ public:
   }
 };
 
+// initial values no longer sounds good (TODO - improve)
 std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 1200, 0),
                                Voice(1, MAX12, 240, 1000, 240),
                                Voice(2, MAX12, 213, 1300, 150),
                                Voice(3, MAX12, 320,  900, 240)};
 
-// standard euclidean pattern
-// TODO - add variations (biased towards beats with largest errors)
+// standard euclidean pattern (TODO - add variations biased towards beats with largest errors)
 class Euclidean {
 private:
   uint n_places;
@@ -349,6 +353,7 @@ public:
   }
 };
 
+// exponential moving average used for smoothing time series
 template <typename T> class EMA {
 private:
   uint bits;
@@ -368,6 +373,7 @@ public:
   }
 };
 
+// encapsulate a pot position and associated (smoothed) state
 class Pot {
 private:
   static const uint ema_xbits = 3;
@@ -380,7 +386,7 @@ public:
   void set_state() {state = MAX12 - ema.next(analogRead(pin)) - 1;}  // inverted and hack to zero
 };
 
-// the smoothed pots
+// all the pots
 std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
 
 // debounce buttons
@@ -416,6 +422,7 @@ public:
   }
 };
 
+// assorted ways to apply changes from a pot to some underlying parameter (implements the catch-up mechanism)
 class PotsReader {
 private:
   static const uint thresh = 10;
@@ -508,6 +515,7 @@ public:
 
 GlobalButtons GBUTTONS = GlobalButtons();
 
+// handle passing of complex state between threads (everything else is a volatile uint, i think, but the pattern is complex)
 // this stores three things:
 // - a set of values to create "the next" euclidean object while editing is in progress
 // - a "next" euclidean object created when editing last exited
@@ -582,6 +590,7 @@ public:
 EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
 EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
+// reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 template <int SCALE> class Reverb {
 private:
   static const uint max_size = SCALE < 0 ? N12 >> -SCALE : N12 << SCALE;
@@ -628,7 +637,7 @@ public:
 
 PostButtons PBUTTONS = PostButtons();
 
-// regular sampling
+// use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
 
@@ -638,7 +647,7 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-// ui on other core
+// run the ui on other core
 TaskHandle_t ui_handle = NULL;
 
 void setup() {
@@ -669,6 +678,7 @@ void setup() {
   STATE.init();
 }
 
+// apply post-processing
 uint scale_and_clip(int vol) {
   int scaled = vol >> (8 - GAIN_BITS);
   int sign = sgn(scaled);
@@ -685,11 +695,11 @@ uint scale_and_clip(int vol) {
   if (DBG_VOLUME && !random(10000))
     Serial.printf("gain %d; comp %d; vol %d; scale %d; soft %d; hard %d\n", 
                   8 - GAIN_BITS, 8 - COMP_BITS, vol, scaled, soft_clipped, hard_clipped);
-  // TODO _ whyy is reverb offset?!
+  // TODO - why is reverb offset?!  the tape is an int, not a uint.  not even sure if order correct (before clipping?)
   return REVERB.next(hard_clipped);
 }
 
-// semaphore gives regular sampleas as long as no single iteration takes too long
+// main loop on sound-generating core
 void loop() {
   unsigned long start = 0;
   uint accum = 0;
@@ -742,7 +752,7 @@ void loop() {
   }
 }
 
-// runs on other core so can do slow operations
+// main loop on other core for slow/ui operations
 void ui_loop(void*) {
   while (1) {
     for (Button& b : BUTTONS) b.set_state();
