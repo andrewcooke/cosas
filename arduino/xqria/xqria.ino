@@ -49,6 +49,8 @@ const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
+const bool DBG_GAIN = true;
+const bool DBG_REVERB = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -368,7 +370,7 @@ public:
   EMA(uint bits, uint num, uint xtra, T state)
   : bits(bits), num(num), denom(1 << bits), xtra(xtra), state(state) {};
   T next(T val) {
-    set_state((get_state() * (denom - num) + (val << xtra) * num) >> bits);
+    set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
     return get_state() >> xtra;
   }
 };
@@ -506,7 +508,7 @@ public:
       update(&BPM, 30, -4, 0);
       update(&PLETS, 1, -9, 1);
       update(&SWING, 2);
-      update(&GAIN_BITS, 0, -9, 3);
+      update(&GAIN_BITS, 0, -7, 3);
     } else {
       disable();
     }
@@ -591,33 +593,35 @@ EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
 EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
-template <int SCALE> class Reverb {
+template <int BITS> class Reverb {
 private:
-  static const uint max_size = SCALE < 0 ? N12 >> -SCALE : N12 << SCALE;
+  static const uint max_size = 1 << BITS;
   int tape[max_size];
   uint write = 0;
+
   class TapeEMA : public EMA<int> {
   private:
-    Reverb<SCALE> *reverb;
+    Reverb<BITS> *reverb;
   protected:
     int get_state() {return smear.next(reverb->tape[reverb->write]);}
     void set_state(int val) {reverb->tape[reverb->write] = val;}
   public:
     EMA<int> smear;
-    TapeEMA(Reverb<SCALE> *reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra) 
+    TapeEMA(Reverb<BITS> *reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra) 
     : reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)), EMA<int>(bits, num, xtra, 0) {};
   };
+
 public:
   uint size = max_size;
   TapeEMA head;
   Reverb() : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)) {};  // by default disabled
   int next(int val) {
-    write = (write + 1) % max(1u, size);
+    write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
   }
 };
 
-Reverb REVERB = Reverb<1>();
+Reverb REVERB = Reverb<13>();
 
 // post-process - outer two buttons
 class PostButtons : public PotsReader {
@@ -679,24 +683,33 @@ void setup() {
 }
 
 // apply post-processing
-uint scale_and_clip(int vol) {
-  int scaled = vol >> (8 - GAIN_BITS);
-  int sign = sgn(scaled);
-  int absolute = abs(scaled);
-  int soft_clipped = absolute;
+uint post_process(int vol) {
+  // apply volume
+  int shift = GAIN_BITS - 8;
+  int scaled = shift > 0 ? vol << shift : vol >> -shift;
+  if (DBG_GAIN && !random(100000)) Serial.printf("gain bits %d, shift %d, vol %d\n", GAIN_BITS, shift, vol);
+  // apply compressor
+  // int soft_clipped = vol;
   if (DBG_COMP) Serial.println(COMP_BITS);
+  int sign = sgn(scaled);
+  uint absolute = abs(scaled);
   for (uint i = (8 - COMP_BITS); i < 8; i++) {
     uint limit = 1 << i;
-    if (soft_clipped > limit) soft_clipped = limit + (soft_clipped - limit) / 2;
+    if (absolute > limit) absolute = limit + (absolute - limit) / 2;
   }
-  soft_clipped *= sign;
-  int offset = soft_clipped + MAX7;
+  int soft_clipped = sign * static_cast<int>(absolute);
+  // apply reverb
+  // int reverbed = soft_clipped;
+  int reverbed = REVERB.next(soft_clipped);
+  if (DBG_REVERB && !random(100000)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
+  // hard clip
+  int offset = reverbed + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
   if (DBG_VOLUME && !random(10000))
     Serial.printf("gain %d; comp %d; vol %d; scale %d; soft %d; hard %d\n", 
                   8 - GAIN_BITS, 8 - COMP_BITS, vol, scaled, soft_clipped, hard_clipped);
   // TODO - why is reverb offset?!  the tape is an int, not a uint.  not even sure if order correct (before clipping?)
-  return REVERB.next(hard_clipped);
+  return hard_clipped;
 }
 
 // main loop on sound-generating core
@@ -743,7 +756,7 @@ void loop() {
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
       // vol = VOICES[0].output_12();
-      dac_output_voltage(DAC_CHAN_0, scale_and_clip(vol));
+      dac_output_voltage(DAC_CHAN_0, post_process(vol));
       tick2++; tick1++;
       // careful here to not double-trigger tick2
       if (tick1 > beat1) {tick1 = 0; tick2 = 0;}
