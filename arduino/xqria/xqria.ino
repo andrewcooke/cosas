@@ -225,20 +225,20 @@ public:
     uint amp_scaled = series_exp(amp_11, 3) >> 16;
     // uint amp_scaled = (amp_11 * amp_11) >> 11; 
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
-    uint quad_dec = (linear_dec * linear_dec) >> 12;
-    uint hard = amp_scaled * quad_dec >> 12;
+    uint power_dec = series_exp(linear_dec, 2) >> 11;
+    uint hard = amp_scaled * power_dec >> 12;
     uint env_phase = (NSAMPLES * time) / (1 + 2 * durn_scaled);
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
-    uint freq_scaled = 1 + ((nv_freq * nv_freq) >> 13);
+    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 13);
     if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(10000))
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
-                    nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
+                    nv_amp & N11, amp_11, amp_scaled, linear_dec, power_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
     switch (nv_fm >> 10) {
       case 0:
-      out = drum(fm_low10, final_amp, freq_scaled, quad_dec);
+      out = drum(fm_low10, final_amp, freq_scaled, power_dec);
       break;
       case 1:
       out = beep(fm_low10, final_amp, freq_scaled);
@@ -605,6 +605,7 @@ EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
 EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
+// TODO - smear affects immediate output (it shouldn't)
 template <int BITS> class Reverb {
 private:
   static const uint max_size = 1 << BITS;
