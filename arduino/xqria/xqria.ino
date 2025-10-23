@@ -23,7 +23,7 @@ const uint NOISE_MASK = N_NOISE - 1;
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
-volatile static uint PLETS = 1;
+volatile static uint SUBDIV = 60;  // implict numerator of 60 with a restructed set of values 
 volatile static uint GAIN_BITS = 0;
 volatile static uint COMP_BITS = 0;
 
@@ -49,8 +49,8 @@ const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
-const bool DBG_GAIN = true;
-const bool DBG_REVERB = true;
+const bool DBG_GAIN = false;
+const bool DBG_REVERB = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -506,7 +506,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
-      update(&PLETS, 1, -9, 1);
+      update(&SUBDIV, 1, -9, 1);
       update(&SWING, 2);
       update(&GAIN_BITS, 0, -8, 3);
     } else {
@@ -712,13 +712,13 @@ uint post_process(int vol) {
 }
 
 // main loop on sound-generating core
-void loop() {
+void loop_old() {
   unsigned long start = 0;
   uint accum = 0;
   uint tick1 = 0;
   uint tick2 = 0;
   uint beat1 = BEAT_SCALE / BPM;  // if it's 4/4 time
-  uint beat2 = 1 + beat1 / PLETS;
+  uint beat2 = 1 + beat1 / SUBDIV;
   uint swing = (SWING * beat1) >> 13;
   Euclidean* rhythm1 = nullptr;
   Euclidean* rhythm2 = nullptr;
@@ -733,13 +733,13 @@ void loop() {
         unsigned long now = micros();
         if (start) accum = (15 * accum + ((now - start) << 3)) >> 4;
         start = now;
-        if (!random(100000)) Serial.printf("%d %d %d %d %d %dms\n", PLETS, BPM, beat1, beat1 / PLETS, swing, accum >> 3);
+        if (!random(100000)) Serial.printf("%d %d %d %d %d %dms\n", SUBDIV, BPM, beat1, beat1 / SUBDIV, swing, accum >> 3);
       }
       if (tick1 == 0) {
         rhythm1 = vault1.get();
         rhythm2 = vault2.get();
         beat1 = BEAT_SCALE / BPM;
-        beat2 = 1 + beat1 / PLETS;
+        beat2 = 1 + beat1 / SUBDIV;
         swing = (SWING * beat1) >> 13;
       }
       if (tick1 == beat1 - 1 - swing) {
@@ -747,9 +747,9 @@ void loop() {
       } else if (tick1 == beat1) {
         rhythm1->on_beat(true);
       }
-      if (tick2 == beat2 - 1 - PLETS - (PLETS == 1 ? swing : 0)) {  // swing second rhthm only if PLETS is 1 (and not sure even that makes sense)
+      if (tick2 == beat2 - 1 - SUBDIV - (SUBDIV == 1 ? swing : 0)) {  // swing second rhythm only if SUBDIV is 1 (and not sure even that makes sense)
         rhythm2->on_beat(false);
-      } else if (tick2 == beat2 - PLETS) {
+      } else if (tick2 == beat2 - SUBDIV) {
         rhythm2->on_beat(true);
       }
       int vol = 0;
@@ -760,6 +760,70 @@ void loop() {
       // careful here to not double-trigger tick2
       if (tick1 > beat1) {tick1 = 0; tick2 = 0;}
       else if (tick2 > beat2) tick2 = 0;
+    }
+  }
+}
+
+// TODO - swing!
+
+class Trigger {
+private:
+  EuclideanVault &vault;
+  Euclidean *rhythm = nullptr;
+  enum Phase {Idle, Minor, Update};
+  Phase phase = Idle;
+  uint trigger = 0;
+  void recalculate(uint ticks) {
+    rhythm = vault.get();
+    uint nv_interval = BEAT_SCALE / BPM;
+    uint beat = 1 + (ticks / nv_interval);
+    trigger = nv_interval * beat;
+    if (trigger < ticks) trigger += nv_interval;  // TODO?
+  }
+public:
+  Trigger(EuclideanVault &vault) : vault(vault) {
+    Serial.printf("creating trigger\n");
+    recalculate(0);
+  }
+  void on(uint ticks) {  // try to spread work across multiple ticks
+    if (phase == Idle && ticks > trigger) {
+      rhythm->on_beat(true);
+      phase = Minor;
+    } else if (phase == Minor) {
+      rhythm->on_beat(false);
+      phase = Update;
+    } else if (phase == Update) {
+      recalculate(ticks);
+      phase = Idle;
+    }
+  }
+};
+
+void loop() {
+  uint ticks = 0;
+  unsigned long start = 0;
+  EMA<unsigned long> gap = EMA<unsigned long>(4, 1, 3, 0);
+  Trigger trigger1(vault1);
+  Trigger trigger2(vault2);
+  while (1) {
+    if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
+      if (DBG_TIMING) {
+        unsigned long latest = 0;
+        unsigned long now = micros();
+        if (start) latest = gap.next(now - start);
+        start = now;
+        if (!random(100000)) Serial.printf("%d %dms\n", ticks, latest);
+      }
+      if (ticks & 0x1) {
+        trigger1.on(ticks);
+      } else {
+        trigger2.on(ticks);
+      }
+      ticks++;
+      int vol = 0;
+      for (Voice& voice : VOICES) vol += voice.output_12();
+      // vol = VOICES[0].output_12();
+      dac_output_voltage(DAC_CHAN_0, post_process(vol));
     }
   }
 }
