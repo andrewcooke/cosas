@@ -20,11 +20,11 @@ const uint NOISE_BITS = 5;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 
-// global parameters tha can be changed during use
+// global parameters that can be changed during use
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint PLETS = 1;
-volatile static uint GAIN_BITS = 8;
+volatile static uint GAIN_BITS = 0;
 volatile static uint COMP_BITS = 0;
 
 const uint N6 = 1 << 6;
@@ -508,7 +508,7 @@ public:
       update(&BPM, 30, -4, 0);
       update(&PLETS, 1, -9, 1);
       update(&SWING, 2);
-      update(&GAIN_BITS, 0, -7, 3);
+      update(&GAIN_BITS, 0, -8, 3);
     } else {
       disable();
     }
@@ -684,10 +684,9 @@ void setup() {
 
 // apply post-processing
 uint post_process(int vol) {
-  // apply volume
-  int shift = GAIN_BITS - 8;
-  int scaled = shift > 0 ? vol << shift : vol >> -shift;
-  if (DBG_GAIN && !random(100000)) Serial.printf("gain bits %d, shift %d, vol %d\n", GAIN_BITS, shift, vol);
+  // apply gain (overdrive?)
+  int scaled = vol << GAIN_BITS;
+  if (DBG_GAIN && !random(100000)) Serial.printf("gain bits %d, vol %d -> %d\n", GAIN_BITS, vol, scaled);
   // apply compressor
   // int soft_clipped = vol;
   if (DBG_COMP) Serial.println(COMP_BITS);
