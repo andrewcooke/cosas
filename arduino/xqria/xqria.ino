@@ -34,6 +34,8 @@ const uint N7 = 1 << 7;
 const uint MAX7 = N7 - 1;
 const uint N8 = 1 << 8;
 const uint MAX8 = N8 - 1;
+const uint N10 = 1 << 10;
+const uint MAX10 = N10 - 1;
 const uint N11 = 1 << 11;
 const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
@@ -54,6 +56,18 @@ const bool DBG_GAIN = false;
 const bool DBG_REVERB = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
+
+template <typename T> T series_exp(T val, uint n) {
+  T result = 1;
+  T fact = 1;
+  T nth = val;
+  for (uint i = 0; i < n; i++) {
+    result += nth / fact;
+    nth *= val;
+    fact *= (i + 2);
+  }
+  return result;
+}
 
 // efficient random bits from an LFSR (random quality is not important here!)
 class LFSR16 {
@@ -210,7 +224,8 @@ public:
     uint fm_low10 = nv_fm & 0x3ff;
     uint nv_amp = amp;
     uint amp_11 = amp & MAX11;
-    uint amp_scaled = (amp_11 * amp_11) >> 11; 
+    uint amp_scaled = series_exp(amp_11, 3) >> 16;
+    // uint amp_scaled = (amp_11 * amp_11) >> 11; 
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = (linear_dec * linear_dec) >> 12;
     uint hard = amp_scaled * quad_dec >> 12;
@@ -296,10 +311,10 @@ public:
 };
 
 // initial values no longer sounds good (TODO - improve)
-std::array<Voice, 4> VOICES = {Voice(0, MAX12, 160, 1200, 0),
-                               Voice(1, MAX12, 240, 1000, 240),
-                               Voice(2, MAX12, 213, 1300, 150),
-                               Voice(3, MAX12, 320,  900, 240)};
+std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
+                               Voice(1, MAX10, 240, 1000, 240),
+                               Voice(2, MAX10, 213, 1300, 150),
+                               Voice(3, MAX10, 320,  900, 240)};
 
 // standard euclidean pattern (TODO - add variations biased towards beats with largest errors)
 class Euclidean {
