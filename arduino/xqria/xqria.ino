@@ -19,11 +19,12 @@ const bool FM_NOISE = true;
 const uint NOISE_BITS = 5;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
+const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
-volatile static uint SUBDIV = 60;  // implict numerator of 60 with a restructed set of values 
+volatile static uint SUBDIV = 15;
 volatile static uint GAIN_BITS = 0;
 volatile static uint COMP_BITS = 0;
 
@@ -506,7 +507,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
-      update(&SUBDIV, 1, -9, 1);
+      update(&SUBDIV, 0, -8, 1);
       update(&SWING, 2);
       update(&GAIN_BITS, 0, -8, 3);
     } else {
@@ -770,21 +771,20 @@ class Trigger {
 private:
   EuclideanVault &vault;
   Euclidean *rhythm = nullptr;
+  bool subdiv;
   enum Phase {Idle, Minor, Update};
   Phase phase = Idle;
   uint trigger = 0;
   void recalculate(uint ticks) {
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
+    if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV]) / 60;
     uint beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
     if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
-  Trigger(EuclideanVault &vault) : vault(vault) {
-    Serial.printf("creating trigger\n");
-    recalculate(0);
-  }
+  Trigger(EuclideanVault &vault, bool subdiv) : vault(vault), subdiv(subdiv) {recalculate(0);}
   void on(uint ticks) {  // try to spread work across multiple ticks
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(true);
@@ -803,8 +803,8 @@ void loop() {
   uint ticks = 0;
   unsigned long start = 0;
   EMA<unsigned long> gap = EMA<unsigned long>(4, 1, 3, 0);
-  Trigger trigger1(vault1);
-  Trigger trigger2(vault2);
+  Trigger trigger1(vault1, false);
+  Trigger trigger2(vault2, true);
   while (1) {
     if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
       if (DBG_TIMING) {
