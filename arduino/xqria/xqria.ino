@@ -25,7 +25,6 @@ const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40,
 volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint SUBDIV = 15;
-volatile static uint GAIN_BITS = 0;
 volatile static uint COMP_BITS = 0;
 
 const uint N6 = 1 << 6;
@@ -52,7 +51,6 @@ const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
-const bool DBG_GAIN = false;
 const bool DBG_REVERB = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
@@ -523,8 +521,6 @@ public:
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
       update(&SUBDIV, 0, -8, 1);
-      update(&SWING, 2);
-      update(&GAIN_BITS, 0, -8, 3);
     } else {
       disable();
     }
@@ -700,87 +696,28 @@ void setup() {
 
 // apply post-processing
 uint post_process(int vol) {
-  // apply gain (overdrive?)
-  int scaled = vol << GAIN_BITS;
-  if (DBG_GAIN && !random(100000)) Serial.printf("gain bits %d, vol %d -> %d\n", GAIN_BITS, vol, scaled);
   // apply compressor
   // int soft_clipped = vol;
   if (DBG_COMP) Serial.println(COMP_BITS);
-  int sign = sgn(scaled);
-  uint absolute = abs(scaled);
+  int sign = sgn(vol);
+  uint absolute = abs(vol);
   for (uint i = (8 - COMP_BITS); i < 8; i++) {
     uint limit = 1 << i;
     if (absolute > limit) absolute = limit + (absolute - limit) / 2;
   }
   int soft_clipped = sign * static_cast<int>(absolute);
   // apply reverb
-  // int reverbed = soft_clipped;
   int reverbed = REVERB.next(soft_clipped);
   if (DBG_REVERB && !random(100000)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
   if (DBG_VOLUME && !random(10000))
-    Serial.printf("gain %d; comp %d; vol %d; scale %d; soft %d; hard %d\n", 
-                  8 - GAIN_BITS, 8 - COMP_BITS, vol, scaled, soft_clipped, hard_clipped);
+    Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 
+                  8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   // TODO - why is reverb offset?!  the tape is an int, not a uint.  not even sure if order correct (before clipping?)
   return hard_clipped;
 }
-
-// main loop on sound-generating core
-void loop_old() {
-  unsigned long start = 0;
-  uint accum = 0;
-  uint tick1 = 0;
-  uint tick2 = 0;
-  uint beat1 = BEAT_SCALE / BPM;  // if it's 4/4 time
-  uint beat2 = 1 + beat1 / SUBDIV;
-  uint swing = (SWING * beat1) >> 13;
-  Euclidean* rhythm1 = nullptr;
-  Euclidean* rhythm2 = nullptr;
-  // have to be careful about a few points here
-  // - swing is earlier notes, so we need to trigger at the end of the beat so that there is room before for swing
-  // - beat2 is slightly larger than the exact size so that when time1 resets, so does time2, keeping the two in synch
-  // - so we need to trigger a little before the end of beat2 to be sure that we aren't blocked by beat1 triggering
-  // - so we cannot allow swing to extend to a full beat
-  while (1) {
-    if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
-      if (DBG_TIMING) {
-        unsigned long now = micros();
-        if (start) accum = (15 * accum + ((now - start) << 3)) >> 4;
-        start = now;
-        if (!random(100000)) Serial.printf("%d %d %d %d %d %dms\n", SUBDIV, BPM, beat1, beat1 / SUBDIV, swing, accum >> 3);
-      }
-      if (tick1 == 0) {
-        rhythm1 = vault1.get();
-        rhythm2 = vault2.get();
-        beat1 = BEAT_SCALE / BPM;
-        beat2 = 1 + beat1 / SUBDIV;
-        swing = (SWING * beat1) >> 13;
-      }
-      if (tick1 == beat1 - 1 - swing) {
-        rhythm1->on_beat(false);  // order here important - see increment of current_place
-      } else if (tick1 == beat1) {
-        rhythm1->on_beat(true);
-      }
-      if (tick2 == beat2 - 1 - SUBDIV - (SUBDIV == 1 ? swing : 0)) {  // swing second rhythm only if SUBDIV is 1 (and not sure even that makes sense)
-        rhythm2->on_beat(false);
-      } else if (tick2 == beat2 - SUBDIV) {
-        rhythm2->on_beat(true);
-      }
-      int vol = 0;
-      for (Voice& voice : VOICES) vol += voice.output_12();
-      // vol = VOICES[0].output_12();
-      dac_output_voltage(DAC_CHAN_0, post_process(vol));
-      tick2++; tick1++;
-      // careful here to not double-trigger tick2
-      if (tick1 > beat1) {tick1 = 0; tick2 = 0;}
-      else if (tick2 > beat2) tick2 = 0;
-    }
-  }
-}
-
-// TODO - swing!
 
 class Trigger {
 private:
@@ -814,6 +751,7 @@ public:
   }
 };
 
+// main loop on sound-generating core
 void loop() {
   uint ticks = 0;
   unsigned long start = 0;
