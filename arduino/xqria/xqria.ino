@@ -20,7 +20,7 @@ const uint NOISE_BITS = 6;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
-const uint DBG_LOTTERY = 10000;
+const uint DBG_LOTTERY = 50000;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
@@ -46,14 +46,15 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
-const bool DBG_TONE = true;
+const bool DBG_TONE = false;
+const bool DBG_EUCLIDEAN = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -323,7 +324,8 @@ std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
                                Voice(2, MAX10, 213, 1300, 150),
                                Voice(3, MAX10, 320,  900, 240)};
 
-// standard euclidean pattern (TODO - add variations biased towards beats with largest errors)
+// standard euclidean pattern
+// TODO - add variations biased towards beats with largest errors
 class Euclidean {
 private:
   uint n_places;
@@ -345,7 +347,7 @@ private:
 public:
   // 1 <= n_beats <= n_places
   Euclidean(uint n_places, uint n_beats, float frac_main, uint prob, uint voice)
-    : n_places(n_places), n_beats(n_beats), frac_main(frac_main), prob(prob), voice(voice) {
+    : n_places(n_places), n_beats(n_beats), frac_main(max(0.0f, min(1.0f, frac_main))), prob(prob), voice(voice) {
     for (uint i = 0; i < n_beats; i++) {
       float x = n_places * i / static_cast<float>(n_beats);
       place.push_back(round(x));
@@ -356,7 +358,7 @@ public:
     std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {
       return abs(this->error[i]) < abs(this->error[j]);
     });
-    n_main = max(1u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats - 1));
+    n_main = max(0u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats));
     is_main.resize(n_beats, false);
     for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
     index_by_place.resize(n_places, -1);
@@ -465,11 +467,12 @@ protected:
     if (enabled[pot]) *destn = POTS[pot].state;
   }
   void update(float* destn, uint pot) {
+    static const int EDGE = 4;
     if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
       STATE.pot(pot);
     }
-    if (enabled[pot]) *destn = static_cast<float>(POTS[pot].state) / MAX12;
+    if (enabled[pot]) *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
   }
   // -ve bits imply value loaded into destn is smaller than pot
   void update(volatile uint* destn, uint zero, int bits, uint pot) {
@@ -571,7 +574,7 @@ public:
     uint n_beats = max(1u, static_cast<uint>(n_places * frac_beats));
     Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);
     if (euclideans[updated ? next : current] != candidate) {
-      Serial.printf("Euclidean(%d, %d, %f.3, %d, %d)\n", n_places, n_beats, frac_main, prob, voice);
+      if (DBG_EUCLIDEAN) Serial.printf("Euclidean(%d, %d, %f.3, %d, %d)\n", n_places, n_beats, frac_main, prob, voice);
       euclideans[next] = candidate;
       updated = true;
     }
