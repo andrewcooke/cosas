@@ -16,10 +16,11 @@ const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);  // convert to bpm
 const uint PHASE_EXTN = 2;  // extra bits for phase to extend low freqs
 const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN; 
 const bool FM_NOISE = true;
-const uint NOISE_BITS = 5;
+const uint NOISE_BITS = 6;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+const uint DBG_LOTTERY = 10000;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
@@ -52,6 +53,7 @@ const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
+const bool DBG_TONE = true;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -200,6 +202,7 @@ private:
   uint idx;
   uint time = 0;
   int phase = 0;
+  int fm_phase = 0;
   int noise[N_NOISE] = {0};
   uint noise_idx = 0;
 public:
@@ -219,11 +222,11 @@ public:
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
     uint nv_fm = fm;
-    uint fm_low10 = nv_fm & 0x3ff;
+    uint fm_low10 = nv_fm & MAX10;
+    uint fm_low11 = max(0u, MAX11 - (nv_fm & MAX11) - 1);
     uint nv_amp = amp;
     uint amp_11 = amp & MAX11;
-    uint amp_scaled = series_exp(amp_11, 3) >> 16;
-    // uint amp_scaled = (amp_11 * amp_11) >> 11; 
+    uint amp_scaled = series_exp(amp_11, 3) >> 15;
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint power_dec = series_exp(linear_dec, 2) >> 11;
     uint hard = amp_scaled * power_dec >> 12;
@@ -231,8 +234,8 @@ public:
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
-    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 13);
-    if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(10000))
+    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 14);
+    if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, power_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
@@ -241,28 +244,32 @@ public:
       out = drum(fm_low10, final_amp, freq_scaled, power_dec);
       break;
       case 1:
-      out = beep(fm_low10, final_amp, freq_scaled);
-      break;
-      case 2:
       out = crash(fm_low10, final_amp, freq_scaled);
       break;
+      case 2:
       case 3:
       default:
-      out = minifm(fm_low10, final_amp, freq_scaled);
+      out = minifm(fm_low11, final_amp, freq_scaled);
+      break;
     }
     time++;
     return out >> 4;
   }
   int minifm(uint fm, uint final_amp, uint freq_scaled) {
-    phase += freq_scaled + fm;
+    // hand tuned for squelchy noises
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
+    fm_phase += series_exp(fm, 3) >> 22;
+    while (fm_phase >= NSAMPLES_EXTN) fm_phase -= NSAMPLES_EXTN;
+    phase += freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN);  // sic
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
-    if (DBG_MINIFM && !idx && !random(10000)) 
+    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
   int crash(uint fm, uint final_amp, uint freq_scaled) {
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d crash\n", idx);
     noise[noise_idx] = LFSR.next() ? 1 : -1;
     int out = 0;
     int count = 0;  // ugh must be signed
@@ -282,27 +289,29 @@ public:
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     out += SQUARE(MAX8, phase >> PHASE_EXTN);
     out = (out * static_cast<int>(final_amp)) >> 8;
-    if (DBG_CRASH && !random(10000))
+    if (DBG_CRASH && !random(DBG_LOTTERY))
       Serial.printf("count %d, conv_freq %d, out %d\n", count, conv_freq, out);
     return out;
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec) {
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     freq_scaled = freq_scaled >> 2;
     phase += freq_scaled;
     phase += (quad_dec * (fm >> 8)) >> 8;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
-    if (DBG_DRUM && !idx && !random(10000)) 
+    if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, fm %d, out %d\n", time, fm, out);
     return out;
   }
   int beep(uint fm, uint final_amp, uint freq_scaled) {
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d beep\n", idx);
     phase += freq_scaled + LFSR.n_bits(fm >> 6);
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
-    if (DBG_BEEP && !idx && !random(10000)) 
+    if (DBG_BEEP && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
@@ -709,11 +718,11 @@ uint post_process(int vol) {
   int soft_clipped = sign * static_cast<int>(absolute);
   // apply reverb
   int reverbed = REVERB.next(soft_clipped);
-  if (DBG_REVERB && !random(100000)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
+  if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
-  if (DBG_VOLUME && !random(10000))
+  if (DBG_VOLUME && !random(DBG_LOTTERY))
     Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   // TODO - why is reverb offset?!  the tape is an int, not a uint.  not even sure if order correct (before clipping?)
@@ -766,7 +775,7 @@ void loop() {
         unsigned long now = micros();
         if (start) latest = gap.next(now - start);
         start = now;
-        if (!random(100000)) Serial.printf("%d %dms\n", ticks, latest);
+        if (!random(DBG_LOTTERY)) Serial.printf("%d %dms\n", ticks, latest);
       }
       if (ticks & 0x1) {
         trigger1.on(ticks);
