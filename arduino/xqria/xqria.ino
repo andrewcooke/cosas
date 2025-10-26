@@ -155,6 +155,7 @@ public:
   }
   void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
   void pot(uint idx) {leds.on(idx);}
+  void pot(uint idx, bool on) {leds.on(idx, on);}
   void pot_clear() {leds.all_off();}
 };
 
@@ -467,7 +468,7 @@ protected:
     if (enabled[pot]) *destn = POTS[pot].state;
   }
   void update(float* destn, uint pot) {
-    static const int EDGE = 4;
+    static const int EDGE = 4;  // guarabtee 0-1 float full range
     if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
       STATE.pot(pot);
@@ -483,14 +484,18 @@ protected:
     }
     if (enabled[pot]) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
   }
-  // -ve bits imply value loaded into destn is smaller than pot
-  void update_prime(uint* destn, uint zero, uint bits, uint pot) {
+  void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    enabled[pot] = enabled[pot] || abs(target - static_cast<int>(POTS[pot].state)) < thresh;
+    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      // STATE.pot(pot);
+    }
     if (enabled[pot]) {
       *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-      STATE.pot_clear();
-      for (uint i = 0; i < 4; i++) if (*destn % prime[i] == 0) STATE.pot(i);
+      for (uint i = 0; i < 4; i++) {
+        STATE.pot(i, !(*destn % prime[i]));
+        delay(1);
+      }
     }
   }
 };
@@ -520,10 +525,10 @@ public:
   VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
-std::array<VoiceButton, 4> BUTTONS = { VoiceButton(0, 18, VOICES[0]),
-                                       VoiceButton(1, 4, VOICES[1]),
-                                       VoiceButton(2, 15, VOICES[2]),
-                                       VoiceButton(3, 19, VOICES[3]) };
+std::array<VoiceButton, 4> BUTTONS = {VoiceButton(0, 18, VOICES[0]),
+                                      VoiceButton(1, 4, VOICES[1]),
+                                      VoiceButton(2, 15, VOICES[2]),
+                                      VoiceButton(3, 19, VOICES[3])};
 
 // global parameters - hold down middle two buttons
 class GlobalButtons : public PotsReader {
@@ -600,7 +605,8 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update(&vault.n_places, 2, -7, 0);
+      update_prime(&vault.n_places, 2, -7, 0);
+      // update(&vault.n_places, 2, -7, 0);
       update(&vault.frac_beats, 1);
       update(&vault.frac_main, 2);
       update(&vault.prob, 3);
