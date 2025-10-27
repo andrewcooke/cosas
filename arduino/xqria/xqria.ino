@@ -20,7 +20,7 @@ const uint NOISE_BITS = 6;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
-const uint DBG_LOTTERY = 50000;
+const uint DBG_LOTTERY = 10000;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
@@ -49,12 +49,12 @@ const bool DBG_COMP = false;
 const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = false;
+const bool DBG_DRUM = true;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
 const bool DBG_TONE = false;
-const bool DBG_EUCLIDEAN = true;
+const bool DBG_EUCLIDEAN = false;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -225,7 +225,8 @@ public:
     if (time > durn_scaled) return 0;
     uint nv_fm = fm;
     uint fm_low10 = nv_fm & MAX10;
-    uint fm_low11 = max(0u, MAX11 - (nv_fm & MAX11) - 1);
+    uint fm_low11 = nv_fm & MAX11;
+    // uint fm_low11 = max(0u, MAX11 - (nv_fm & MAX11) - 1);
     uint nv_amp = amp;
     uint amp_11 = amp & MAX11;
     uint amp_scaled = series_exp(amp_11, 3) >> 15;
@@ -243,15 +244,15 @@ public:
     int out = 0;
     switch (nv_fm >> 10) {
       case 0:
-      out = drum(fm_low10, final_amp, freq_scaled, power_dec);
-      break;
       case 1:
-      out = crash(fm_low10, final_amp, freq_scaled);
+      out = drum2(fm_low11, final_amp, freq_scaled, power_dec);
       break;
       case 2:
+      out = crash(fm_low10, final_amp, freq_scaled);
+      break;
       case 3:
       default:
-      out = minifm(fm_low11, final_amp, freq_scaled);
+      out = minifm2(N10 - fm_low10, final_amp, freq_scaled);
       break;
     }
     time++;
@@ -261,6 +262,19 @@ public:
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
     fm_phase += series_exp(fm, 3) >> 22;
+    while (fm_phase >= NSAMPLES_EXTN) fm_phase -= NSAMPLES_EXTN;
+    phase += freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN);  // sic
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    int out = SINE(final_amp, phase >> PHASE_EXTN);
+    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) 
+      Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
+    return out;
+  }
+  int minifm2(uint fm, uint final_amp, uint freq_scaled) {
+    // hand tuned for squelchy noises
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
+    fm_phase += series_exp(fm << 1, 3) >> 22;
     while (fm_phase >= NSAMPLES_EXTN) fm_phase -= NSAMPLES_EXTN;
     phase += freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN);  // sic
     while (phase < 0) phase += NSAMPLES_EXTN;
@@ -299,12 +313,29 @@ public:
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     freq_scaled = freq_scaled >> 2;
     phase += freq_scaled;
-    phase += (quad_dec * (fm >> 8)) >> 8;
+    uint fmx = fm >> 8;
+    if (!random(DBG_LOTTERY)) Serial.println(fmx);
+    phase += (quad_dec * fmx) >> 8;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, fm %d, out %d\n", time, fm, out);
+    return out;
+  }
+  int drum2(uint fm, uint final_amp, uint freq_scaled, uint quad_dec) {
+    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
+    freq_scaled = freq_scaled >> 2;
+    phase += freq_scaled;
+    uint fmlo = (fm & 0x3f) >> 2 + 1;
+    phase += (quad_dec * fmlo) >> 8;
+    while (phase < 0) phase += NSAMPLES_EXTN;
+    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    int out = SINE(final_amp, phase >> PHASE_EXTN);
+    uint fmhi = (fm & 0x7c0) >> 6;
+    out += static_cast<int>((final_amp * quad_dec * fmhi) >> 17) * (LFSR.next() ? 1 : -1);
+    if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
+      Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
   }
   int beep(uint fm, uint final_amp, uint freq_scaled) {
