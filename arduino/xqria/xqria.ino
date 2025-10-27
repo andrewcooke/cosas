@@ -301,13 +301,13 @@ public:
     freq_scaled = freq_scaled >> 2;
     phase += freq_scaled;
     uint fmlo = (fm & 0x3f) >> 2 + 1;  // bottom 6 bits
-    phase += (quad_dec * fmlo) >> 8;
+    phase += (quad_dec * fmlo) >> 9;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
     out += static_cast<int>((final_amp * cube_dec * fmhi) >> 15) * (LFSR.next() ? 1 : -1);
-    out += ((time & 0xf) == 0) ? static_cast<int>((final_amp * quad_dec * fmhi) >> 16) * (LFSR.next() ? 1 : -1) : 0;
+    out += (fmhi > 16 && !(time & 0xf)) ? static_cast<int>((final_amp * quad_dec * fmhi) >> 19) * (LFSR.next() ? 1 : -1) : 0;
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
