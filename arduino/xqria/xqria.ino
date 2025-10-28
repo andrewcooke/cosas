@@ -494,6 +494,34 @@ protected:
       }
     }
   }
+  void update_prime(float* destn, uint scale, uint pot) {
+    static const int EDGE = 4;  // guarabtee 0-1 float full range
+    if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      // STATE.pot(pot);
+    }
+    if (enabled[pot]) {
+      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+      for (uint i = 0; i < 4; i++) {
+        STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
+        delay(1);
+      }
+    }
+  }
+  void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+      // STATE.pot(pot);
+    }
+    if (enabled[pot]) {
+      *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+      for (uint i = 0; i < 4; i++) {
+        STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
+        delay(1);
+      }
+    }
+  }
 };
 
 // subclass button to edit voice parameters
@@ -533,7 +561,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
-      update(&SUBDIV, 0, -8, 1);
+      update_subdiv(&SUBDIV, 0, -8, 1);
     } else {
       disable();
     }
@@ -602,8 +630,7 @@ public:
     if (STATE.button_mask == mask) {
       editing = true;
       update_prime(&vault.n_places, 2, -7, 0);
-      // update(&vault.n_places, 2, -7, 0);
-      update(&vault.frac_beats, 1);
+      update_prime(&vault.frac_beats, vault.n_places, 1);
       update(&vault.frac_main, 2);
       update(&vault.prob, 3);
       vault.apply_edit(false);
