@@ -226,23 +226,24 @@ public:
     uint nv_fm = fm;
     uint fm_low10 = nv_fm & MAX10;
     uint fm_low11 = nv_fm & MAX11;
+    uint voice = nv_fm >> 10;
     uint nv_amp = amp;
     uint amp_11 = amp & MAX11;
     uint amp_scaled = series_exp(amp_11, 3) >> 15;
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = series_exp(linear_dec, 2) >> 11;
-    uint cube_dec = series_exp(linear_dec, 3) >> 22;
-    uint hard = amp_scaled * quad_dec >> 12;
+    uint cube_dec = series_exp(linear_dec, 3) >> 17;
+    uint hard = amp_scaled * (voice == 2 ? cube_dec : quad_dec) >> 12;
     uint env_phase = (NSAMPLES * time) / (1 + 2 * durn_scaled);
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
     uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 14);
     if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
-      Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
-                    nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
+      Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
+                    nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
-    switch (nv_fm >> 10) {
+    switch (voice) {
       case 0:
       case 1:
       out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
@@ -306,7 +307,7 @@ public:
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
-    out += static_cast<int>((final_amp * cube_dec * fmhi) >> 15) * (LFSR.next() ? 1 : -1);
+    out += static_cast<int>((final_amp * cube_dec * fmhi) >> 20) * (LFSR.next() ? 1 : -1);
     out += (fmhi > 16 && !(time & 0xf)) ? static_cast<int>((final_amp * quad_dec * fmhi) >> 19) * (LFSR.next() ? 1 : -1) : 0;
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
