@@ -49,12 +49,15 @@ const bool DBG_COMP = false;
 const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = true;
+const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
 const bool DBG_TONE = false;
 const bool DBG_EUCLIDEAN = false;
+const bool DBG_JIGGLE = true;
+
+const uint LOOSENESS = 1024;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -328,15 +331,16 @@ private:
   uint n_places;
   uint n_beats;
   float frac_main;
+  float n_main;
   uint prob;
   uint voice;
   uint current_place = 0;
-  std::vector<uint> place;
-  std::vector<float> error;
-  std::vector<uint> index_by_error;
-  std::vector<bool> is_main;
-  float n_main;
-  std::vector<int> index_by_place;
+  std::vector<uint> place_ref;  // beat index -> place index (reference)
+  std::vector<uint> place_off;  // beat index -> place index (offset)
+  std::vector<int> error;  // beat index -> error x MAX12
+  std::vector<uint> index_by_error;  // error (abs(error) increasing) -> beat index
+  std::vector<bool> is_main;  // beat index -> true if main (small error)
+  std::vector<int> index_by_place;  // (offset) place index -> beat index (or -1)
   void trigger(uint delta) {
     VOICES[voice + delta].trigger();
     STATE.voice(voice + delta, true);
@@ -347,23 +351,57 @@ public:
     : n_places(n_places), n_beats(n_beats), frac_main(max(0.0f, min(1.0f, frac_main))), prob(prob), voice(voice) {
     for (uint i = 0; i < n_beats; i++) {
       float x = n_places * i / static_cast<float>(n_beats);
-      place.push_back(round(x));
-      error.push_back(x - place[i]);
+      place_ref.push_back(round(x));
+      place_off.push_back(round(x));
+      error.push_back(static_cast<int>(MAX12 * (x - place_ref[i])));
     };
     index_by_error.resize(n_beats, 0);
     std::iota(index_by_error.begin(), index_by_error.end(), 0);
     std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {
       return abs(this->error[i]) < abs(this->error[j]);
     });
+    // for (uint i = 0; i < n_beats; i++) Serial.printf("%d %f\n", i, error[index_by_error[i]]);
     n_main = max(0u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats));
     is_main.resize(n_beats, false);
     for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
     index_by_place.resize(n_places, -1);
-    for (uint i = 0; i < n_beats; i++) index_by_place[place[i]] = i;
+    for (uint i = 0; i < n_beats; i++) index_by_place[place_off[i]] = i;
   };
   Euclidean() : Euclidean(2, 1, 0.5, MAX12, 0){};  // used only as temp value in arrays
   bool operator==(const Euclidean other) {
     return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
+  }
+  void jiggle() {
+    for (uint i = 0; i < n_beats - n_main; i++) {
+      if (random(LOOSENESS) < error[i]) {
+        if (place_ref[i] == place_off[i]) {
+          if (error[i] > 0 && index_by_place[place_off[i] + 1] == -1) {
+            place_off[i]++;
+            index_by_place[place_off[i]] = i;
+            index_by_place[place_ref[i]] = -1;
+            if (DBG_JIGGLE) Serial.printf("%d: %d -> %d\n", voice, place_ref[i], place_off[i]);
+          } else if (error[i] < 0 && index_by_place[place_off[i] - 1] == -1) {
+            place_off[i]--;
+            index_by_place[place_off[i]] = i;
+            index_by_place[place_ref[i]] = -1;
+            if (DBG_JIGGLE) Serial.printf("%d: %d -> %d\n", voice, place_ref[i], place_off[i]);
+          }
+        } else {
+          if (error[i] > 0 && index_by_place[place_ref[i]] == -1) {
+            index_by_place[place_off[i]] = -1;
+            place_off[i]--;
+            index_by_place[place_ref[i]] = i;
+            if (DBG_JIGGLE) Serial.printf("%d: %d -> %d\n", voice, place_ref[i], place_off[i]);
+          } else if (error[i] < 0 && index_by_place[place_ref[i]] == -1) {
+            index_by_place[place_off[i]] = -1;
+            place_off[i]++;
+            index_by_place[place_ref[i]] = i;
+            if (DBG_JIGGLE) Serial.printf("%d: %d -> %d\n", voice, place_ref[i], place_off[i]);
+          }
+        }
+        return;
+      }
+    }
   }
   void on_beat(bool main) {
     int beat = index_by_place[current_place];
@@ -766,7 +804,7 @@ private:
   EuclideanVault &vault;
   Euclidean *rhythm = nullptr;
   bool subdiv;
-  enum Phase {Idle, Minor, Update};
+  enum Phase {Idle, Minor, Jiggle, Update};
   Phase phase = Idle;
   uint trigger = 0;
   void recalculate(uint ticks) {
@@ -785,6 +823,9 @@ public:
       phase = Minor;
     } else if (phase == Minor) {
       rhythm->on_beat(false);
+      phase = Jiggle;
+    } else if (phase == Jiggle) {
+      rhythm->jiggle();
       phase = Update;
     } else if (phase == Update) {
       recalculate(ticks);
