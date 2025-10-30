@@ -373,7 +373,7 @@ public:
   }
   void jiggle() {
     for (uint i = 0; i < n_beats - n_main; i++) {
-      if (random(LOOSENESS) < error[i]) {
+      if (random(prob) < error[i]) {
         if (place_ref[i] == place_off[i]) {
           if (error[i] > 0 && index_by_place[place_off[i] + 1] == -1) {
             place_off[i]++;
@@ -405,7 +405,7 @@ public:
   }
   void on_beat(bool main) {
     int beat = index_by_place[current_place];
-    if (beat != -1 && is_main[beat] == main && random(MAX12) < prob) {
+    if (beat != -1 && is_main[beat] == main) {
       trigger(main ? 0 : 1);
       if (DBG_PATTERN) Serial.printf("%d: %d/%d %d (%d)\n", voice, current_place, n_places, beat, main);
     }
