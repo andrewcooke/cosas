@@ -27,6 +27,7 @@ volatile static uint BPM = 90;
 volatile static uint SWING = 0;
 volatile static uint SUBDIV = 15;
 volatile static uint COMP_BITS = 0;
+volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 
 const uint N6 = 1 << 6;
 const uint MAX6 = N6 - 1;
@@ -34,6 +35,8 @@ const uint N7 = 1 << 7;
 const uint MAX7 = N7 - 1;
 const uint N8 = 1 << 8;
 const uint MAX8 = N8 - 1;
+const uint N9 = 1 << 9;
+const uint MAX9 = N9 - 1;
 const uint N10 = 1 << 10;
 const uint MAX10 = N10 - 1;
 const uint N11 = 1 << 11;
@@ -302,9 +305,10 @@ public:
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
+    uint fmlo = ((fm & 0x3f) >> 2) + 1;  // bottom 6 bits
     freq_scaled = freq_scaled >> 2;
+    if (fmlo == 1) freq_scaled = freq_scaled;
     phase += freq_scaled;
-    uint fmlo = (fm & 0x3f) >> 2 + 1;  // bottom 6 bits
     phase += (quad_dec * fmlo) >> 9;
     while (phase < 0) phase += NSAMPLES_EXTN;
     while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
@@ -320,9 +324,9 @@ public:
 
 // initial values no longer sounds good (TODO - improve)
 std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
-                               Voice(1, MAX10, 240, 1000, 240),
-                               Voice(2, MAX10, 213, 1300, 150),
-                               Voice(3, MAX10, 320,  900, 240)};
+                               Voice(1, MAX9,  240, 1000, 240),
+                               Voice(2, MAX9,  213, 1300, 150),
+                               Voice(3, MAX9,  320,  900, 240)};
 
 // standard euclidean pattern
 // TODO - add variations biased towards beats with largest errors
@@ -342,8 +346,11 @@ private:
   std::vector<bool> is_main;  // beat index -> true if main (small error)
   std::vector<int> index_by_place;  // (offset) place index -> beat index (or -1)
   void trigger(uint delta) {
-    VOICES[voice + delta].trigger();
-    STATE.voice(voice + delta, true);
+    uint n = voice + delta;
+    if (gray(ENABLED) & 1 << n) {
+      VOICES[n].trigger();
+      STATE.voice(n, true);
+    }
   }
 public:
   // 1 <= n_beats <= n_places
@@ -550,7 +557,6 @@ protected:
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
       enabled[pot] = true;
-      // STATE.pot(pot);
     }
     if (enabled[pot]) {
       *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
@@ -560,7 +566,26 @@ protected:
       }
     }
   }
+  void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
+    uint mask = (1 << bits) - 1;
+    uint target = ((static_cast<int>(*destn) - zero) & mask) << (12 - bits);
+    if (!enabled[pot] && abs(static_cast<int>(target) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+    }
+    if (enabled[pot]) {
+      *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
+      uint g = gray(*destn);
+      for (uint i = 0; i < 4; i++) {
+        STATE.pot(i, g & (1 << i));
+        delay(1);
+      }
+    }
+  }
 };
+
+uint gray(uint n) {
+  return n ^ (n >> 1);
+}
 
 // subclass button to edit voice parameters
 class VoiceButton : public Button, public PotsReader {
@@ -606,9 +631,9 @@ public:
   }
 };
 
-GlobalButtons GBUTTONS = GlobalButtons();
+GlobalButtons GLOBAL_BUTTONS = GlobalButtons();
 
-// handle passing of complex state between threads (everything else is a volatile uint, i think, but the pattern is complex)
+// handle passing of complex state between threads (everything else is a volatile uint, i think, but the Euclidean class is complex)
 // this stores three things:
 // - a set of values to create "the next" euclidean object while editing is in progress
 // - a "next" euclidean object created when editing last exited
@@ -680,8 +705,8 @@ public:
   }
 };
 
-EuclideanButtons EBUTTONS1 = EuclideanButtons(0x3u, vault1);
-EuclideanButtons EBUTTONS2 = EuclideanButtons(0xcu, vault2);
+EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, vault1);
+EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, vault2);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 // TODO - smear affects immediate output (it shouldn't)
@@ -731,7 +756,22 @@ public:
   }
 };
 
-PostButtons PBUTTONS = PostButtons();
+PostButtons POST_BUTTONS = PostButtons();
+
+// performance controls - inner two buttoms plus left
+class PerfButtons : public PotsReader {
+public:
+  PerfButtons() = default;
+  void read_state() {
+    if (STATE.button_mask == 0x7) {
+      update_gray(&ENABLED, 11, 4, 0);
+    } else {
+      disable();
+    }
+  }
+};
+
+PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
 
 // use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
@@ -869,10 +909,11 @@ void ui_loop(void*) {
   while (1) {
     for (Button& b : BUTTONS) b.set_state();
     for (Pot& p : POTS) p.set_state();
-    GBUTTONS.read_state();
-    EBUTTONS1.read_state();
-    EBUTTONS2.read_state();
-    PBUTTONS.read_state();
+    GLOBAL_BUTTONS.read_state();
+    EUCLIDEAN_BUTTONS_LEFT.read_state();
+    EUCLIDEAN_BUTTONS_RIGHT.read_state();
+    POST_BUTTONS.read_state();
+    PERFORMANCE_BUTTONS.read_state();
     vTaskDelay(1);
   }
 }
