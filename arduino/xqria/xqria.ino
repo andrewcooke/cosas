@@ -44,7 +44,6 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
-const bool DBG_PATTERN = false;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
@@ -58,7 +57,8 @@ const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
 const bool DBG_TONE = false;
 const bool DBG_EUCLIDEAN = false;
-const bool DBG_JIGGLE = true;
+const bool DBG_JIGGLE = false;
+const bool DBG_PATTERN = false;
 
 const uint LOOSENESS = 1024;
 
@@ -134,6 +134,14 @@ public:
     all_on(); delay(100);
     all_off();
   }
+  void uint12(uint value, bool full) {
+    value = (value * value) >> 12;  // nicer response
+    for (uint i = 0; i < n_leds; i++) {
+      set(i, (value < 8 ? value : 7) << (full ? 5 : 4));
+      value /= 8;
+    }
+    delay(1);
+  }
 };
 
 // central location for coordinating (multiple) button presses, also wraps leds
@@ -160,9 +168,12 @@ public:
     leds.all_off();
   }
   void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
+  // todo - drop these once replaced by led calls
   void pot(uint idx) {leds.on(idx);}
   void pot(uint idx, bool on) {leds.on(idx, on);}
   void pot_clear() {leds.all_off();}
+  void led_11(uint value, bool full) {leds.uint12((value << 1) & 0xfff, full);}
+  void led_clear() {leds.all_off();}
 };
 
 CentralState STATE = CentralState();
@@ -379,8 +390,10 @@ public:
     return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
   }
   void jiggle() {
+    // error is signed to MAX11 (MAX12 * 0.5) while prob is unisgned MAX12
     for (uint i = 0; i < n_beats - n_main; i++) {
-      if (random(prob) < error[i]) {
+      uint frac_m12 = (prob * static_cast<uint>(abs(error[i]))) >> 11;
+      if (random(MAX12) < frac_m12) {
         if (place_ref[i] == place_off[i]) {
           if (error[i] > 0 && index_by_place[place_off[i] + 1] == -1) {
             place_off[i]++;
@@ -411,12 +424,16 @@ public:
     }
   }
   void on_beat(bool main) {
+    static uint nl = 0;
+    if (!nl && DBG_PATTERN) Serial.printf("\n");
+    nl = (nl + 1) & 0xff;
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
       trigger(main ? 0 : 1);
-      if (DBG_PATTERN) Serial.printf("%d: %d/%d %d (%d)\n", voice, current_place, n_places, beat, main);
-    }
-    if (main) {  // minor is done before main
+      // if (DBG_PATTERN) Serial.printf("%d: %d/%d %d (%d)\n", voice, current_place, n_places, beat, main);
+      if (DBG_PATTERN) Serial.printf("%d", voice + (main ? 0 : 1));
+    } else if (DBG_PATTERN) Serial.printf("-");
+    if (!main) {  // main is done before minor
       if (++current_place == n_places) current_place = 0;
     }
   }
@@ -497,9 +514,19 @@ private:
   static const uint thresh = 10;
   std::array<bool, 4> enabled = { false, false, false, false };
   const std::array<uint, 4> prime = {2, 3, 5, 7};
+  bool check_enabled(uint value, uint pot) {
+    if (!enabled[pot] && abs(static_cast<int>(value) - static_cast<int>(POTS[pot].state)) < thresh) {
+      enabled[pot] = true;
+    }
+    return enabled[pot];
+  }
 protected:
   void disable() {
     std::fill(std::begin(enabled), std::end(enabled), false);
+  }
+  void update_11(volatile uint* destn, uint pot) {
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+    STATE.led_11(*destn, enabled[pot]);
   }
   void update(volatile uint* destn, uint pot) {
     if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
@@ -604,6 +631,7 @@ bool editing = false;
       if (editing) {
         Serial.printf("Voice(%d, %d, %d, %d, %d)\n", idx, voice.amp, voice.freq, voice.durn, voice.fm);
         editing = false;
+        STATE.led_clear();
       }
       disable();
     }
@@ -613,7 +641,7 @@ public:
 };
 
 std::array<VoiceButton, 4> BUTTONS = {VoiceButton(0, 18, VOICES[0]),
-                                      VoiceButton(1, 4, VOICES[1]),
+                                      VoiceButton(1,  4, VOICES[1]),
                                       VoiceButton(2, 15, VOICES[2]),
                                       VoiceButton(3, 19, VOICES[3])};
 
@@ -678,8 +706,8 @@ public:
   }
 };
 
-EuclideanVault vault1 = EuclideanVault(16, 0.5, 0.5, MAX12, 0);
-EuclideanVault vault2 = EuclideanVault(25, 0.5, 0.5, MAX12, 2);
+EuclideanVault vault1 = EuclideanVault(16, 0.666, 0.5, 0, 0);
+EuclideanVault vault2 = EuclideanVault(25, 0.666, 0.5, MAX11, 2);
 
 // edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons : public PotsReader {
@@ -835,7 +863,6 @@ uint post_process(int vol) {
   if (DBG_VOLUME && !random(DBG_LOTTERY))
     Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
-  // TODO - why is reverb offset?!  the tape is an int, not a uint.  not even sure if order correct (before clipping?)
   return hard_clipped;
 }
 
