@@ -21,6 +21,8 @@ const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint DBG_LOTTERY = 10000;
+const uint LED_FREQ = 1000;
+const uint LED_BITS = 8;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
@@ -119,13 +121,13 @@ private:
   std::array<uint, 4> pins = {23, 32, 5, 2};
 public:
   void init() {
-    for (uint i = 0; i < n_leds; i++) pinMode(pins[i], OUTPUT);
+    for (uint i = 0; i < n_leds; i++) ledcAttach(pins[i], LED_FREQ, LED_BITS);
     all_off();
   }
   void set(uint led, uint level) {analogWrite(pins[led], level & 0xff);}
-  void on(uint led) {digitalWrite(pins[led], HIGH);}
-  void on(uint led, bool on) {digitalWrite(pins[led], on ? HIGH : LOW);}
-  void off(uint led) {digitalWrite(pins[led], LOW);}
+  void on(uint led) {set(led, 0xffu);}
+  void on(uint led, bool on) {set(led, on ? 0xffu : 0x0u);}
+  void off(uint led) {set(led, 0x0u);}
   void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
   void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
   void start_up() {
@@ -137,10 +139,10 @@ public:
   void uint12(uint value, bool full) {
     value = (value * value) >> 12;  // nicer response
     for (uint i = 0; i < n_leds; i++) {
-      set(i, (value < 8 ? value : 7) << (full ? 5 : 4));
+      set(i, (value < 8 ? value : 7) << (full ? 4 : 3));
+      // on(i, value);
       value /= 8;
     }
-    delay(1);
   }
 };
 
@@ -166,8 +168,12 @@ public:
     button_mask = new_button_mask;
     n_buttons = std::popcount(button_mask);
     leds.all_off();
+    Serial.printf("button %d, on %d, button_mask %d, n_buttons %d\n", idx, on, button_mask, n_buttons);
   }
-  void voice(uint idx, bool on) {if (!button_mask) leds.on(idx, on);}
+  void voice(uint idx, bool on) {
+    Serial.printf("voice %d, on %d, button_mask %d\n", idx, on, button_mask);
+    if (!button_mask) leds.on(idx, on);
+  }
   // todo - drop these once replaced by led calls
   void pot(uint idx) {leds.on(idx);}
   void pot(uint idx, bool on) {leds.on(idx, on);}
@@ -489,17 +495,18 @@ protected:
   bool pressed = false;
   bool changed = false;
 public:
-  Button(uint idx, uint pin)
-    : idx(idx), pin(pin){};
+  Button(uint idx, uint pin) : idx(idx), pin(pin) {};
   void init() {pinMode(pin, INPUT_PULLUP);}
   void set_state() {
     changed = false;
     bool current = !digitalRead(pin);  // inverted
     uint now = millis();
     if (tmp_change == 0 || current != tmp_pressed) {
+      // fluctuating, save new state
       tmp_pressed = current;
       tmp_change = now;
     } else if (now - tmp_change > debounce && tmp_pressed != pressed) {
+      // changed and steady
       pressed = tmp_pressed;
       changed = true;
       STATE.button(idx, pressed);
@@ -617,12 +624,12 @@ uint gray(uint n) {
 // subclass button to edit voice parameters
 class VoiceButton : public Button, public PotsReader {
 private:
-bool editing = false;
+  bool editing = false;
   Voice& voice;
   void take_action() {
     if (pressed && STATE.n_buttons == 1) {
       editing = true;
-      update(&voice.amp, 0);
+      update_11(&voice.amp, 0);
       update(&voice.freq, 1);
       update(&voice.durn, 2);
       update(&voice.fm, 3);
