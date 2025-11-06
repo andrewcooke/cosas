@@ -139,9 +139,10 @@ public:
   void uint12(uint value, bool full) {
     value = (value * value) >> 12;  // nicer response
     for (uint i = 0; i < n_leds; i++) {
-      set(i, (value < 8 ? value : 7) << (full ? 4 : 3));
+      set(i, (value < 8 ? value : 7) << (full ? 5 : 3));
       // on(i, value);
       value /= 8;
+      // delay(1);
     }
   }
 };
@@ -174,11 +175,12 @@ public:
     Serial.printf("voice %d, on %d, button_mask %d\n", idx, on, button_mask);
     if (!button_mask) leds.on(idx, on);
   }
-  // todo - drop these once replaced by led calls
+  // todo - drop these (pot) once replaced by led calls - we don't care if it's a pot or not, so use led directly
   void pot(uint idx) {leds.on(idx);}
   void pot(uint idx, bool on) {leds.on(idx, on);}
   void pot_clear() {leds.all_off();}
   void led_11(uint value, bool full) {leds.uint12((value << 1) & 0xfff, full);}
+  void led_12(uint value, bool full) {leds.uint12(value, full);}
   void led_clear() {leds.all_off();}
 };
 
@@ -519,21 +521,32 @@ public:
 class PotsReader {
 private:
   static const uint thresh = 10;
-  std::array<bool, 4> enabled = { false, false, false, false };
+  std::array<bool, 4> enabled = {false, false, false, false};
+  std::array<uint, 4> posn = {N12, N12, N12, N12};
+  int active = -1;
   const std::array<uint, 4> prime = {2, 3, 5, 7};
   bool check_enabled(uint value, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>(value) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
+    if (posn[pot] == N12) posn[pot] = POTS[pot].state;
+    else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
+      posn[pot] = POTS[pot].state;
+      active = pot;
     }
+    if (!enabled[pot] && abs(static_cast<int>(value) - static_cast<int>(POTS[pot].state)) < thresh) enabled[pot] = true;
     return enabled[pot];
   }
 protected:
   void disable() {
     std::fill(std::begin(enabled), std::end(enabled), false);
+    std::fill(std::begin(posn), std::end(posn), N12);
+    active = -1;
   }
   void update_11(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    STATE.led_11(*destn, enabled[pot]);
+    if (pot == active) STATE.led_11(*destn, enabled[pot]);
+  }
+  void update_12(volatile uint* destn, uint pot) {
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+    if (pot == active) STATE.led_12(*destn, enabled[pot]);
   }
   void update(volatile uint* destn, uint pot) {
     if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
@@ -569,7 +582,6 @@ protected:
       *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
       for (uint i = 0; i < 4; i++) {
         STATE.pot(i, !(*destn % prime[i]));
-        delay(1);
       }
     }
   }
@@ -583,7 +595,6 @@ protected:
       *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
       for (uint i = 0; i < 4; i++) {
         STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
-        delay(1);
       }
     }
   }
@@ -594,10 +605,7 @@ protected:
     }
     if (enabled[pot]) {
       *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-      for (uint i = 0; i < 4; i++) {
-        STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
-        delay(1);
-      }
+      for (uint i = 0; i < 4; i++) STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
     }
   }
   void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
@@ -609,10 +617,7 @@ protected:
     if (enabled[pot]) {
       *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
       uint g = gray(*destn);
-      for (uint i = 0; i < 4; i++) {
-        STATE.pot(i, g & (1 << i));
-        delay(1);
-      }
+      for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
     }
   }
 };
@@ -630,7 +635,7 @@ private:
     if (pressed && STATE.n_buttons == 1) {
       editing = true;
       update_11(&voice.amp, 0);
-      update(&voice.freq, 1);
+      update_12(&voice.freq, 1);
       update(&voice.durn, 2);
       update(&voice.fm, 3);
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
