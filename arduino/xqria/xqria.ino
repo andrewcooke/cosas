@@ -460,7 +460,7 @@ protected:
 public:
   uint num;
   EMA(uint bits, uint num, uint xtra, T state)
-  : bits(bits), num(num), denom(1 << bits), xtra(xtra), state(state) {};
+  : bits(bits), denom(1 << bits), xtra(xtra), state(state), num(num) {};
   T next(T val) {
     set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
     return get_state() >> xtra;
@@ -497,7 +497,7 @@ protected:
   bool pressed = false;
   bool changed = false;
 public:
-  Button(uint idx, uint pin) : idx(idx), pin(pin) {};
+  Button(uint idx, uint pin) : pin(pin), idx(idx) {};
   void init() {pinMode(pin, INPUT_PULLUP);}
   void set_state() {
     changed = false;
@@ -697,7 +697,7 @@ public:
   float frac_main;
   uint prob;
   EuclideanVault(uint n_places, float frac_beats, float frac_main, uint prob, uint voice)
-    : n_places(n_places), frac_beats(frac_beats), frac_main(frac_main), prob(prob), voice(voice) {
+    : voice(voice), n_places(n_places), frac_beats(frac_beats), frac_main(frac_main), prob(prob) {
     euclideans[0] = Euclidean(n_places, max(1u, static_cast<uint>(n_places * frac_beats)), frac_main, prob, voice);
     euclideans[1] = Euclidean(n_places, max(1u, static_cast<uint>(n_places * frac_beats)), frac_main, prob, voice);
   }
@@ -765,7 +765,7 @@ private:
   public:
     EMA<int> smear;
     TapeEMA(Reverb<BITS> *reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra) 
-    : reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)), EMA<int>(bits, num, xtra, 0) {};
+    : EMA<int>(bits, num, xtra, 0), reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)) {};
   };
 
 public:
@@ -844,7 +844,10 @@ void setup() {
 
   const esp_timer_create_args_t timer_args = {
     .callback = &timer_callback,
-    .name = "high_freq_timer"
+    .arg = nullptr,
+    .dispatch_method = ESP_TIMER_TASK,
+    .name = "high_freq_timer",
+    .skip_unhandled_events = false
   };
   esp_timer_create(&timer_args, &timer_handle);
   esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
@@ -927,7 +930,7 @@ void loop() {
         unsigned long now = micros();
         if (start) latest = gap.next(now - start);
         start = now;
-        if (!random(DBG_LOTTERY)) Serial.printf("%d %dms\n", ticks, latest);
+        if (!random(DBG_LOTTERY)) Serial.printf("%d %ldms\n", ticks, latest);
       }
       if (ticks & 0x1) {
         trigger1.on(ticks);
