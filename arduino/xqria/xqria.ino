@@ -6,10 +6,12 @@
 #include <mutex>
 #include <thread>
 #include "esp_timer.h"
-#include "driver/dac.h"
+#include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint TIMER_PERIOD_US = 50;  // 40khz is 25 but we don't seem to get that high - see DBG_TIMING
+const uint TIMER_PERIOD_US = 25;  // 40khz is 25 but we don't seem to get that high - see DBG_TIMING
+const uint BUFFER_SIZE = 512;
+const uint SAMPLE_RATE_HZ = 1000000 / TIMER_PERIOD_US;
 const uint LOWEST_F_HZ = 20;  // assuming integer phase increment
 const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
 const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);  // convert to bpm assuming 4/4 (not sure this is correct)
@@ -62,7 +64,6 @@ const bool DBG_EUCLIDEAN = false;
 const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 
-const uint LOOSENESS = 1024;
 
 template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
 
@@ -459,8 +460,7 @@ protected:
   virtual void set_state(T s) {state = s;}
 public:
   uint num;
-  EMA(uint bits, uint num, uint xtra, T state)
-  : bits(bits), denom(1 << bits), xtra(xtra), state(state), num(num) {};
+  EMA(uint bits, uint num, uint xtra, T state) : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num) {};
   T next(T val) {
     set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
     return get_state() >> xtra;
@@ -477,7 +477,7 @@ public:
   uint state;
   Pot(uint pin) : pin(pin) {};
   void init() {pinMode(pin, INPUT);}
-  void set_state() {state = MAX12 - ema.next(analogRead(pin)) - 1;}  // inverted and hack to zero
+  void read_state() {state = MAX12 - ema.next(analogRead(pin)) - 1;}  // inverted and hack to zero
 };
 
 // all the pots
@@ -499,7 +499,7 @@ protected:
 public:
   Button(uint idx, uint pin) : pin(pin), idx(idx) {};
   void init() {pinMode(pin, INPUT_PULLUP);}
-  void set_state() {
+  void read_state() {
     changed = false;
     bool current = !digitalRead(pin);  // inverted
     uint now = millis();
@@ -652,10 +652,10 @@ public:
   VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
-std::array<VoiceButton, 4> BUTTONS = {VoiceButton(0, 18, VOICES[0]),
-                                      VoiceButton(1,  4, VOICES[1]),
-                                      VoiceButton(2, 15, VOICES[2]),
-                                      VoiceButton(3, 19, VOICES[3])};
+std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
+                                            VoiceButton(1,  4, VOICES[1]),
+                                            VoiceButton(2, 15, VOICES[2]),
+                                            VoiceButton(3, 19, VOICES[3])};
 
 // global parameters - hold down middle two buttons
 class GlobalButtons : public PotsReader {
@@ -718,8 +718,8 @@ public:
   }
 };
 
-EuclideanVault vault1 = EuclideanVault(16, 0.666, 0.5, 0, 0);
-EuclideanVault vault2 = EuclideanVault(25, 0.666, 0.5, MAX11, 2);
+EuclideanVault VAULT1 = EuclideanVault(16, 0.666, 0.5, 0, 0);
+EuclideanVault VAULT2 = EuclideanVault(25, 0.666, 0.5, MAX11, 2);
 
 // edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons : public PotsReader {
@@ -745,8 +745,8 @@ public:
   }
 };
 
-EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, vault1);
-EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, vault2);
+EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULT1);
+EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULT2);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 // TODO - smear affects immediate output (it shouldn't)
@@ -823,40 +823,6 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-// run the ui on other core
-TaskHandle_t ui_handle = NULL;
-
-void setup() {
-
-  Serial.begin(115200);
-  delay(100);
-  Serial.println("hello world");
-
-  // esp_log_level_set("*", ESP_LOG_NONE);
-
-  for (Button& b : BUTTONS) b.init();
-  for (Pot& p : POTS) p.init();
-
-  dac_output_enable(DAC_CHAN_0);
-  dac_output_voltage(DAC_CHAN_0, 128);  // Silencio inicial
-
-  timer_semaphore = xSemaphoreCreateBinary();
-
-  const esp_timer_create_args_t timer_args = {
-    .callback = &timer_callback,
-    .arg = nullptr,
-    .dispatch_method = ESP_TIMER_TASK,
-    .name = "high_freq_timer",
-    .skip_unhandled_events = false
-  };
-  esp_timer_create(&timer_args, &timer_handle);
-  esp_timer_start_periodic(timer_handle, TIMER_PERIOD_US);
-
-  xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
-
-  STATE.init();
-}
-
 // apply post-processing
 uint post_process(int vol) {
   // apply compressor
@@ -916,41 +882,34 @@ public:
   }
 };
 
-// main loop on sound-generating core
-void loop() {
+class Audio {
+private:
   uint ticks = 0;
   unsigned long start = 0;
-  EMA<unsigned long> gap = EMA<unsigned long>(4, 1, 3, 0);
-  Trigger trigger1(vault1, false);
-  Trigger trigger2(vault2, true);
-  while (1) {
-    if (xSemaphoreTake(timer_semaphore, portMAX_DELAY) == pdTRUE) {
-      if (DBG_TIMING) {
-        unsigned long latest = 0;
-        unsigned long now = micros();
-        if (start) latest = gap.next(now - start);
-        start = now;
-        if (!random(DBG_LOTTERY)) Serial.printf("%d %ldms\n", ticks, latest);
-      }
-      if (ticks & 0x1) {
-        trigger1.on(ticks);
-      } else {
-        trigger2.on(ticks);
-      }
+  Trigger trigger1;
+  Trigger trigger2;
+public:
+  Audio(Trigger trigger1, Trigger trigger2) : trigger1(trigger1), trigger2(trigger2) {};
+  void generate(uint n, uint8_t data[]) {
+    for (uint i = 0; i < n; i++) {
+      if (ticks & 0x1) trigger1.on(ticks);
+      else trigger2.on(ticks);
       ticks++;
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
-      // vol = VOICES[0].output_12();
-      dac_output_voltage(DAC_CHAN_0, post_process(vol));
+      data[i] = post_process(vol);
     }
   }
-}
+};
+
+// run the ui on other core
+TaskHandle_t ui_handle = NULL;
 
 // main loop on other core for slow/ui operations
 void ui_loop(void*) {
   while (1) {
-    for (Button& b : BUTTONS) b.set_state();
-    for (Pot& p : POTS) p.set_state();
+    for (Pot& p : POTS) p.read_state();
+    for (Button& b : VOICE_BUTTONS) b.read_state();
     GLOBAL_BUTTONS.read_state();
     EUCLIDEAN_BUTTONS_LEFT.read_state();
     EUCLIDEAN_BUTTONS_RIGHT.read_state();
@@ -959,3 +918,61 @@ void ui_loop(void*) {
     vTaskDelay(1);
   }
 }
+
+Audio AUDIO(Trigger(VAULT1, false), Trigger(VAULT2, true));
+uint8_t BUFFER[BUFFER_SIZE];
+SemaphoreHandle_t dma_semaphore;
+static BaseType_t dma_flag = pdFALSE;
+dac_continuous_handle_t dac_handle;
+
+// fast copy of existing data into buffer
+static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t *event, void *user_data) {
+  uint loaded = 0;
+  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, BUFFER_SIZE, &loaded);
+  xSemaphoreGiveFromISR(dma_semaphore, &dma_flag); // flag refill
+  return false; 
+}
+
+// slow fill of buffer
+void update_buffer() {
+  AUDIO.generate(BUFFER_SIZE, BUFFER);
+}
+
+// refill buffer when flagged
+void loop() {
+  for(;;) {
+    if (xSemaphoreTake(dma_semaphore, portMAX_DELAY) == pdTRUE) update_buffer();
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+  Serial.println("hello world");
+  for (Button& b : VOICE_BUTTONS) b.init();
+  for (Pot& p : POTS) p.init();
+  STATE.init();
+
+  xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
+
+  update_buffer();  // first callback happens immediately
+  dma_semaphore = xSemaphoreCreateBinary();
+  dac_continuous_config_t dac_config = {
+    .chan_mask = DAC_CHANNEL_MASK_CH0,
+    .desc_num = 4,  // why?
+    .buf_size = BUFFER_SIZE,
+    .freq_hz = SAMPLE_RATE_HZ,
+    .offset = 0,
+    .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
+    .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
+  };
+  dac_continuous_new_channels(&dac_config, &dac_handle);
+  dac_continuous_enable(dac_handle);
+  dac_event_callbacks_t callbacks = {
+    .on_convert_done = dac_callback,
+    .on_stop = nullptr
+  };
+  dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
+  dac_continuous_start_async_writing(dac_handle);
+};
+
