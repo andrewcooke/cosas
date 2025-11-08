@@ -263,7 +263,7 @@ public:
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
-    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 14);
+    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 12);
     if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
