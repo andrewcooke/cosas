@@ -9,27 +9,26 @@
 #include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint TIMER_PERIOD_US = 25;  // 40khz is 25 but we don't seem to get that high - see DBG_TIMING
 const uint BUFFER_SIZE = 512;
-const uint SAMPLE_RATE_HZ = 1000000 / TIMER_PERIOD_US;
-const uint LOWEST_F_HZ = 20;  // assuming integer phase increment
-const uint NSAMPLES = 1000000 / (LOWEST_F_HZ * TIMER_PERIOD_US);  // framing things this way gives constant frequency even if period changes
-const uint BEAT_SCALE = 1000000 * 60 / (4 * TIMER_PERIOD_US);  // convert to bpm assuming 4/4 (not sure this is correct)
-const uint PHASE_EXTN = 2;  // extra bits for phase to extend low freqs
-const uint NSAMPLES_EXTN = NSAMPLES << PHASE_EXTN; 
-const bool FM_NOISE = true;
+const uint SAMPLE_RATE_HZ = 40000;
+const uint LOWEST_F_HZ = 20;
+const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
+const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
+const uint N_SAMPLES_EXTN = N_SAMPLES << PHASE_EXTN; 
+const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;  // ticks for 1 bpm
+const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+
+// used in crash sound
 const uint NOISE_BITS = 6;
 const uint N_NOISE = 1 << NOISE_BITS;
 const uint NOISE_MASK = N_NOISE - 1;
-const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
-const uint DBG_LOTTERY = 10000;
+
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
-volatile static uint SWING = 0;
-volatile static uint SUBDIV = 15;
+volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 
@@ -48,11 +47,12 @@ const uint MAX11 = N11 - 1;
 const uint N12 = 1 << 12;
 const uint MAX12 = N12 - 1;
 
+const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
@@ -173,7 +173,6 @@ public:
     Serial.printf("button %d, on %d, button_mask %d, n_buttons %d\n", idx, on, button_mask, n_buttons);
   }
   void voice(uint idx, bool on) {
-    Serial.printf("voice %d, on %d, button_mask %d\n", idx, on, button_mask);
     if (!button_mask) leds.on(idx, on);
   }
   // todo - drop these (pot) once replaced by led calls - we don't care if it's a pot or not, so use led directly
@@ -195,11 +194,11 @@ public:
   Quarter() = default;
   int operator()(uint amp, int phase) {
     int sign = 1;
-    if (phase >= NSAMPLES / 2) {
-      phase = NSAMPLES - phase;
+    if (phase >= N_SAMPLES / 2) {
+      phase = N_SAMPLES - phase;
       sign = -1;
     };
-    if (phase >= NSAMPLES / 4) phase = (NSAMPLES / 2) - phase;
+    if (phase >= N_SAMPLES / 4) phase = (N_SAMPLES / 2) - phase;
     return sign * ((amp * lookup(phase)) >> 12);
   }
 };
@@ -207,9 +206,9 @@ public:
 // implement sine as lookup
 class Sine : public Quarter {
 private:
-  std::array<uint, 1 + NSAMPLES / 4> table;
+  std::array<uint, 1 + N_SAMPLES / 4> table;
 public:
-  Sine() : Quarter() {for (uint i = 0; i < 1 + NSAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / NSAMPLES);}
+  Sine() : Quarter() {for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / N_SAMPLES);}
   uint lookup(uint phase) override {return table[phase];}
 };
 
@@ -260,7 +259,7 @@ public:
     uint quad_dec = series_exp(linear_dec, 2) >> 11;
     uint cube_dec = series_exp(linear_dec, 3) >> 17;
     uint hard = amp_scaled * (voice == 2 ? cube_dec : quad_dec) >> 12;
-    uint env_phase = (NSAMPLES * time) / (1 + 2 * durn_scaled);
+    uint env_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
@@ -289,10 +288,10 @@ public:
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
     fm_phase += series_exp(fm << 1, 3) >> 22;
-    while (fm_phase >= NSAMPLES_EXTN) fm_phase -= NSAMPLES_EXTN;
+    while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
     phase += freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN);  // sic
-    while (phase < 0) phase += NSAMPLES_EXTN;
-    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    while (phase < 0) phase += N_SAMPLES_EXTN;
+    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) 
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
@@ -308,15 +307,15 @@ public:
     uint i = 0;
     while (i < N_NOISE) {
       conv_phase += conv_freq;
-      while (conv_phase >= NSAMPLES_EXTN) conv_phase -= NSAMPLES_EXTN;
+      while (conv_phase >= N_SAMPLES_EXTN) conv_phase -= N_SAMPLES_EXTN;
       out += (noise[(noise_idx + i++) & NOISE_MASK] * SINE(N12, conv_phase >> PHASE_EXTN));
       count++;
     }
     noise_idx = (noise_idx + 1) & NOISE_MASK;
     out /= count;
     phase += freq_scaled;
-    while (phase < 0) phase += NSAMPLES_EXTN;
-    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    while (phase < 0) phase += N_SAMPLES_EXTN;
+    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     out += SQUARE(MAX8, phase >> PHASE_EXTN);
     out = (out * static_cast<int>(final_amp)) >> 8;
     if (DBG_CRASH && !random(DBG_LOTTERY))
@@ -330,8 +329,8 @@ public:
     if (fmlo == 1) freq_scaled = freq_scaled;
     phase += freq_scaled;
     phase += (quad_dec * fmlo) >> 9;
-    while (phase < 0) phase += NSAMPLES_EXTN;
-    while (phase >= NSAMPLES_EXTN) phase -= NSAMPLES_EXTN;
+    while (phase < 0) phase += N_SAMPLES_EXTN;
+    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
     out += static_cast<int>((final_amp * cube_dec * fmhi) >> 20) * (LFSR.next() ? 1 : -1);
@@ -664,7 +663,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -4, 0);
-      update_subdiv(&SUBDIV, 0, -8, 1);
+      update_subdiv(&SUBDIV_IDX, 0, -8, 1);
     } else {
       disable();
     }
@@ -858,7 +857,7 @@ private:
   void recalculate(uint ticks) {
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
-    if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV]) / 60;
+    if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
     uint beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
     if (trigger < ticks) trigger += nv_interval;  // TODO?
@@ -933,9 +932,18 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
   return false; 
 }
 
+
+
 // slow fill of buffer
 void update_buffer() {
+  uint available = (1000000 * BUFFER_SIZE) / SAMPLE_RATE_HZ;
+  static EMA<unsigned long> avg = EMA<unsigned long>(4, 1, 3, available);
+  unsigned long start = micros();
   AUDIO.generate(BUFFER_SIZE, BUFFER);
+  uint durn = micros() - start;
+  uint avg_durn = avg.next(durn);
+  if (DBG_TIMING && !random(DBG_LOTTERY/100)) 
+    Serial.printf("%d in %dus (avg %dus, delta %dus, duty %.1f%%)\n", BUFFER_SIZE, durn, avg_durn, available - avg_durn, 100 * avg_durn / static_cast<float>(available));
 }
 
 // refill buffer when flagged
