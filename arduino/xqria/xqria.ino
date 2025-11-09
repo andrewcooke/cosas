@@ -9,8 +9,10 @@
 #include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint BUFFER_SIZE = 512;
+const uint DMA_BUFFER_SIZE = 32;  // 32 to 4092; padded 16 bit
+const uint LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint SAMPLE_RATE_HZ = 40000;
+const uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 const uint LOWEST_F_HZ = 20;
 const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
 const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
@@ -55,7 +57,7 @@ const bool DBG_COMP = false;
 const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = false;
+const bool DBG_DRUM = true;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
@@ -268,7 +270,9 @@ public:
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
     uint nv_freq = freq;
-    uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 12);
+    // uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 12);
+    // uint freq_scaled = 1 + (nv_freq >> 4) + ((nv_freq * nv_freq) >> 12);
+    uint freq_scaled = 1 + nv_freq;
     if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
@@ -330,10 +334,11 @@ public:
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     uint fmlo = ((fm & 0x3f) >> 2) + 1;  // bottom 6 bits
-    freq_scaled = freq_scaled >> 2;
-    if (fmlo == 1) freq_scaled = freq_scaled;
+    freq_scaled >>= 4;
+    // freq_scaled = freq_scaled >> 2;
+    // if (fmlo == 1) freq_scaled = freq_scaled;
     phase += freq_scaled;
-    phase += (quad_dec * fmlo) >> 9;
+    phase += (quad_dec * fmlo) >> 10;
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
@@ -467,8 +472,9 @@ public:
   EMA(uint bits, uint num, uint xtra, T state) : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num) {};
   T next(T val) {
     set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
-    return get_state() >> xtra;
+    return read();
   }
+  T read() {return get_state() >> xtra;}
 };
 
 // encapsulate a pot position and associated (smoothed) state
@@ -911,31 +917,36 @@ void ui_loop(void*) {
 }
 
 Audio AUDIO(Trigger(VAULT1, false), Trigger(VAULT2, true));
-uint8_t BUFFER[BUFFER_SIZE];
+uint8_t BUFFER[2][LOCAL_BUFFER_SIZE];
+uint BUFFER_IDX = 1;
 SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 dac_continuous_handle_t dac_handle;
+EMA<uint> INTERVAL = EMA<uint>(4, 1, 3, REFRESH_US);
 
 // fast copy of existing data into buffer
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t *event, void *user_data) {
+  static unsigned long prev = 0;
+  if (prev) INTERVAL.next(micros() - prev);
+  prev = micros();
   uint loaded = 0;
-  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, BUFFER_SIZE, &loaded);
+  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER[BUFFER_IDX], LOCAL_BUFFER_SIZE, &loaded);
+  // here, loaded == LOCAL_BUFFER_SIZE, event->buf_size == DMA_BUFFER_SIZE and event->write_bytes == DMA_BUFFER_SIZE
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag); // flag refill
   return false; 
 }
 
-
-
 // slow fill of buffer
 void update_buffer() {
-  uint available = (1000000 * BUFFER_SIZE) / SAMPLE_RATE_HZ;
-  static EMA<unsigned long> avg = EMA<unsigned long>(4, 1, 3, available);
+  BUFFER_IDX ^= 1;
+  static EMA<uint> avg = EMA<uint>(4, 1, 3, REFRESH_US);
   unsigned long start = micros();
-  AUDIO.generate(BUFFER_SIZE, BUFFER);
+  AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[BUFFER_IDX]);
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
-  if (DBG_TIMING && !random(DBG_LOTTERY/100)) 
-    Serial.printf("%d in %dus (avg %dus, delta %dus, duty %.1f%%)\n", BUFFER_SIZE, durn, avg_durn, available - avg_durn, 100 * avg_durn / static_cast<float>(available));
+  if (DBG_TIMING && !random(DBG_LOTTERY / LOCAL_BUFFER_SIZE)) 
+    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%)\n", 
+                  LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US));
 }
 
 // refill buffer when flagged
@@ -960,7 +971,7 @@ void setup() {
   dac_continuous_config_t dac_config = {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
     .desc_num = 4,  // why?
-    .buf_size = BUFFER_SIZE,
+    .buf_size = DMA_BUFFER_SIZE,
     .freq_hz = SAMPLE_RATE_HZ,
     .offset = 0,
     .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
