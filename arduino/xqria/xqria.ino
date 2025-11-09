@@ -9,16 +9,16 @@
 #include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092; padded 16 bit
+const uint DMA_BUFFER_SIZE = 2048;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint SAMPLE_RATE_HZ = 40000;
 const uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 const uint LOWEST_F_HZ = 20;
 const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
 const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
-const uint N_SAMPLES_EXTN = N_SAMPLES << PHASE_EXTN; 
-const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;  // ticks for 1 bpm
-const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+const uint N_SAMPLES_EXTN = N_SAMPLES << PHASE_EXTN;
+const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;                                                             // ticks for 1 bpm
+const std::array<uint, 16> SUBDIVS = { 5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60 };  // by luck length is power of 2
 
 // used in crash sound
 const uint NOISE_BITS = 6;
@@ -67,9 +67,11 @@ const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 
 
-template <typename T> int sgn(T val) {return (T(0) < val) - (val < T(0));}
+template<typename T> int sgn(T val) {
+  return (T(0) < val) - (val < T(0));
+}
 
-template <typename T> T series_exp(T val, uint n) {
+template<typename T> T series_exp(T val, uint n) {
   T result = 1;
   T fact = 1;
   T nth = val;
@@ -86,7 +88,8 @@ class LFSR16 {
 private:
   uint16_t state;
 public:
-  LFSR16(uint16_t seed = 0xACE1) : state(seed) {}
+  LFSR16(uint16_t seed = 0xACE1)
+    : state(seed) {}
   uint next() {
     uint16_t lsb = state & 0x1;
     state >>= 1;
@@ -96,7 +99,7 @@ public:
   int n_bits(uint n) {
     int bits = un_bits(n);
     // remove most of the bias (shift to be around zero rather than all +ve)
-    if (n > 0) bits -= 1 << (n - 1);  
+    if (n > 0) bits -= 1 << (n - 1);
     return bits;
   }
   uint un_bits(uint n) {
@@ -106,7 +109,10 @@ public:
       uint bit = next();
       if (DBG_LFSR) {
         Serial.print(bit ? "1" : "0");
-        if (line++ == 80) {line = 0; Serial.println();}
+        if (line++ == 80) {
+          line = 0;
+          Serial.println();
+        }
       }
       bits = bits << 1 | bit;
       n--;
@@ -121,22 +127,37 @@ LFSR16 LFSR = LFSR16();
 class LEDs {
 private:
   uint n_leds = 4;
-  std::array<uint, 4> pins = {23, 32, 5, 2};
+  std::array<uint, 4> pins = { 23, 32, 5, 2 };
 public:
   void init() {
     for (uint i = 0; i < n_leds; i++) ledcAttach(pins[i], LED_FREQ, LED_BITS);
     all_off();
   }
-  void set(uint led, uint level) {analogWrite(pins[led], level & 0xff);}
-  void on(uint led) {set(led, 0xffu);}
-  void on(uint led, bool on) {set(led, on ? 0xffu : 0x0u);}
-  void off(uint led) {set(led, 0x0u);}
-  void all_on() {for (uint i = 0; i < n_leds; i++) on(i);}
-  void all_off() {for (uint i = 0; i < n_leds; i++) off(i);}
+  void set(uint led, uint level) {
+    analogWrite(pins[led], level & 0xff);
+  }
+  void on(uint led) {
+    set(led, 0xffu);
+  }
+  void on(uint led, bool on) {
+    set(led, on ? 0xffu : 0x0u);
+  }
+  void off(uint led) {
+    set(led, 0x0u);
+  }
+  void all_on() {
+    for (uint i = 0; i < n_leds; i++) on(i);
+  }
+  void all_off() {
+    for (uint i = 0; i < n_leds; i++) off(i);
+  }
   void start_up() {
-    all_on(); delay(100);
-    all_off(); delay(100);
-    all_on(); delay(100);
+    all_on();
+    delay(100);
+    all_off();
+    delay(100);
+    all_on();
+    delay(100);
     all_off();
   }
   void uint12(uint value, bool full) {
@@ -178,17 +199,31 @@ public:
     if (!button_mask) leds.on(idx, on);
   }
   // todo - drop these (pot) once replaced by led calls - we don't care if it's a pot or not, so use led directly
-  void pot(uint idx) {leds.on(idx);}
-  void pot(uint idx, bool on) {leds.on(idx, on);}
-  void pot_clear() {leds.all_off();}
-  void led_10(uint value, bool full) {leds.uint12((value << 2) & 0xfff, full);}
-  void led_11(uint value, bool full) {leds.uint12((value << 1) & 0xfff, full);}
-  void led_12(uint value, bool full) {leds.uint12(value, full);}
+  void pot(uint idx) {
+    leds.on(idx);
+  }
+  void pot(uint idx, bool on) {
+    leds.on(idx, on);
+  }
+  void pot_clear() {
+    leds.all_off();
+  }
+  void led_10(uint value, bool full) {
+    leds.uint12((value << 2) & 0xfff, full);
+  }
+  void led_11(uint value, bool full) {
+    leds.uint12((value << 1) & 0xfff, full);
+  }
+  void led_12(uint value, bool full) {
+    leds.uint12(value, full);
+  }
   void led_fm(uint value, bool full) {
     if (value < N11) led_11(value, full);
     else led_10(value, full);
   }
-  void led_clear() {leds.all_off();}
+  void led_clear() {
+    leds.all_off();
+  }
 };
 
 CentralState STATE = CentralState();
@@ -215,8 +250,13 @@ class Sine : public Quarter {
 private:
   std::array<uint, 1 + N_SAMPLES / 4> table;
 public:
-  Sine() : Quarter() {for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / N_SAMPLES);}
-  uint lookup(uint phase) override {return table[phase];}
+  Sine()
+    : Quarter() {
+    for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / N_SAMPLES);
+  }
+  uint lookup(uint phase) override {
+    return table[phase];
+  }
 };
 
 Sine SINE;
@@ -224,8 +264,11 @@ Sine SINE;
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
 public:
-  Square() : Quarter() {}
-  uint lookup(uint phase) override {return MAX12;}
+  Square()
+    : Quarter() {}
+  uint lookup(uint phase) override {
+    return MAX12;
+  }
 };
 
 Square SQUARE;
@@ -237,14 +280,14 @@ private:
   uint time = 0;
   int phase = 0;
   int fm_phase = 0;
-  int noise[N_NOISE] = {0};
+  int noise[N_NOISE] = { 0 };
   uint noise_idx = 0;
 public:
   // parameters madified by UI
-  volatile uint amp;    // 12 bits
-  volatile uint freq;   // 12 bits
-  volatile uint durn;   // 12 bits
-  volatile uint fm;     // 12 bits
+  volatile uint amp;   // 12 bits
+  volatile uint freq;  // 12 bits
+  volatile uint durn;  // 12 bits
+  volatile uint fm;    // 12 bits
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm)
     : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm){};
   void trigger() {
@@ -274,21 +317,21 @@ public:
     // uint freq_scaled = 1 + (nv_freq >> 4) + ((nv_freq * nv_freq) >> 12);
     uint freq_scaled = 1 + nv_freq;
     if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
-      Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n", 
+      Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n",
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
     switch (voice) {
       case 0:
       case 1:
-      out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
-      break;
+        out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
+        break;
       case 2:
-      out = crash(fm_low10, final_amp, freq_scaled);
-      break;
+        out = crash(fm_low10, final_amp, freq_scaled);
+        break;
       case 3:
       default:
-      out = minifm(N10 - fm_low10, final_amp, freq_scaled);
-      break;
+        out = minifm(N10 - fm_low10, final_amp, freq_scaled);
+        break;
     }
     time++;
     return out >> 4;
@@ -302,7 +345,7 @@ public:
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
-    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) 
+    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
@@ -345,17 +388,17 @@ public:
     uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
     out += static_cast<int>((final_amp * cube_dec * fmhi) >> 20) * (LFSR.next() ? 1 : -1);
     out += (fmhi > 16 && !(time & 0xf)) ? static_cast<int>((final_amp * quad_dec * fmhi) >> 19) * (LFSR.next() ? 1 : -1) : 0;
-    if (DBG_DRUM && !idx && !random(DBG_LOTTERY)) 
+    if (DBG_DRUM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
   }
 };
 
 // initial values no longer sounds good (TODO - improve)
-std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
-                               Voice(1, MAX9,  240, 1000, 240),
-                               Voice(2, MAX9,  213, 1300, 150),
-                               Voice(3, MAX9,  320,  900, 240)};
+std::array<Voice, 4> VOICES = { Voice(0, MAX10, 160, 1200, 0),
+                                Voice(1, MAX9, 240, 1000, 240),
+                                Voice(2, MAX9, 213, 1300, 150),
+                                Voice(3, MAX9, 320, 900, 240) };
 
 // standard euclidean pattern
 // TODO - add variations biased towards beats with largest errors
@@ -368,12 +411,12 @@ private:
   uint prob;
   uint voice;
   uint current_place = 0;
-  std::vector<uint> place_ref;  // beat index -> place index (reference)
-  std::vector<uint> place_off;  // beat index -> place index (offset)
-  std::vector<int> error;  // beat index -> error x MAX12
+  std::vector<uint> place_ref;       // beat index -> place index (reference)
+  std::vector<uint> place_off;       // beat index -> place index (offset)
+  std::vector<int> error;            // beat index -> error x MAX12
   std::vector<uint> index_by_error;  // error (abs(error) increasing) -> beat index
-  std::vector<bool> is_main;  // beat index -> true if main (small error)
-  std::vector<int> index_by_place;  // (offset) place index -> beat index (or -1)
+  std::vector<bool> is_main;         // beat index -> true if main (small error)
+  std::vector<int> index_by_place;   // (offset) place index -> beat index (or -1)
   void trigger(uint delta) {
     uint n = voice + delta;
     if (gray(ENABLED) & 1 << n) {
@@ -403,7 +446,8 @@ public:
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place_off[i]] = i;
   };
-  Euclidean() : Euclidean(2, 1, 0.5, MAX12, 0){};  // used only as temp value in arrays
+  Euclidean()
+    : Euclidean(2, 1, 0.5, MAX12, 0){};  // used only as temp value in arrays
   bool operator==(const Euclidean other) {
     return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
   }
@@ -458,23 +502,30 @@ public:
 };
 
 // exponential moving average used for smoothing time series
-template <typename T> class EMA {
+template<typename T> class EMA {
 private:
   uint bits;
   uint denom;
   uint xtra;
   T state;
 protected:
-  virtual T get_state() {return state;}
-  virtual void set_state(T s) {state = s;}
+  virtual T get_state() {
+    return state;
+  }
+  virtual void set_state(T s) {
+    state = s;
+  }
 public:
   uint num;
-  EMA(uint bits, uint num, uint xtra, T state) : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num) {};
+  EMA(uint bits, uint num, uint xtra, T state)
+    : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num){};
   T next(T val) {
     set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
     return read();
   }
-  T read() {return get_state() >> xtra;}
+  T read() {
+    return get_state() >> xtra;
+  }
 };
 
 // encapsulate a pot position and associated (smoothed) state
@@ -485,13 +536,18 @@ private:
   EMA<uint> ema = EMA<uint>(3, 1, 3, 0);
 public:
   uint state;
-  Pot(uint pin) : pin(pin) {};
-  void init() {pinMode(pin, INPUT);}
-  void read_state() {state = MAX12 - ema.next(analogRead(pin)) - 1;}  // inverted and hack to zero
+  Pot(uint pin)
+    : pin(pin){};
+  void init() {
+    pinMode(pin, INPUT);
+  }
+  void read_state() {
+    state = MAX12 - ema.next(analogRead(pin)) - 1;
+  }  // inverted and hack to zero
 };
 
 // all the pots
-std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
+std::array<Pot, 4> POTS = { Pot(13), Pot(14), Pot(27), Pot(12) };
 
 // debounce buttons
 // subclass to provide actions (although i think there's only one subclass...)
@@ -507,8 +563,11 @@ protected:
   bool pressed = false;
   bool changed = false;
 public:
-  Button(uint idx, uint pin) : pin(pin), idx(idx) {};
-  void init() {pinMode(pin, INPUT_PULLUP);}
+  Button(uint idx, uint pin)
+    : pin(pin), idx(idx){};
+  void init() {
+    pinMode(pin, INPUT_PULLUP);
+  }
   void read_state() {
     changed = false;
     bool current = !digitalRead(pin);  // inverted
@@ -531,10 +590,10 @@ public:
 class PotsReader {
 private:
   static const uint thresh = 10;
-  std::array<bool, 4> enabled = {false, false, false, false};
-  std::array<uint, 4> posn = {N12, N12, N12, N12};
+  std::array<bool, 4> enabled = { false, false, false, false };
+  std::array<uint, 4> posn = { N12, N12, N12, N12 };
   int active = -1;
-  const std::array<uint, 4> prime = {2, 3, 5, 7};
+  const std::array<uint, 4> prime = { 2, 3, 5, 7 };
   bool check_enabled(uint value, uint pot) {
     if (posn[pot] == N12) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
@@ -576,7 +635,7 @@ protected:
   }
   void update(float* destn, uint pot) {
     static const int EDGE = 4;  // guarantee 0-1 float full range
-    if (check_enabled(*destn * MAX12, pot)) 
+    if (check_enabled(*destn * MAX12, pot))
       *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
     if (pot == active) STATE.pot(pot);
   }
@@ -595,7 +654,7 @@ protected:
   }
   void update_prime(float* destn, uint scale, uint pot) {
     static const int EDGE = 4;  // guarantee 0-1 float full range
-    if (check_enabled(*destn * MAX12, pot)) 
+    if (check_enabled(*destn * MAX12, pot))
       *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
     if (pot == active) {
       for (uint i = 0; i < 4; i++) STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
@@ -646,13 +705,14 @@ private:
     }
   }
 public:
-  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
+  VoiceButton(uint idx, uint pin, Voice& voice)
+    : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
-std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
-                                            VoiceButton(1,  4, VOICES[1]),
-                                            VoiceButton(2, 15, VOICES[2]),
-                                            VoiceButton(3, 19, VOICES[3])};
+std::array<VoiceButton, 4> VOICE_BUTTONS = { VoiceButton(0, 18, VOICES[0]),
+                                             VoiceButton(1, 4, VOICES[1]),
+                                             VoiceButton(2, 15, VOICES[2]),
+                                             VoiceButton(3, 19, VOICES[3]) };
 
 // global parameters - hold down middle two buttons
 class GlobalButtons : public PotsReader {
@@ -710,7 +770,10 @@ public:
   };
   Euclidean* get() {
     std::unique_lock<std::mutex> lock(access, std::defer_lock);
-    if (lock.try_lock() && updated) {std::swap(current, next); updated = false;}
+    if (lock.try_lock() && updated) {
+      std::swap(current, next);
+      updated = false;
+    }
     return &euclideans[current];
   }
 };
@@ -722,10 +785,11 @@ EuclideanVault VAULT2 = EuclideanVault(25, 0.666, 0.5, MAX11, 2);
 class EuclideanButtons : public PotsReader {
 private:
   uint mask;
-  EuclideanVault &vault;
+  EuclideanVault& vault;
   bool editing = false;
 public:
-  EuclideanButtons(uint mask, EuclideanVault &vault) : PotsReader(), mask(mask), vault(vault) {};
+  EuclideanButtons(uint mask, EuclideanVault& vault)
+    : PotsReader(), mask(mask), vault(vault){};
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
@@ -747,7 +811,7 @@ EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULT2);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 // TODO - smear affects immediate output (it shouldn't)
-template <int BITS> class Reverb {
+template<int BITS> class Reverb {
 private:
   static const uint max_size = 1 << BITS;
   int tape[max_size];
@@ -755,20 +819,25 @@ private:
 
   class TapeEMA : public EMA<int> {
   private:
-    Reverb<BITS> *reverb;
+    Reverb<BITS>* reverb;
   protected:
-    int get_state() {return smear.next(reverb->tape[reverb->write]);}
-    void set_state(int val) {reverb->tape[reverb->write] = val;}
+    int get_state() {
+      return smear.next(reverb->tape[reverb->write]);
+    }
+    void set_state(int val) {
+      reverb->tape[reverb->write] = val;
+    }
   public:
     EMA<int> smear;
-    TapeEMA(Reverb<BITS> *reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra) 
-    : EMA<int>(bits, num, xtra, 0), reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)) {};
+    TapeEMA(Reverb<BITS>* reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra)
+      : EMA<int>(bits, num, xtra, 0), reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)){};
   };
 
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)) {};  // by default disabled
+  Reverb()
+    : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)){};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -839,17 +908,20 @@ uint post_process(int vol) {
   int offset = reverbed + MAX7;
   int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
   if (DBG_VOLUME && !random(DBG_LOTTERY))
-    Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 
+    Serial.printf("comp %d; vol %d; soft %d; hard %d\n",
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   return hard_clipped;
 }
 
 class Trigger {
 private:
-  EuclideanVault &vault;
-  Euclidean *rhythm = nullptr;
+  EuclideanVault& vault;
+  Euclidean* rhythm = nullptr;
   bool subdiv;
-  enum Phase {Idle, Minor, Jiggle, Update};
+  enum Phase { Idle,
+               Minor,
+               Jiggle,
+               Update };
   Phase phase = Idle;
   uint trigger = 0;
   void recalculate(uint ticks) {
@@ -861,7 +933,10 @@ private:
     if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
-  Trigger(EuclideanVault &vault, bool subdiv) : vault(vault), subdiv(subdiv) {recalculate(0);}
+  Trigger(EuclideanVault& vault, bool subdiv)
+    : vault(vault), subdiv(subdiv) {
+    recalculate(0);
+  }
   void on(uint ticks) {  // try to spread work across multiple ticks
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(true);
@@ -886,7 +961,8 @@ private:
   Trigger trigger1;
   Trigger trigger2;
 public:
-  Audio(Trigger trigger1, Trigger trigger2) : trigger1(trigger1), trigger2(trigger2) {};
+  Audio(Trigger trigger1, Trigger trigger2)
+    : trigger1(trigger1), trigger2(trigger2){};
   void generate(uint n, uint8_t data[]) {
     for (uint i = 0; i < n; i++) {
       if (ticks & 0x1) trigger1.on(ticks);
@@ -924,7 +1000,7 @@ dac_continuous_handle_t dac_handle;
 EMA<uint> INTERVAL = EMA<uint>(4, 1, 3, REFRESH_US);
 
 // fast copy of existing data into buffer
-static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t *event, void *user_data) {
+static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
   static unsigned long prev = 0;
   if (prev) INTERVAL.next(micros() - prev);
   prev = micros();
@@ -932,8 +1008,8 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
   dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, LOCAL_BUFFER_SIZE, &loaded);
   // here, loaded == LOCAL_BUFFER_SIZE, event->buf_size == DMA_BUFFER_SIZE and event->write_bytes == DMA_BUFFER_SIZE
   // if this is wrong, you'll see discuontinuous waveforms and hear clicks
-  xSemaphoreGiveFromISR(dma_semaphore, &dma_flag); // flag refill
-  return false; 
+  xSemaphoreGiveFromISR(dma_semaphore, &dma_flag);  // flag refill
+  return false;
 }
 
 // slow fill of buffer
@@ -943,14 +1019,15 @@ void update_buffer() {
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER);
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
-  if (DBG_TIMING && !random(DBG_LOTTERY / LOCAL_BUFFER_SIZE)) 
-    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%)\n", 
-                  LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US));
+  if (DBG_TIMING && !random(DBG_LOTTERY / (LOCAL_BUFFER_SIZE >> 3)))
+    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%); callback avg %dus\n",
+                  LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US),
+                  INTERVAL.read());
 }
 
 // refill buffer when flagged
 void loop() {
-  for(;;) {
+  for (;;) {
     if (xSemaphoreTake(dma_semaphore, portMAX_DELAY) == pdTRUE) update_buffer();
   }
 }
@@ -985,4 +1062,3 @@ void setup() {
   dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
   dac_continuous_start_async_writing(dac_handle);
 };
-
