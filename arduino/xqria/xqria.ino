@@ -179,8 +179,13 @@ public:
   void pot(uint idx) {leds.on(idx);}
   void pot(uint idx, bool on) {leds.on(idx, on);}
   void pot_clear() {leds.all_off();}
+  void led_10(uint value, bool full) {leds.uint12((value << 2) & 0xfff, full);}
   void led_11(uint value, bool full) {leds.uint12((value << 1) & 0xfff, full);}
   void led_12(uint value, bool full) {leds.uint12(value, full);}
+  void led_fm(uint value, bool full) {
+    if (value < N11) led_11(value, full);
+    else led_10(value, full);
+  }
   void led_clear() {leds.all_off();}
 };
 
@@ -528,7 +533,10 @@ private:
     if (posn[pot] == N12) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
       posn[pot] = POTS[pot].state;
-      active = pot;
+      if (active != pot) {
+        STATE.led_clear();
+        active = pot;
+      }
     }
     if (!enabled[pot] && abs(static_cast<int>(value) - static_cast<int>(POTS[pot].state)) < thresh) enabled[pot] = true;
     return enabled[pot];
@@ -547,74 +555,58 @@ protected:
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_12(*destn, enabled[pot]);
   }
+  void update_fm(volatile uint* destn, uint pot) {
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+    if (pot == active) STATE.led_fm(*destn, enabled[pot]);
+  }
+  void update_12(volatile uint* destn, uint zero, int bits, uint pot) {
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) STATE.led_12(*destn, enabled[pot]);
+  }
   void update(volatile uint* destn, uint pot) {
-    if (!enabled[pot] && abs(static_cast<int>(*destn) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      STATE.pot(pot);
-    }
-    if (enabled[pot]) *destn = POTS[pot].state;
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+    if (pot == active) STATE.pot(pot);
   }
   void update(float* destn, uint pot) {
-    static const int EDGE = 4;  // guarabtee 0-1 float full range
-    if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      STATE.pot(pot);
-    }
-    if (enabled[pot]) *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+    static const int EDGE = 4;  // guarantee 0-1 float full range
+    if (check_enabled(*destn * MAX12, pot)) 
+      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+    if (pot == active) STATE.pot(pot);
   }
   // -ve bits imply value loaded into destn is smaller than pot
   void update(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      STATE.pot(pot);
-    }
-    if (enabled[pot]) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) STATE.pot(pot);
   }
   void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      // STATE.pot(pot);
-    }
-    if (enabled[pot]) {
-      *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-      for (uint i = 0; i < 4; i++) {
-        STATE.pot(i, !(*destn % prime[i]));
-      }
+    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) {
+      for (uint i = 0; i < 4; i++) STATE.pot(i, !(*destn % prime[i]));
     }
   }
   void update_prime(float* destn, uint scale, uint pot) {
-    static const int EDGE = 4;  // guarabtee 0-1 float full range
-    if (!enabled[pot] && abs(static_cast<int>(*destn * MAX12) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-      // STATE.pot(pot);
-    }
-    if (enabled[pot]) {
+    static const int EDGE = 4;  // guarantee 0-1 float full range
+    if (check_enabled(*destn * MAX12, pot)) 
       *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-      for (uint i = 0; i < 4; i++) {
-        STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
-      }
+    if (pot == active) {
+      for (uint i = 0; i < 4; i++) STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
     }
   }
   void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (!enabled[pot] && abs(target - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-    }
-    if (enabled[pot]) {
-      *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) {
       for (uint i = 0; i < 4; i++) STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
     }
   }
   void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
     uint mask = (1 << bits) - 1;
     uint target = ((static_cast<int>(*destn) - zero) & mask) << (12 - bits);
-    if (!enabled[pot] && abs(static_cast<int>(target) - static_cast<int>(POTS[pot].state)) < thresh) {
-      enabled[pot] = true;
-    }
-    if (enabled[pot]) {
-      *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
+    if (check_enabled(target, pot)) *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
+    if (pot == active) {
       uint g = gray(*destn);
       for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
     }
@@ -635,8 +627,8 @@ private:
       editing = true;
       update_11(&voice.amp, 0);
       update_12(&voice.freq, 1);
-      update(&voice.durn, 2);
-      update(&voice.fm, 3);
+      update_12(&voice.durn, 2);
+      update_fm(&voice.fm, 3);
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
       if (editing) {
@@ -662,7 +654,7 @@ public:
   GlobalButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
-      update(&BPM, 30, -4, 0);
+      update_12(&BPM, 30, -4, 0);
       update_subdiv(&SUBDIV_IDX, 0, -8, 1);
     } else {
       disable();
