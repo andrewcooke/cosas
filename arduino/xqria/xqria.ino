@@ -9,7 +9,7 @@
 #include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint DMA_BUFFER_SIZE = 32;  // 32 to 4092; padded 16 bit
+const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092; padded 16 bit
 const uint LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint SAMPLE_RATE_HZ = 40000;
 const uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
@@ -917,8 +917,7 @@ void ui_loop(void*) {
 }
 
 Audio AUDIO(Trigger(VAULT1, false), Trigger(VAULT2, true));
-uint8_t BUFFER[2][LOCAL_BUFFER_SIZE];
-uint BUFFER_IDX = 1;
+uint8_t BUFFER[LOCAL_BUFFER_SIZE];
 SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 dac_continuous_handle_t dac_handle;
@@ -930,18 +929,18 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
   if (prev) INTERVAL.next(micros() - prev);
   prev = micros();
   uint loaded = 0;
-  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER[BUFFER_IDX], LOCAL_BUFFER_SIZE, &loaded);
+  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, LOCAL_BUFFER_SIZE, &loaded);
   // here, loaded == LOCAL_BUFFER_SIZE, event->buf_size == DMA_BUFFER_SIZE and event->write_bytes == DMA_BUFFER_SIZE
+  // if this is wrong, you'll see discuontinuous waveforms and hear clicks
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag); // flag refill
   return false; 
 }
 
 // slow fill of buffer
 void update_buffer() {
-  BUFFER_IDX ^= 1;
   static EMA<uint> avg = EMA<uint>(4, 1, 3, REFRESH_US);
   unsigned long start = micros();
-  AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[BUFFER_IDX]);
+  AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER);
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
   if (DBG_TIMING && !random(DBG_LOTTERY / LOCAL_BUFFER_SIZE)) 
