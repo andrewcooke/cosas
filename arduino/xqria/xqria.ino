@@ -17,8 +17,8 @@ const uint LOWEST_F_HZ = 20;
 const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
 const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
 const uint N_SAMPLES_EXTN = N_SAMPLES << PHASE_EXTN;
-const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;                                                             // ticks for 1 bpm
-const std::array<uint, 16> SUBDIVS = { 5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60 };  // by luck length is power of 2
+const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;  // ticks for 1 bpm
+const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 
 // used in crash sound
 const uint NOISE_BITS = 6;
@@ -997,18 +997,19 @@ uint8_t BUFFER[LOCAL_BUFFER_SIZE];
 SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 dac_continuous_handle_t dac_handle;
-EMA<uint> INTERVAL = EMA<uint>(4, 1, 3, REFRESH_US);
+EMA<uint> DMA_INTERVAL = EMA<uint>(4, 1, 3, 0);
+uint DMA_ERRORS = 0;
 
 // fast copy of existing data into buffer
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
-  static unsigned long prev = 0;
-  if (prev) INTERVAL.next(micros() - prev);
-  prev = micros();
+  unsigned long start = micros();
   uint loaded = 0;
   dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, LOCAL_BUFFER_SIZE, &loaded);
-  // here, loaded == LOCAL_BUFFER_SIZE, event->buf_size == DMA_BUFFER_SIZE and event->write_bytes == DMA_BUFFER_SIZE
-  // if this is wrong, you'll see discuontinuous waveforms and hear clicks
+  if (loaded != LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
+  if (event->buf_size != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
+  if (event->write_bytes != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag);  // flag refill
+  DMA_INTERVAL.next(micros() - start);
   return false;
 }
 
@@ -1019,10 +1020,12 @@ void update_buffer() {
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER);
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
+  uint dma_durn = DMA_INTERVAL.read();
   if (DBG_TIMING && !random(DBG_LOTTERY / (LOCAL_BUFFER_SIZE >> 3)))
-    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%); callback avg %dus\n",
+    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%); dma loaded in %dus; total %dus, duty %.1f%%; errors %d %s\n",
                   LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US),
-                  INTERVAL.read());
+                  dma_durn, dma_durn + avg_durn, 100 * (dma_durn + avg_durn) / static_cast<float>(REFRESH_US), 
+                  DMA_ERRORS, DMA_ERRORS ? "XXXX" : "");
 }
 
 // refill buffer when flagged
