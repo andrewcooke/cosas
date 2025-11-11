@@ -57,7 +57,7 @@ const bool DBG_COMP = false;
 const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = true;
+const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
@@ -161,12 +161,10 @@ public:
     all_off();
   }
   void uint12(uint value, bool full) {
-    value = (value * value) >> 12;  // nicer response
     for (uint i = 0; i < n_leds; i++) {
-      set(i, (value < 8 ? value : 7) << (full ? 5 : 3));
-      // on(i, value);
-      value /= 8;
-      // delay(1);
+      set(i, min(value, MAX10) >> (full ? 2 : 5));
+      if (value >= N10) value -= N10;
+      else value = 0;
     }
   }
 };
@@ -264,14 +262,23 @@ Sine SINE;
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
 public:
-  Square()
-    : Quarter() {}
+  Square() : Quarter() {}
   uint lookup(uint phase) override {
     return MAX12;
   }
 };
 
 Square SQUARE;
+
+class Triangle : public Quarter {
+public:
+  Triangle() : Quarter() {}
+  uint lookup(uint phase) override {
+    return (4 * MAX12 * phase) / N_SAMPLES;
+  }
+};
+
+Triangle TRIANGLE;
 
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
@@ -299,16 +306,16 @@ public:
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
     uint nv_fm = fm;
+    uint waveform = nv_fm >> 10;
     uint fm_low10 = nv_fm & MAX10;
     uint fm_low11 = nv_fm & MAX11;
-    uint voice = nv_fm >> 10;
     uint nv_amp = amp;
     uint amp_11 = amp & MAX11;
     uint amp_scaled = series_exp(amp_11, 3) >> 15;
     uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
     uint quad_dec = series_exp(linear_dec, 2) >> 11;
     uint cube_dec = series_exp(linear_dec, 3) >> 17;
-    uint hard = amp_scaled * (voice == 2 ? cube_dec : quad_dec) >> 12;
+    uint hard = amp_scaled * (waveform == 2 ? cube_dec : quad_dec) >> 12;
     uint env_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
     uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
     uint final_amp = nv_amp & N11 ? soft : hard;
@@ -320,7 +327,7 @@ public:
       Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n",
                     nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
     int out = 0;
-    switch (voice) {
+    switch (waveform) {
       case 0:
       case 1:
         out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
@@ -334,7 +341,7 @@ public:
         break;
     }
     time++;
-    return out >> 4;
+    return out;
   }
   int minifm(uint fm, uint final_amp, uint freq_scaled) {
     // hand tuned for squelchy noises
@@ -355,7 +362,7 @@ public:
     int out = 0;
     int count = 0;  // ugh must be signed
     uint conv_phase = 0;
-    uint conv_freq = (1 + fm) << (PHASE_EXTN);
+    uint conv_freq = (1 + fm) << (PHASE_EXTN + 2);
     uint i = 0;
     while (i < N_NOISE) {
       conv_phase += conv_freq;
@@ -368,7 +375,7 @@ public:
     phase += freq_scaled;
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
-    out += SQUARE(MAX8, phase >> PHASE_EXTN);
+    out += TRIANGLE(MAX8, phase >> PHASE_EXTN);
     out = (out * static_cast<int>(final_amp)) >> 8;
     if (DBG_CRASH && !random(DBG_LOTTERY))
       Serial.printf("count %d, conv_freq %d, out %d\n", count, conv_freq, out);
@@ -391,7 +398,8 @@ public:
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
-  }
+  }    uint nv_fm = fm;
+
 };
 
 // initial values no longer sounds good (TODO - improve)
@@ -627,7 +635,7 @@ protected:
   void update_12(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.led_12(*destn, enabled[pot]);
+    if (pot == active) STATE.led_12(target, enabled[pot]);
   }
   void update(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
@@ -720,7 +728,7 @@ public:
   GlobalButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
-      update_12(&BPM, 30, -4, 0);
+      update_12(&BPM, 30, -2, 0);
       update_subdiv(&SUBDIV_IDX, 0, -8, 1);
     } else {
       disable();
@@ -866,12 +874,15 @@ PostButtons POST_BUTTONS = PostButtons();
 
 // performance controls - inner two buttoms plus left
 class PerfButtons : public PotsReader {
+private:
+  uint enabled = ENABLED;  // not applied until buttons released
 public:
   PerfButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x7) {
-      update_gray(&ENABLED, 11, 4, 0);
+      update_gray(&enabled, 11, 4, 0);
     } else {
+      ENABLED = enabled;
       disable();
     }
   }
@@ -918,10 +929,7 @@ private:
   EuclideanVault& vault;
   Euclidean* rhythm = nullptr;
   bool subdiv;
-  enum Phase { Idle,
-               Minor,
-               Jiggle,
-               Update };
+  enum Phase {Idle, Minor, Jiggle, Update};
   Phase phase = Idle;
   uint trigger = 0;
   void recalculate(uint ticks) {
@@ -970,7 +978,7 @@ public:
       ticks++;
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
-      data[i] = post_process(vol);
+      data[i] = post_process(vol >> 4);
     }
   }
 };
