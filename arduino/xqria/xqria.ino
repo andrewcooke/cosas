@@ -10,9 +10,9 @@
 #include "math.h"
 
 const uint DMA_BUFFER_SIZE = 2048;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
-const uint LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
+const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
+const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
 const uint SAMPLE_RATE_HZ = 40000;
-const uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 const uint LOWEST_F_HZ = 20;
 const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
 const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
@@ -33,6 +33,8 @@ volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
+volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
 const uint N6 = 1 << 6;
 const uint MAX6 = N6 - 1;
@@ -876,11 +878,18 @@ PostButtons POST_BUTTONS = PostButtons();
 class PerfButtons : public PotsReader {
 private:
   uint enabled = ENABLED;  // not applied until buttons released
+  float buffer_frac = 1;
 public:
   PerfButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x7) {
       update_gray(&enabled, 11, 4, 0);
+      float prev = buffer_frac;
+      update(&buffer_frac, 3);
+      if (buffer_frac != prev) {
+        LOCAL_BUFFER_SIZE = MIN_LOCAL_BUFFER_SIZE + static_cast<uint>(buffer_frac * (MAX_LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE));
+        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
+      }
     } else {
       ENABLED = enabled;
       disable();
@@ -1001,7 +1010,7 @@ void ui_loop(void*) {
 }
 
 Audio AUDIO(Trigger(VAULT1, false), Trigger(VAULT2, true));
-uint8_t BUFFER[LOCAL_BUFFER_SIZE];
+uint8_t BUFFER[MAX_LOCAL_BUFFER_SIZE];
 SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 dac_continuous_handle_t dac_handle;
@@ -1015,7 +1024,7 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
   dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, LOCAL_BUFFER_SIZE, &loaded);
   if (loaded != LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
   if (event->buf_size != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
-  if (event->write_bytes != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
+  if (event->write_bytes != 2 * LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag);  // flag refill
   DMA_INTERVAL.next(micros() - start);
   return false;
@@ -1029,7 +1038,7 @@ void update_buffer() {
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
   uint dma_durn = DMA_INTERVAL.read();
-  if (DBG_TIMING && !random(DBG_LOTTERY / (LOCAL_BUFFER_SIZE >> 3)))
+  if (DBG_TIMING && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3)))
     Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%); dma loaded in %dus; total %dus, duty %.1f%%; errors %d %s\n",
                   LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US),
                   dma_durn, dma_durn + avg_durn, 100 * (dma_durn + avg_durn) / static_cast<float>(REFRESH_US), 
@@ -1057,7 +1066,7 @@ void setup() {
   dma_semaphore = xSemaphoreCreateBinary();
   dac_continuous_config_t dac_config = {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
-    .desc_num = 4,  // why?
+    .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
     .freq_hz = SAMPLE_RATE_HZ,
     .offset = 0,
