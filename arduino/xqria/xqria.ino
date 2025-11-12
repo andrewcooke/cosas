@@ -9,7 +9,7 @@
 #include "driver/dac_continuous.h"
 #include "math.h"
 
-const uint DMA_BUFFER_SIZE = 2048;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
+const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
 const uint SAMPLE_RATE_HZ = 40000;
@@ -33,7 +33,7 @@ volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
-volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
+volatile static uint LOCAL_BUFFER_SIZE = 1024;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
 const uint N6 = 1 << 6;
@@ -878,7 +878,7 @@ PostButtons POST_BUTTONS = PostButtons();
 class PerfButtons : public PotsReader {
 private:
   uint enabled = ENABLED;  // not applied until buttons released
-  float buffer_frac = 1;
+  float buffer_frac = (LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE) / static_cast<float>(MAX_LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE);
 public:
   PerfButtons() = default;
   void read_state() {
