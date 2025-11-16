@@ -164,8 +164,18 @@ public:
   }
   void uint12(uint value, bool full) {
     for (uint i = 0; i < n_leds; i++) {
-      set(i, min(value, MAX10) >> (full ? 2 : 5));
+      set(i, min(value, MAX12) >> (full ? 4 : 7));
       if (value >= N10) value -= N10;
+      else value = 0;
+    }
+  }
+  void uint_even(uint value, bool full) {
+    on(n_leds-1, value > MAX11);
+    value &= MAX11;
+    uint third = N11 / 3;
+    for (uint i = 0; i < n_leds-1; i++) {
+      set(i, min(value, MAX12) >> (full ? 4 : 7));
+      if (value >= third) value -= third;
       else value = 0;
     }
   }
@@ -217,9 +227,15 @@ public:
   void led_12(uint value, bool full) {
     leds.uint12(value, full);
   }
+  void led_even(uint value, bool full) {
+    leds.uint_even(value, full);
+  }
   void led_fm(uint value, bool full) {
     if (value < N11) led_11(value, full);
     else led_10(value, full);
+  }
+  void led(uint led, uint value, bool full) {
+    leds.set(led, value >> (full ? 4 : 7));
   }
   void led_clear() {
     leds.all_off();
@@ -639,21 +655,24 @@ protected:
     if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
     if (pot == active) STATE.led_12(target, enabled[pot]);
   }
-  void update(volatile uint* destn, uint pot) {
-    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.pot(pot);
-  }
-  void update(float* destn, uint pot) {
+  void update_12(float* destn, uint pot) {
     static const int EDGE = 4;  // guarantee 0-1 float full range
     if (check_enabled(*destn * MAX12, pot))
       *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-    if (pot == active) STATE.pot(pot);
+    if (pot == active) STATE.led_12(*destn * MAX12, pot);
   }
-  // -ve bits imply value loaded into destn is smaller than pot
-  void update(volatile uint* destn, uint zero, int bits, uint pot) {
-    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.pot(pot);
+  void update_even(uint* destn, uint pot) {
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+    if (pot == active) STATE.led_even(*destn, enabled[pot]);
+  }
+  void update_lr(float* destn, uint pot, bool p1) {
+    static const int EDGE = 4;  // guarantee 0-1 float full range
+    if (check_enabled(*destn * MAX12, pot))
+      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+    if (pot == active) {
+      STATE.led(p1 ? 0 : 2, *destn * MAX12, enabled[pot]);
+      STATE.led(p1 ? 1 : 3, (1 - *destn) * MAX12, enabled[pot]);
+    }
   }
   void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
     int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
@@ -805,8 +824,8 @@ public:
       editing = true;
       update_prime(&vault.n_places, 2, -7, 0);
       update_prime(&vault.frac_beats, vault.n_places, 1);
-      update(&vault.frac_main, 2);
-      update(&vault.prob, 3);
+      update_lr(&vault.frac_main, 2, mask == 0x3u);
+      update_12(&vault.prob, 3);
       vault.apply_edit(false);
     } else if (editing) {
       vault.apply_edit(true);
@@ -862,10 +881,10 @@ public:
   PostButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x9) {
-      update(&REVERB.size, 0, 1, 0);
-      update(&REVERB.head.num, 1, 0, 1);
-      update(&REVERB.head.smear.num, 1, 0, 2);
-      update(&COMP_BITS, 0, -9, 3);
+      update_12(&REVERB.size, 0, 1, 0);
+      update_12(&REVERB.head.num, 1, 0, 1);
+      update_12(&REVERB.head.smear.num, 1, 0, 2);
+      update_12(&COMP_BITS, 0, -9, 3);
     } else {
       disable();
     }
@@ -878,16 +897,28 @@ PostButtons POST_BUTTONS = PostButtons();
 class PerfButtons : public PotsReader {
 private:
   uint enabled = ENABLED;  // not applied until buttons released
-  float buffer_frac = (LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE) / static_cast<float>(MAX_LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE);
+  uint buffer_frac = ((LOCAL_BUFFER_SIZE * MAX11) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : N11);
 public:
   PerfButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x7) {
       update_gray(&enabled, 11, 4, 0);
       float prev = buffer_frac;
-      update(&buffer_frac, 3);
+      update_even(&buffer_frac, 3);
       if (buffer_frac != prev) {
-        LOCAL_BUFFER_SIZE = MIN_LOCAL_BUFFER_SIZE + static_cast<uint>(buffer_frac * (MAX_LOCAL_BUFFER_SIZE - MIN_LOCAL_BUFFER_SIZE));
+        // frac is 12 bits; msb is even flag
+        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & MAX11) * MAX_LOCAL_BUFFER_SIZE / MAX11));
+        if (buffer_frac > MAX11) {
+          if (LOCAL_BUFFER_SIZE & 0x1) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        } else {
+          if (!(LOCAL_BUFFER_SIZE & 0x1)) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        }
         REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
       }
     } else {
