@@ -67,6 +67,7 @@ const bool DBG_TONE = false;
 const bool DBG_EUCLIDEAN = false;
 const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
+const bool DBG_COPY = true;
 
 
 template<typename T> int sgn(T val) {
@@ -169,6 +170,10 @@ public:
       else value = 0;
     }
   }
+  void uint4(uint value, bool full) {
+    all_off();
+    set(value, MAX12 >> (full ? 4 : 7));
+  }
   void uint_even(uint value, bool full) {
     on(n_leds-1, value > MAX11);
     value &= MAX11;
@@ -227,6 +232,9 @@ public:
   void led_12(uint value, bool full) {
     leds.uint12(value, full);
   }
+  void led_4(uint value, bool full) {
+    leds.uint4(value, full);
+  }
   void led_even(uint value, bool full) {
     leds.uint_even(value, full);
   }
@@ -243,6 +251,37 @@ public:
 };
 
 CentralState STATE = CentralState();
+
+class ButtonState {
+private:
+  uint button_mask;
+public:
+  ButtonState(uint button_mask) : button_mask(button_mask) {};
+  bool selected = false;
+  bool entry = false;
+  bool exit = false;
+  void update() {
+    if (STATE.button_mask == button_mask) {
+      if (!selected) {
+        Serial.printf("entry\n");
+        entry = true;
+        selected = true;
+        exit = false;
+      } else {
+        entry = false;
+      }
+    } else {
+      if (selected) {
+        Serial.printf("exit\n");
+        entry = false;
+        selected = false;
+        exit = true;
+      } else {
+        exit = false;
+      }
+    }
+  }
+};
 
 // quarter wave lookup (don't need to store complete sine wave; only first quarter)
 class Quarter {
@@ -421,10 +460,10 @@ public:
 };
 
 // initial values no longer sounds good (TODO - improve)
-std::array<Voice, 4> VOICES = { Voice(0, MAX10, 160, 1200, 0),
-                                Voice(1, MAX9, 240, 1000, 240),
-                                Voice(2, MAX9, 213, 1300, 150),
-                                Voice(3, MAX9, 320, 900, 240) };
+std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
+                               Voice(1, MAX9, 240, 1000, 240),
+                               Voice(2, MAX9, 213, 1300, 150),
+                               Voice(3, MAX9, 320, 900, 240)};
 
 // standard euclidean pattern
 // TODO - add variations biased towards beats with largest errors
@@ -645,6 +684,11 @@ protected:
   void update_12(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_12(*destn, enabled[pot]);
+  }
+  void update_4(uint* destn, uint pot) {
+    uint target = *destn << 10;
+    if (check_enabled(target, pot)) *destn = POTS[pot].state >> 10;
+    if (pot == active) STATE.led_4(target >> 10, enabled[pot]);
   }
   void update_fm(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
@@ -930,6 +974,40 @@ public:
 
 PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
 
+class EditButtons : public PotsReader {
+private:
+  ButtonState state = ButtonState(0xe);
+  uint source = 4;
+  uint destn = 0;
+public:
+  EditButtons() = default;
+  void read_state() {
+    state.update();
+    if (state.selected) {
+      update_4(&source, 0);
+      update_gray(&destn, 11, 4, 1);
+    }
+    if (state.exit) {
+      if (source < 4 && destn) {
+        destn = gray(destn);
+        for (uint i = 0; i < 4; i++) {
+          if (source != i && (destn & 1 << i)) {
+            if (DBG_COPY) Serial.printf("copying %d -> %d\n", source, i);
+            VOICES[i].amp = VOICES[source].amp;
+            VOICES[i].freq = VOICES[source].freq;
+            VOICES[i].durn = VOICES[source].durn;
+            VOICES[i].fm = VOICES[source].fm;
+          }
+        }
+      }
+      source = 4;
+      destn = 0;
+    }
+  }
+};
+
+EditButtons EDIT_BUTTONS = EditButtons();
+
 // use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
 esp_timer_handle_t timer_handle;
@@ -1036,6 +1114,7 @@ void ui_loop(void*) {
     EUCLIDEAN_BUTTONS_RIGHT.read_state();
     POST_BUTTONS.read_state();
     PERFORMANCE_BUTTONS.read_state();
+    EDIT_BUTTONS.read_state();
     vTaskDelay(1);
   }
 }
