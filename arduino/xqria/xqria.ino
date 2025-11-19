@@ -8,6 +8,7 @@
 #include "esp_timer.h"
 #include "driver/dac_continuous.h"
 #include "math.h"
+#include <Preferences.h>
 
 const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
@@ -124,7 +125,7 @@ public:
   }
 };
 
-LFSR16 LFSR = LFSR16();
+static LFSR16 LFSR = LFSR16();
 
 // wrapper for LEDs
 class LEDs {
@@ -250,7 +251,7 @@ public:
   }
 };
 
-CentralState STATE = CentralState();
+static CentralState STATE = CentralState();
 
 class ButtonState {
 private:
@@ -801,7 +802,7 @@ public:
   }
 };
 
-GlobalButtons GLOBAL_BUTTONS = GlobalButtons();
+static GlobalButtons GLOBAL_BUTTONS = GlobalButtons();
 
 // handle passing of complex state between threads (everything else is a volatile uint, i think, but the Euclidean class is complex)
 // this stores three things:
@@ -815,13 +816,13 @@ GlobalButtons GLOBAL_BUTTONS = GlobalButtons();
 // - avoiding access conflicts
 class EuclideanVault {
 private:
-  uint voice;
   std::mutex access;
   Euclidean euclideans[2];
   bool updated = false;
   uint current = 0;
   uint next = 1;
 public:
+  uint voice;
   uint n_places;
   float frac_beats;
   float frac_main;
@@ -851,8 +852,7 @@ public:
   }
 };
 
-EuclideanVault VAULT1 = EuclideanVault(16, 0.666, 0.5, 0, 0);
-EuclideanVault VAULT2 = EuclideanVault(25, 0.666, 0.5, MAX11, 2);
+static EuclideanVault VAULTS[2] = {EuclideanVault(16, 0.666, 0.5, 0, 0), EuclideanVault(25, 0.666, 0.5, MAX11, 2)};
 
 // edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons : public PotsReader {
@@ -879,8 +879,8 @@ public:
   }
 };
 
-EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULT1);
-EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULT2);
+static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULTS[0]);
+static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULTS[1]);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 // TODO - smear affects immediate output (it shouldn't)
@@ -917,7 +917,7 @@ public:
   }
 };
 
-Reverb REVERB = Reverb<13>();
+static Reverb REVERB = Reverb<13>();
 
 // post-process - outer two buttons
 class PostButtons : public PotsReader {
@@ -935,7 +935,7 @@ public:
   }
 };
 
-PostButtons POST_BUTTONS = PostButtons();
+static PostButtons POST_BUTTONS = PostButtons();
 
 // performance controls - inner two buttoms plus left
 class PerfButtons : public PotsReader {
@@ -972,7 +972,7 @@ public:
   }
 };
 
-PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
+static PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
 
 class EditButtons : public PotsReader {
 private:
@@ -1006,7 +1006,7 @@ public:
   }
 };
 
-EditButtons EDIT_BUTTONS = EditButtons();
+static EditButtons EDIT_BUTTONS = EditButtons();
 
 // use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
@@ -1041,6 +1041,144 @@ uint post_process(int vol) {
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   return hard_clipped;
 }
+
+struct VoiceData {
+  uint amp;
+  uint freq;
+  uint durn;
+  uint fm;
+};
+
+struct VaultData {
+  uint n_places;
+  float frac_beats;
+  float frac_main;
+  uint prob;
+  uint voice;
+};
+
+struct AllData {
+  VoiceData voices[4];
+  VaultData vaults[2];
+  uint reverb_size;
+  uint reverb_head_num;
+  uint reverb_smear_num;
+  uint bpm;
+  uint subdiv_idx;
+  uint comp_bits;
+  uint local_buffer_size;
+};
+
+class Config {
+private:
+  AllData build() {
+    AllData current;
+    for (uint i = 0; i < 4; i++) {
+      current.voices[i].amp = VOICES[i].amp;
+      current.voices[i].freq = VOICES[i].freq;
+      current.voices[i].durn = VOICES[i].durn;
+      current.voices[i].fm = VOICES[i].fm;
+    }
+    for (uint i = 0; i < 2; i++) {
+      current.vaults[i].n_places = VAULTS[i].n_places;
+      current.vaults[i].frac_beats = VAULTS[i].frac_beats;
+      current.vaults[i].frac_main = VAULTS[i].frac_main;
+      current.vaults[i].prob = VAULTS[i].prob;
+      current.vaults[i].voice = VAULTS[i].voice;
+    }
+    current.reverb_size = REVERB.size;
+    current.reverb_head_num = REVERB.head.num;
+    current.reverb_smear_num = REVERB.head.smear.num;
+    current.bpm = BPM;
+    current.subdiv_idx = SUBDIV_IDX;
+    current.comp_bits = COMP_BITS;
+    current.local_buffer_size = LOCAL_BUFFER_SIZE;
+    return current;
+  }
+  void apply(AllData data) {
+    for (uint i = 0; i < 4; i++) {
+      VOICES[i].amp = data.voices[i].amp;
+      VOICES[i].freq = data.voices[i].freq;
+      VOICES[i].durn = data.voices[i].durn;
+      VOICES[i].fm = data.voices[i].fm;
+    }
+    for (uint i = 0; i < 2; i++) {
+      VAULTS[i].n_places = data.vaults[i].n_places;
+      VAULTS[i].frac_beats = data.vaults[i].frac_beats;
+      VAULTS[i].frac_main = data.vaults[i].frac_main;
+      VAULTS[i].prob = data.vaults[i].prob;
+      VAULTS[i].voice = data.vaults[i].voice;
+    }
+    REVERB.size = data.reverb_size;
+    REVERB.head.num = data.reverb_head_num;
+    REVERB.head.smear.num = data.reverb_smear_num;
+    BPM = data.bpm;
+    SUBDIV_IDX = data.subdiv_idx;
+    COMP_BITS = data.comp_bits;
+    LOCAL_BUFFER_SIZE = data.local_buffer_size;
+  }
+  bool exists(uint idx) {
+    char* key = new_key(idx);
+    bool exists = prefs.isKey(key);
+    delete[] key;
+    return exists;
+  }
+  void remove(uint idx) {
+    if (exists(idx)) {
+      char *key = new_key(idx);
+      prefs.remove(key);
+      delete[] key;
+    }
+  }
+  AllData really_read(uint idx) {
+    byte tmp[sizeof(AllData)];
+    char *key = new_key(idx);
+    prefs.getBytes(key, tmp, sizeof(AllData));
+    AllData data;
+    memcpy(&data, tmp, sizeof(AllData));
+    delete[] key;
+    return data;
+  }
+  void really_save(AllData data, uint idx) {
+    byte tmp[sizeof(AllData)];
+    memcpy(tmp, &data, sizeof(AllData));
+    char *key = new_key(idx);
+    prefs.putBytes(key, tmp, sizeof(AllData));
+    delete[] key;
+  }
+  char* new_key(uint idx) {
+    char *key = new char[2];
+    sprintf(key, "%x", idx);
+    return key;
+  }
+  Preferences prefs;
+public:
+  Config() : prefs() {
+    prefs.begin("xqria", false);
+  }
+  void save(uint idx) {
+    if (idx > 0 && idx < 15) {
+      if (exists(idx)) {
+        AllData data = really_read(idx);
+        if (exists(15)) remove(15);
+        really_save(data, 15);  // TODO - 15 constant
+      }
+      AllData current = build();
+      really_save(current, idx);
+    }
+  }
+  void read(uint idx) {
+    if (idx > 0 && idx < 16) {
+      if (exists(idx)) {
+        AllData data = really_read(idx);
+        if (exists(15)) remove(15);
+        AllData current = build();
+        really_save(current, 15);
+        apply(data);
+      }
+    }
+  }
+};
 
 class Trigger {
 private:
@@ -1102,7 +1240,7 @@ public:
 };
 
 // run the ui on other core
-TaskHandle_t ui_handle = NULL;
+static TaskHandle_t ui_handle = NULL;
 
 // main loop on other core for slow/ui operations
 void ui_loop(void*) {
@@ -1119,13 +1257,13 @@ void ui_loop(void*) {
   }
 }
 
-Audio AUDIO(Trigger(VAULT1, false), Trigger(VAULT2, true));
-uint8_t BUFFER[MAX_LOCAL_BUFFER_SIZE];
-SemaphoreHandle_t dma_semaphore;
+static Audio AUDIO(Trigger(VAULTS[0], false), Trigger(VAULTS[1], true));
+static uint8_t BUFFER[MAX_LOCAL_BUFFER_SIZE];
+static SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
-dac_continuous_handle_t dac_handle;
-EMA<uint> DMA_INTERVAL = EMA<uint>(4, 1, 3, 0);
-uint DMA_ERRORS = 0;
+static dac_continuous_handle_t dac_handle;
+static EMA<uint> DMA_INTERVAL = EMA<uint>(4, 1, 3, 0);
+static uint DMA_ERRORS = 0;
 
 // fast copy of existing data into buffer
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
