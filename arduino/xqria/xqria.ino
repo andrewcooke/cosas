@@ -909,8 +909,7 @@ private:
   EuclideanVault& vault;
   bool editing = false;
 public:
-  EuclideanButtons(uint mask, EuclideanVault& vault)
-    : PotsReader(), mask(mask), vault(vault){};
+  EuclideanButtons(uint mask, EuclideanVault& vault) : PotsReader(), mask(mask), vault(vault) {};
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
@@ -957,8 +956,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb()
-    : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)){};  // by default disabled
+  Reverb() : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)){};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -1192,29 +1190,28 @@ public:
 class Trigger {
 private:
   EuclideanVault& vault;
-  Euclidean* rhythm = nullptr;
+  Voice& voice;
+  bool major;
   bool subdiv;
-  enum Phase {Idle, Minor, Jiggle, Update};
+  Euclidean* rhythm = nullptr;
+  enum Phase {Idle, Jiggle, Update};
   Phase phase = Idle;
   uint trigger = 0;
   void recalculate(int64_t ticks) {
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
-    uint beat = 1 + (ticks / nv_interval);
+    uint beat = 1 + ((ticks + voice.shift) / nv_interval);
     trigger = nv_interval * beat;
     if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
-  Trigger(EuclideanVault& vault, bool subdiv) : vault(vault), subdiv(subdiv) {
+  Trigger(EuclideanVault& vault, Voice& voice, bool major, bool subdiv) : vault(vault), voice(voice), major(major), subdiv(subdiv) {
     recalculate(0);
   }
   void on(int64_t ticks) {  // try to spread work across multiple ticks
     if (phase == Idle && ticks > trigger) {
-      rhythm->on_beat(true);
-      phase = Minor;
-    } else if (phase == Minor) {
-      rhythm->on_beat(false);
+      rhythm->on_beat(major);
       phase = Jiggle;
     } else if (phase == Jiggle) {
       rhythm->jiggle();
@@ -1230,14 +1227,12 @@ class Audio {
 private:
   int64_t ticks = 0;
   unsigned long start = 0;
-  Trigger trigger1;
-  Trigger trigger2;
+  Trigger triggers[4];
 public:
-  Audio(Trigger trigger1, Trigger trigger2) : trigger1(trigger1), trigger2(trigger2) {};
+  Audio(Trigger trigger1, Trigger trigger2, Trigger trigger3, Trigger trigger4) : triggers(trigger1, trigger2, trigger3, trigger4) {};
   void generate(uint n, uint8_t data[]) {
     for (uint i = 0; i < n; i++) {
-      if (ticks & 0x1) trigger1.on(ticks);
-      else trigger2.on(ticks);
+      triggers[ticks & 0x3].on(ticks);
       ticks++;
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();
@@ -1264,7 +1259,10 @@ void ui_loop(void*) {
   }
 }
 
-static Audio AUDIO(Trigger(VAULTS[0], false), Trigger(VAULTS[1], true));
+static Audio AUDIO(Trigger(VAULTS[0], VOICES[0], true, false), 
+                   Trigger(VAULTS[0], VOICES[1], false, false), 
+                   Trigger(VAULTS[1], VOICES[2], true, true),
+                   Trigger(VAULTS[1], VOICES[3], false, true));
 static uint8_t BUFFER[MAX_LOCAL_BUFFER_SIZE];
 static SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
