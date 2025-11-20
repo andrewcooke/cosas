@@ -197,6 +197,13 @@ public:
       else value = 0;
     }
   }
+  void uint12r(uint value, bool full) {
+    for (uint i = 0; i < n_leds; i++) {
+      set(n_leds - 1 - i, min(value, MAX12) >> (full ? 4 : 7));
+      if (value >= N10) value -= N10;
+      else value = 0;
+    }
+  }
   void uint4(uint value, bool full) {
     all_off();
     set(value, MAX12 >> (full ? 4 : 7));
@@ -256,6 +263,9 @@ public:
   void led_11(uint value, bool full) {
     leds.uint12((value << 1) & 0xfff, full);
   }
+  void led_11r(uint value, bool full) {
+    leds.uint12r((value << 1) & 0xfff, full);
+  }
   void led_12(uint value, bool full) {
     leds.uint12(value, full);
   }
@@ -274,6 +284,11 @@ public:
   }
   void led_clear() {
     leds.all_off();
+  }
+  void led_centre(bool full) {
+    led_clear();
+    leds.on(1, 0xfff >> (full ? 4 : 7));
+    leds.on(2, 0xfff >> (full ? 4 : 7));
   }
 };
 
@@ -797,6 +812,16 @@ protected:
       for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
     }
   }
+  void update_signed(volatile int* destn, uint pot) {
+    int target = *destn + MAX11;
+    if (check_enabled(target, pot)) *destn = POTS[pot].state - MAX11;
+    if (pot == active) {
+      if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
+      else if (*destn >= 0) STATE.led_11(MAX11 - *destn, enabled[pot]);
+      else STATE.led_11r(MAX11 + *destn, enabled[pot]);
+    }
+    // if (enabled[pot] && !random(DBG_LOTTERY/10)) Serial.printf("%d\n", *destn);
+  }
 };
 
 uint gray(uint n) {
@@ -826,8 +851,7 @@ private:
     }
   }
 public:
-  VoiceButton(uint idx, uint pin, Voice& voice)
-    : Button(idx, pin), PotsReader(), voice(voice){};
+  VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
 std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
@@ -1007,6 +1031,9 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x7) {
       update_gray(&enabled, 11, 4, 0);
+      update_signed(&VOICES[1].shift, 1);
+      update_signed(&VOICES[2].shift, 2);
+      update_signed(&VOICES[3].shift, 3);
     } else {
       ENABLED = enabled;
       disable();
@@ -1028,6 +1055,7 @@ public:
     if (state.selected) {
       update_4(&source, 0);
       update_gray(&destn, 11, 4, 1);
+      // TODO - save and read
     }
     if (state.exit) {
       if (source < 4 && destn) {
@@ -1195,7 +1223,7 @@ private:
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
-    uint beat = 1 + ((ticks + voice.shift) / nv_interval);
+    uint beat = 1 + ((ticks + (voice.shift << 3)) / nv_interval);
     trigger = nv_interval * beat;
     if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
