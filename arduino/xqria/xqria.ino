@@ -1232,7 +1232,7 @@ public:
   }
   void on(int64_t ticks) {  // try to spread work across multiple ticks
     int64_t save = ticks;
-    ticks += (static_cast<int64_t>(voice.shift << 6) / BPM);
+    ticks += voice.shift / static_cast<int>(BPM);
     if (!random(DBG_LOTTERY)) Serial.printf("%lld %d %lld\n", save, voice.shift, ticks);
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(major);
