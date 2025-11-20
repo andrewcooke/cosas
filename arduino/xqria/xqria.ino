@@ -91,7 +91,6 @@ struct AllData {
   VaultData vaults[2];
   uint reverb_size;
   uint reverb_head_num;
-  uint reverb_smear_num;
   uint bpm;
   uint subdiv_idx;
   uint comp_bits;
@@ -930,7 +929,6 @@ static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULTS[0
 static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULTS[1]);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
-// TODO - smear affects immediate output (it shouldn't)
 template<int BITS> class Reverb {
 private:
   static const uint max_size = 1 << BITS;
@@ -942,21 +940,19 @@ private:
     Reverb<BITS>* reverb;
   protected:
     int get_state() {
-      return smear.next(reverb->tape[reverb->write]);
+      return reverb->tape[reverb->write];
     }
     void set_state(int val) {
       reverb->tape[reverb->write] = val;
     }
   public:
-    EMA<int> smear;
-    TapeEMA(Reverb<BITS>* reverb, uint bits, uint num, uint xtra, uint sbits, uint snum, uint sxtra)
-      : EMA<int>(bits, num, xtra, 0), reverb(reverb), smear(EMA<int>(sbits, snum, sxtra, 0)){};
+    TapeEMA(Reverb<BITS>* reverb, uint bits, uint num, uint xtra) : EMA<int>(bits, num, xtra, 0), reverb(reverb) {};
   };
 
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, N12, 4, 12, N12, 4)){};  // by default disabled
+  Reverb() : head(TapeEMA(this, 12, N12, 4)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -973,8 +969,7 @@ public:
     if (STATE.button_mask == 0x9) {
       update_12(&REVERB.size, 0, 1, 0);
       update_12(&REVERB.head.num, 1, 0, 1);
-      update_12(&REVERB.head.smear.num, 1, 0, 2);
-      update_12(&COMP_BITS, 0, -9, 3);
+      update_12(&COMP_BITS, 0, -9, 2);
     } else {
       disable();
     }
@@ -1100,7 +1095,6 @@ private:
     }
     current.reverb_size = REVERB.size;
     current.reverb_head_num = REVERB.head.num;
-    current.reverb_smear_num = REVERB.head.smear.num;
     current.bpm = BPM;
     current.subdiv_idx = SUBDIV_IDX;
     current.comp_bits = COMP_BITS;
@@ -1118,7 +1112,6 @@ private:
     }
     REVERB.size = data.reverb_size;
     REVERB.head.num = data.reverb_head_num;
-    REVERB.head.smear.num = data.reverb_smear_num;
     BPM = data.bpm;
     SUBDIV_IDX = data.subdiv_idx;
     COMP_BITS = data.comp_bits;
