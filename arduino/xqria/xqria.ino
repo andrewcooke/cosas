@@ -75,6 +75,7 @@ struct VoiceData {
   uint freq;
   uint durn;
   uint fm;
+  int shift;
 };
 
 struct VaultData {
@@ -379,6 +380,7 @@ public:
   volatile uint freq;  // 12 bits
   volatile uint durn;  // 12 bits
   volatile uint fm;    // 12 bits
+  volatile int shift;  // 12 bits signed
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm)
     : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm){};
   void trigger() {
@@ -488,18 +490,21 @@ public:
     other.freq = freq;
     other.durn = durn;
     other.fm = fm;
+    other.shift = shift;
   }
   void to(VoiceData& other) {
     other.amp = amp;
     other.freq = freq;
     other.durn = durn;
     other.fm = fm;
+    other.shift = shift;
   }
   void from(VoiceData& other) {
     amp = other.amp;
     freq = other.freq;
     durn = other.durn;
     fm = other.fm;
+    shift = other.shift;
   }
 };
 
@@ -827,7 +832,7 @@ public:
 };
 
 std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
-                                            VoiceButton(1, 4, VOICES[1]),
+                                            VoiceButton(1,  4, VOICES[1]),
                                             VoiceButton(2, 15, VOICES[2]),
                                             VoiceButton(3, 19, VOICES[3])};
 
@@ -1192,7 +1197,7 @@ private:
   enum Phase {Idle, Minor, Jiggle, Update};
   Phase phase = Idle;
   uint trigger = 0;
-  void recalculate(uint ticks) {
+  void recalculate(int64_t ticks) {
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
@@ -1201,11 +1206,10 @@ private:
     if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
-  Trigger(EuclideanVault& vault, bool subdiv)
-    : vault(vault), subdiv(subdiv) {
+  Trigger(EuclideanVault& vault, bool subdiv) : vault(vault), subdiv(subdiv) {
     recalculate(0);
   }
-  void on(uint ticks) {  // try to spread work across multiple ticks
+  void on(int64_t ticks) {  // try to spread work across multiple ticks
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(true);
       phase = Minor;
@@ -1224,13 +1228,12 @@ public:
 
 class Audio {
 private:
-  uint ticks = 0;
+  int64_t ticks = 0;
   unsigned long start = 0;
   Trigger trigger1;
   Trigger trigger2;
 public:
-  Audio(Trigger trigger1, Trigger trigger2)
-    : trigger1(trigger1), trigger2(trigger2){};
+  Audio(Trigger trigger1, Trigger trigger2) : trigger1(trigger1), trigger2(trigger2) {};
   void generate(uint n, uint8_t data[]) {
     for (uint i = 0; i < n; i++) {
       if (ticks & 0x1) trigger1.on(ticks);
