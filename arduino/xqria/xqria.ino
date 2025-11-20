@@ -395,8 +395,7 @@ public:
   volatile uint durn;  // 12 bits
   volatile uint fm;    // 12 bits
   volatile int shift;  // 12 bits signed
-  Voice(uint idx, uint amp, uint freq, uint durn, uint fm)
-    : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm){};
+  Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
     time = 0;
     phase = 0;
@@ -523,10 +522,10 @@ public:
 };
 
 // initial values no longer sounds good (TODO - improve)
-std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200, 0),
-                               Voice(1, MAX9, 240, 1000, 240),
-                               Voice(2, MAX9, 213, 1300, 150),
-                               Voice(3, MAX9, 320, 900, 240)};
+std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200,   0, 0),
+                               Voice(1, MAX9,  240, 1000, 240, 0),
+                               Voice(2, MAX9,  213, 1300, 150, 0),
+                               Voice(3, MAX9,  320,  900, 240, 0)};
 
 // standard euclidean pattern
 // TODO - add variations biased towards beats with largest errors
@@ -1223,15 +1222,18 @@ private:
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
-    uint beat = 1 + ((ticks + (voice.shift << 3)) / nv_interval);
+    uint beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
-    if (trigger < ticks) trigger += nv_interval;  // TODO?
+    // if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
   Trigger(EuclideanVault& vault, Voice& voice, bool major, bool subdiv) : vault(vault), voice(voice), major(major), subdiv(subdiv) {
     recalculate(0);
   }
   void on(int64_t ticks) {  // try to spread work across multiple ticks
+    int64_t save = ticks;
+    ticks += (static_cast<int64_t>(voice.shift << 6) / BPM);
+    if (!random(DBG_LOTTERY)) Serial.printf("%lld %d %lld\n", save, voice.shift, ticks);
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(major);
       phase = Jiggle;
