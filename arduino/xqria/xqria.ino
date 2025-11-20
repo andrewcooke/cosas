@@ -963,6 +963,8 @@ static Reverb REVERB = Reverb<13>();
 
 // post-process - outer two buttons
 class PostButtons : public PotsReader {
+private:
+  uint buffer_frac = ((LOCAL_BUFFER_SIZE * MAX11) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : N11);
 public:
   PostButtons() = default;
   void read_state() {
@@ -970,24 +972,6 @@ public:
       update_12(&REVERB.size, 0, 1, 0);
       update_12(&REVERB.head.num, 1, 0, 1);
       update_12(&COMP_BITS, 0, -9, 2);
-    } else {
-      disable();
-    }
-  }
-};
-
-static PostButtons POST_BUTTONS = PostButtons();
-
-// performance controls - inner two buttoms plus left
-class PerfButtons : public PotsReader {
-private:
-  uint enabled = ENABLED;  // not applied until buttons released
-  uint buffer_frac = ((LOCAL_BUFFER_SIZE * MAX11) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : N11);
-public:
-  PerfButtons() = default;
-  void read_state() {
-    if (STATE.button_mask == 0x7) {
-      update_gray(&enabled, 11, 4, 0);
       float prev = buffer_frac;
       update_even(&buffer_frac, 3);
       if (buffer_frac != prev) {
@@ -1006,6 +990,23 @@ public:
         }
         REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
       }
+    } else {
+      disable();
+    }
+  }
+};
+
+static PostButtons POST_BUTTONS = PostButtons();
+
+// performance controls - inner two buttoms plus left
+class PerfButtons : public PotsReader {
+private:
+  uint enabled = ENABLED;  // not applied until buttons released
+public:
+  PerfButtons() = default;
+  void read_state() {
+    if (STATE.button_mask == 0x7) {
+      update_gray(&enabled, 11, 4, 0);
     } else {
       ENABLED = enabled;
       disable();
