@@ -70,6 +70,32 @@ const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 const bool DBG_COPY = true;
 
+struct VoiceData {
+  uint amp;
+  uint freq;
+  uint durn;
+  uint fm;
+};
+
+struct VaultData {
+  uint n_places;
+  float frac_beats;
+  float frac_main;
+  uint prob;
+  uint voice;
+};
+
+struct AllData {
+  VoiceData voices[4];
+  VaultData vaults[2];
+  uint reverb_size;
+  uint reverb_head_num;
+  uint reverb_smear_num;
+  uint bpm;
+  uint subdiv_idx;
+  uint comp_bits;
+  uint local_buffer_size;
+};
 
 template<typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
@@ -456,8 +482,25 @@ public:
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
-  }    uint nv_fm = fm;
-
+  }
+  void to(Voice& other) {
+    other.amp = amp;
+    other.freq = freq;
+    other.durn = durn;
+    other.fm = fm;
+  }
+  void to(VoiceData& other) {
+    other.amp = amp;
+    other.freq = freq;
+    other.durn = durn;
+    other.fm = fm;
+  }
+  void from(VoiceData& other) {
+    amp = other.amp;
+    freq = other.freq;
+    durn = other.durn;
+    fm = other.fm;
+  }
 };
 
 // initial values no longer sounds good (TODO - improve)
@@ -783,10 +826,10 @@ public:
     : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
-std::array<VoiceButton, 4> VOICE_BUTTONS = { VoiceButton(0, 18, VOICES[0]),
-                                             VoiceButton(1, 4, VOICES[1]),
-                                             VoiceButton(2, 15, VOICES[2]),
-                                             VoiceButton(3, 19, VOICES[3]) };
+std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
+                                            VoiceButton(1, 4, VOICES[1]),
+                                            VoiceButton(2, 15, VOICES[2]),
+                                            VoiceButton(3, 19, VOICES[3])};
 
 // global parameters - hold down middle two buttons
 class GlobalButtons : public PotsReader {
@@ -993,13 +1036,11 @@ public:
         for (uint i = 0; i < 4; i++) {
           if (source != i && (destn & 1 << i)) {
             if (DBG_COPY) Serial.printf("copying %d -> %d\n", source, i);
-            VOICES[i].amp = VOICES[source].amp;
-            VOICES[i].freq = VOICES[source].freq;
-            VOICES[i].durn = VOICES[source].durn;
-            VOICES[i].fm = VOICES[source].fm;
+            VOICES[source].to(VOICES[i]);
           }
         }
       }
+      // reset
       source = 4;
       destn = 0;
     }
@@ -1042,43 +1083,11 @@ uint post_process(int vol) {
   return hard_clipped;
 }
 
-struct VoiceData {
-  uint amp;
-  uint freq;
-  uint durn;
-  uint fm;
-};
-
-struct VaultData {
-  uint n_places;
-  float frac_beats;
-  float frac_main;
-  uint prob;
-  uint voice;
-};
-
-struct AllData {
-  VoiceData voices[4];
-  VaultData vaults[2];
-  uint reverb_size;
-  uint reverb_head_num;
-  uint reverb_smear_num;
-  uint bpm;
-  uint subdiv_idx;
-  uint comp_bits;
-  uint local_buffer_size;
-};
-
 class Config {
 private:
   AllData build() {
     AllData current;
-    for (uint i = 0; i < 4; i++) {
-      current.voices[i].amp = VOICES[i].amp;
-      current.voices[i].freq = VOICES[i].freq;
-      current.voices[i].durn = VOICES[i].durn;
-      current.voices[i].fm = VOICES[i].fm;
-    }
+    for (uint i = 0; i < 4; i++) VOICES[i].to(current.voices[i]);
     for (uint i = 0; i < 2; i++) {
       current.vaults[i].n_places = VAULTS[i].n_places;
       current.vaults[i].frac_beats = VAULTS[i].frac_beats;
@@ -1096,12 +1105,7 @@ private:
     return current;
   }
   void apply(AllData data) {
-    for (uint i = 0; i < 4; i++) {
-      VOICES[i].amp = data.voices[i].amp;
-      VOICES[i].freq = data.voices[i].freq;
-      VOICES[i].durn = data.voices[i].durn;
-      VOICES[i].fm = data.voices[i].fm;
-    }
+    for (uint i = 0; i < 4; i++) VOICES[i].from(data.voices[i]);
     for (uint i = 0; i < 2; i++) {
       VAULTS[i].n_places = data.vaults[i].n_places;
       VAULTS[i].frac_beats = data.vaults[i].frac_beats;
