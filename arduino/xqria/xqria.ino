@@ -57,7 +57,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
@@ -204,9 +204,14 @@ public:
       else value = 0;
     }
   }
-  void uint4(uint value, bool full) {
+  void uint5(uint value, bool full) {
     all_off();
-    set(value, MAX12 >> (full ? 4 : 7));
+    if (value) set(value - 1, MAX12 >> (full ? 4 : 7));
+  }
+  void bin(uint value, bool full) {
+    for (uint i = 0; i < n_leds; i++) {
+      set(i, value & (1 << i) ? MAX12 >> (full ? 4 : 7) : 0);
+    }
   }
   void uint_even(uint value, bool full) {
     on(n_leds-1, value > MAX11);
@@ -269,8 +274,11 @@ public:
   void led_12(uint value, bool full) {
     leds.uint12(value, full);
   }
-  void led_4(uint value, bool full) {
-    leds.uint4(value, full);
+  void led_5(uint value, bool full) {
+    leds.uint5(value, full);
+  }
+  void led_bin(uint value, bool full) {
+    leds.bin(value, full);
   }
   void led_even(uint value, bool full) {
     leds.uint_even(value, full);
@@ -305,7 +313,6 @@ public:
   void update() {
     if (STATE.button_mask == button_mask) {
       if (!selected) {
-        Serial.printf("entry\n");
         entry = true;
         selected = true;
         exit = false;
@@ -314,7 +321,6 @@ public:
       }
     } else {
       if (selected) {
-        Serial.printf("exit\n");
         entry = false;
         selected = false;
         exit = true;
@@ -521,14 +527,12 @@ public:
   }
 };
 
-// initial values no longer sounds good (TODO - improve)
 std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200,   0, 0),
                                Voice(1, MAX9,  240, 1000, 240, 0),
                                Voice(2, MAX9,  213, 1300, 150, 0),
                                Voice(3, MAX9,  320,  900, 240, 0)};
 
 // standard euclidean pattern
-// TODO - add variations biased towards beats with largest errors
 class Euclidean {
 private:
   uint n_places;
@@ -747,10 +751,15 @@ protected:
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_12(*destn, enabled[pot]);
   }
-  void update_4(uint* destn, uint pot) {
-    uint target = *destn << 10;
-    if (check_enabled(target, pot)) *destn = POTS[pot].state >> 10;
-    if (pot == active) STATE.led_4(target >> 10, enabled[pot]);
+  void update_5(uint* destn, uint pot) {
+    uint target = (MAX12 * *destn) / 5;
+    if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / N12;  // 0-4
+    if (pot == active) STATE.led_5((target * 5) / MAX12, enabled[pot]);
+  }
+  void update_bin(uint* destn, uint pot) {
+    uint target = *destn << 8;
+    if (check_enabled(target, pot)) *destn = POTS[pot].state >> 8;
+    if (pot == active) STATE.led_bin(target >> 8, enabled[pot]);
   }
   void update_fm(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
@@ -1042,22 +1051,144 @@ public:
 
 static PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
 
+class Config {
+private:
+  Preferences prefs;
+  AllData build() {
+    Serial.printf("build\n");
+    AllData current;
+    for (uint i = 0; i < 4; i++) VOICES[i].to(current.voices[i]);
+    for (uint i = 0; i < 2; i++) {
+      current.vaults[i].n_places = VAULTS[i].n_places;
+      current.vaults[i].frac_beats = VAULTS[i].frac_beats;
+      current.vaults[i].frac_main = VAULTS[i].frac_main;
+      current.vaults[i].prob = VAULTS[i].prob;
+      current.vaults[i].voice = VAULTS[i].voice;
+    }
+    current.reverb_size = REVERB.size;
+    current.reverb_head_num = REVERB.head.num;
+    current.bpm = BPM;
+    current.subdiv_idx = SUBDIV_IDX;
+    current.comp_bits = COMP_BITS;
+    current.local_buffer_size = LOCAL_BUFFER_SIZE;
+    return current;
+  }
+  void apply(AllData data) {
+    Serial.printf("apply\n");
+    for (uint i = 0; i < 4; i++) VOICES[i].from(data.voices[i]);
+    for (uint i = 0; i < 2; i++) {
+      VAULTS[i].n_places = data.vaults[i].n_places;
+      VAULTS[i].frac_beats = data.vaults[i].frac_beats;
+      VAULTS[i].frac_main = data.vaults[i].frac_main;
+      VAULTS[i].prob = data.vaults[i].prob;
+      VAULTS[i].voice = data.vaults[i].voice;
+    }
+    REVERB.size = data.reverb_size;
+    REVERB.head.num = data.reverb_head_num;
+    BPM = data.bpm;
+    SUBDIV_IDX = data.subdiv_idx;
+    COMP_BITS = data.comp_bits;
+    LOCAL_BUFFER_SIZE = data.local_buffer_size;
+  }
+  bool exists(uint idx) {
+    char* key = new_key(idx);
+    bool exists = prefs.isKey(key);
+    delete[] key;
+    Serial.printf("exists %d %d\n", idx, exists);
+    return exists;
+  }
+  void remove(uint idx) {
+    Serial.printf("remove %d\n", idx);
+    if (exists(idx)) {
+      char *key = new_key(idx);
+      prefs.remove(key);
+      delete[] key;
+    }
+  }
+  AllData really_read(uint idx) {
+    Serial.printf("really_read %d\n", idx);
+    byte tmp[sizeof(AllData)];
+    char *key = new_key(idx);
+    prefs.getBytes(key, tmp, sizeof(AllData));
+    AllData data;
+    memcpy(&data, tmp, sizeof(AllData));
+    delete[] key;
+    return data;
+  }
+  void really_save(AllData data, uint idx) {
+    Serial.printf("really_save %d\n", idx);
+    byte tmp[sizeof(AllData)];
+    memcpy(tmp, &data, sizeof(AllData));
+    char *key = new_key(idx);
+    uint len = prefs.putBytes(key, tmp, sizeof(AllData));
+    Serial.printf("wrote %d/%d bytes\n", len, sizeof(AllData));
+    delete[] key;
+  }
+  char* new_key(uint idx) {
+    char *key = new char[2];
+    sprintf(key, "%x", idx);
+    Serial.printf("key %d %s\n", idx, key);
+    return key;
+  }
+public:
+  Config() {
+    bool ok = prefs.begin("xqria", false);
+    Serial.printf("prefs opened %d\n", ok);
+  }
+  ~Config() {
+    prefs.end();
+    Serial.printf("prefs closed\n");
+  }
+  void save(uint idx) {
+    Serial.printf("save %d\n", idx);
+    if (idx > 0 && idx < 15) {
+      if (exists(idx)) {
+        AllData data = really_read(idx);
+        if (exists(15)) remove(15);
+        really_save(data, 15);  // TODO - 15 constant
+      }
+      AllData current = build();
+      really_save(current, idx);
+      exists(idx);
+    }
+  }
+  void read(uint idx) {
+    Serial.printf("read %d\n", idx);
+    if (idx > 0 && idx < 16) {
+      if (exists(idx)) {
+        AllData data = really_read(idx);
+        if (exists(15)) remove(15);
+        AllData current = build();
+        really_save(current, 15);
+        apply(data);
+      }
+    }
+  }
+};
+
+// static Config CONFIG = Config();
+
 class EditButtons : public PotsReader {
 private:
   ButtonState state = ButtonState(0xe);
-  uint source = 4;
+  uint source = 0;
   uint destn = 0;
+  uint save = 0;
+  uint read = 0;
 public:
   EditButtons() = default;
   void read_state() {
     state.update();
     if (state.selected) {
-      update_4(&source, 0);
-      update_gray(&destn, 11, 4, 1);
-      // TODO - save and read
+      update_5(&source, 0);
+      update_gray(&destn, 0, 4, 1);
+      update_bin(&read, 2);
+      update_bin(&save, 3);
     }
     if (state.exit) {
-      if (source < 4 && destn) {
+      Config config;
+      if (source > 0 && source < 5 && destn) {
+        source--;  // 0 is none; 1-4 number the sources, but we want zero indexing
         destn = gray(destn);
         for (uint i = 0; i < 4; i++) {
           if (source != i && (destn & 1 << i)) {
@@ -1065,10 +1196,17 @@ public:
             VOICES[source].to(VOICES[i]);
           }
         }
+      } else if (save > 0 && save < 16) {
+        config.save(save);
+      } else if (read > 0 && read < 16) {
+        config.read(read);
       }
       // reset
-      source = 4;
+      source = 0;
       destn = 0;
+      read = 0;
+      save = 0;
+      disable();
     }
   }
 };
@@ -1109,105 +1247,6 @@ uint post_process(int vol) {
   return hard_clipped;
 }
 
-class Config {
-private:
-  AllData build() {
-    AllData current;
-    for (uint i = 0; i < 4; i++) VOICES[i].to(current.voices[i]);
-    for (uint i = 0; i < 2; i++) {
-      current.vaults[i].n_places = VAULTS[i].n_places;
-      current.vaults[i].frac_beats = VAULTS[i].frac_beats;
-      current.vaults[i].frac_main = VAULTS[i].frac_main;
-      current.vaults[i].prob = VAULTS[i].prob;
-      current.vaults[i].voice = VAULTS[i].voice;
-    }
-    current.reverb_size = REVERB.size;
-    current.reverb_head_num = REVERB.head.num;
-    current.bpm = BPM;
-    current.subdiv_idx = SUBDIV_IDX;
-    current.comp_bits = COMP_BITS;
-    current.local_buffer_size = LOCAL_BUFFER_SIZE;
-    return current;
-  }
-  void apply(AllData data) {
-    for (uint i = 0; i < 4; i++) VOICES[i].from(data.voices[i]);
-    for (uint i = 0; i < 2; i++) {
-      VAULTS[i].n_places = data.vaults[i].n_places;
-      VAULTS[i].frac_beats = data.vaults[i].frac_beats;
-      VAULTS[i].frac_main = data.vaults[i].frac_main;
-      VAULTS[i].prob = data.vaults[i].prob;
-      VAULTS[i].voice = data.vaults[i].voice;
-    }
-    REVERB.size = data.reverb_size;
-    REVERB.head.num = data.reverb_head_num;
-    BPM = data.bpm;
-    SUBDIV_IDX = data.subdiv_idx;
-    COMP_BITS = data.comp_bits;
-    LOCAL_BUFFER_SIZE = data.local_buffer_size;
-  }
-  bool exists(uint idx) {
-    char* key = new_key(idx);
-    bool exists = prefs.isKey(key);
-    delete[] key;
-    return exists;
-  }
-  void remove(uint idx) {
-    if (exists(idx)) {
-      char *key = new_key(idx);
-      prefs.remove(key);
-      delete[] key;
-    }
-  }
-  AllData really_read(uint idx) {
-    byte tmp[sizeof(AllData)];
-    char *key = new_key(idx);
-    prefs.getBytes(key, tmp, sizeof(AllData));
-    AllData data;
-    memcpy(&data, tmp, sizeof(AllData));
-    delete[] key;
-    return data;
-  }
-  void really_save(AllData data, uint idx) {
-    byte tmp[sizeof(AllData)];
-    memcpy(tmp, &data, sizeof(AllData));
-    char *key = new_key(idx);
-    prefs.putBytes(key, tmp, sizeof(AllData));
-    delete[] key;
-  }
-  char* new_key(uint idx) {
-    char *key = new char[2];
-    sprintf(key, "%x", idx);
-    return key;
-  }
-  Preferences prefs;
-public:
-  Config() : prefs() {
-    prefs.begin("xqria", false);
-  }
-  void save(uint idx) {
-    if (idx > 0 && idx < 15) {
-      if (exists(idx)) {
-        AllData data = really_read(idx);
-        if (exists(15)) remove(15);
-        really_save(data, 15);  // TODO - 15 constant
-      }
-      AllData current = build();
-      really_save(current, idx);
-    }
-  }
-  void read(uint idx) {
-    if (idx > 0 && idx < 16) {
-      if (exists(idx)) {
-        AllData data = really_read(idx);
-        if (exists(15)) remove(15);
-        AllData current = build();
-        really_save(current, 15);
-        apply(data);
-      }
-    }
-  }
-};
-
 class Trigger {
 private:
   EuclideanVault& vault;
@@ -1224,16 +1263,13 @@ private:
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
     uint beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
-    // if (trigger < ticks) trigger += nv_interval;  // TODO?
   }
 public:
   Trigger(EuclideanVault& vault, Voice& voice, bool major, bool subdiv) : vault(vault), voice(voice), major(major), subdiv(subdiv) {
     recalculate(0);
   }
   void on(int64_t ticks) {  // try to spread work across multiple ticks
-    int64_t save = ticks;
-    ticks += voice.shift / static_cast<int>(BPM);
-    if (!random(DBG_LOTTERY)) Serial.printf("%lld %d %lld\n", save, voice.shift, ticks);
+    ticks += voice.shift / static_cast<int>(BPM * SUBDIVS[SUBDIV_IDX] / 60);
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(major);
       phase = Jiggle;
