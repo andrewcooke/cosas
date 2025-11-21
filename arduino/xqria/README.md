@@ -58,10 +58,10 @@ to edit a voice, press the corresponding button and then turn a pot.
 for example, to adjust voice 1 parameters, you press button 1.  the
 different pots control different parameters:
 
- 1 - volume
- 2 - frequency / pitch
- 3 - duration
- 4 - tone
+1. volume
+2. frequency / pitch
+3. duration
+4. tone
 
 #### catch-up
 
@@ -101,10 +101,10 @@ pattern.
 with buttons 1 and 2 held down, for example, to select the first
 pattern, the pots then adjust:
 
-  1 - the total number of beats
-  2 - the number of triggers (as a fraction of the number of beats)
-  3 - the division in work between the two voices
-  4 - the probability that some triggers shift which beat they occur on
+1. the total number of beats
+2. the number of triggers (as a fraction of the number of beats)
+3. the division in work between the two voices
+4. the probability that some triggers shift which beat they occur on
 
 pots 1 and 2 use the leds in an unusual way: the leds correspond to
 the factors 2, 3, 5 and 7.  so if the total number of beats is 30, for
