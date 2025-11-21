@@ -157,6 +157,7 @@ static LFSR16 LFSR = LFSR16();
 class LEDs {
 private:
   uint n_leds = 4;
+  // PINS - edit these values for the led pins
   std::array<uint, 4> pins = { 23, 32, 5, 2 };
 public:
   void init() {
@@ -678,7 +679,8 @@ public:
 };
 
 // all the pots
-std::array<Pot, 4> POTS = { Pot(13), Pot(14), Pot(27), Pot(12) };
+// PINS - edit these values for the potentiometer pins
+std::array<Pot, 4> POTS = {Pot(13), Pot(14), Pot(27), Pot(12)};
 
 // debounce buttons
 // subclass to provide actions (although i think there's only one subclass...)
@@ -694,8 +696,7 @@ protected:
   bool pressed = false;
   bool changed = false;
 public:
-  Button(uint idx, uint pin)
-    : pin(pin), idx(idx){};
+  Button(uint idx, uint pin) : pin(pin), idx(idx){};
   void init() {
     pinMode(pin, INPUT_PULLUP);
   }
@@ -721,10 +722,10 @@ public:
 class PotsReader {
 private:
   static const uint thresh = 10;
-  std::array<bool, 4> enabled = { false, false, false, false };
-  std::array<uint, 4> posn = { N12, N12, N12, N12 };
+  std::array<bool, 4> enabled = {false, false, false, false};
+  std::array<uint, 4> posn = {N12, N12, N12, N12};
   int active = -1;
-  const std::array<uint, 4> prime = { 2, 3, 5, 7 };
+  const std::array<uint, 4> prime = {2, 3, 5, 7};
   bool check_enabled(uint value, uint pot) {
     if (posn[pot] == N12) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
@@ -862,6 +863,7 @@ public:
   VoiceButton(uint idx, uint pin, Voice& voice) : Button(idx, pin), PotsReader(), voice(voice){};
 };
 
+// PINS - edit these values for the button pins
 std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
                                             VoiceButton(1,  4, VOICES[1]),
                                             VoiceButton(2, 15, VOICES[2]),
