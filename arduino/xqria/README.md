@@ -48,4 +48,9 @@ may need to edit the pins before upload (see "PINS" comments in code).
 
 ### editing
 
+## support
 
+feel free to contact me at andrew@acooke.org or by creating issues
+here.
+
+*hecho en chile con amooooor*
