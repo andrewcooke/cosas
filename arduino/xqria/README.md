@@ -22,6 +22,11 @@ dac0.  in addition the design assumes 4 buttons (pullup), 4 leds, and
 4 potentiometers connected to free pins (the pin numbers can be
 changed in the code).
 
+the gui assumes that the leds, pots, and buttons are arranged into 4
+"control groups", each containing one led, one button, and one pot.
+also, there should be a clear progression between the control groups
+(eg by placing them from left to right in a horizontal line).
+
 i worked with the "proto-synth" designed by gclab -
 https://gclabchile.com/ - and i am sure that gonzalo would be happy to
 cooperate with any hardware, i don't use any of the other proto-synth
@@ -34,13 +39,23 @@ once you have the board working the "ino" file in this directory can
 be loaded into the arduino ide and written via usb to the board.  you
 may need to edit the pins before upload (see "PINS" comments in code).
 
+the pins are ordered in control group order.  so the first button pin
+is in the same group as the first led pin and the first pot pin,
+forming the first control group.
+
+## user interface
+
+```
+
+```
+
 ## instructions
+
+### voices
 
 ### patterns
 
 ### timing (TODO - rename in code from global)
-
-### voices
 
 ### post-processing
 
