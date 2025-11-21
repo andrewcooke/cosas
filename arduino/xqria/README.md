@@ -118,7 +118,7 @@ give longer, more varied patterns.  so the leds are not just showing
 maths, they are an indication of how complex the resulting rhythm will
 be (for extra variety, select combinations where the total number of
 beats and the number of triggers don't have the same factors.  values
-where no leds are lit - primes larger than 7 - give particularly long
+when no leds are lit - primes larger than 7 - give particularly long
 patterns).
 
 ### timing (TODO - rename in code from global)
