@@ -1,5 +1,5 @@
 
-# xqria - a euclidean pattern generator.
+# xqria - a euclidean pattern generator
 
 ## features
 
@@ -24,9 +24,9 @@ changed in the code).
 
 i worked with the "proto-synth" designed by gclab -
 https://gclabchile.com/ - and i am sure that gonzalo would be happy to
-cooperate with any hardware (although i don't use any of the other
-proto-synth features and believe the description above is probably
-enough to roll your own).
+cooperate with any hardware, i don't use any of the other proto-synth
+features and believe the description above is probably enough to roll
+your own.
 
 ## installation
 
