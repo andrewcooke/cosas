@@ -57,7 +57,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
@@ -248,7 +248,7 @@ public:
     button_mask = new_button_mask;
     n_buttons = std::popcount(button_mask);
     leds.all_off();
-    Serial.printf("button %d, on %d, button_mask %d, n_buttons %d\n", idx, on, button_mask, n_buttons);
+    // Serial.printf("button %d, on %d, button_mask %d, n_buttons %d\n", idx, on, button_mask, n_buttons);
   }
   void voice(uint idx, bool on) {
     if (!button_mask) leds.on(idx, on);
@@ -389,13 +389,13 @@ Triangle TRIANGLE;
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
-  uint idx;
   uint time = 0;
   int phase = 0;
   int fm_phase = 0;
   int noise[N_NOISE] = { 0 };
   uint noise_idx = 0;
 public:
+  uint idx;
   // parameters madified by UI
   volatile uint amp;   // 12 bits
   volatile uint freq;  // 12 bits
@@ -564,7 +564,7 @@ public:
       float x = n_places * i / static_cast<float>(n_beats);
       place_ref.push_back(round(x));
       place_off.push_back(round(x));
-      error.push_back(static_cast<int>(MAX12 * (x - place_ref[i])));
+      error.push_back(static_cast<int>(MAX12 * (x - round(x))));
     };
     index_by_error.resize(n_beats, 0);
     std::iota(index_by_error.begin(), index_by_error.end(), 0);
@@ -572,14 +572,14 @@ public:
       return abs(this->error[i]) < abs(this->error[j]);
     });
     // for (uint i = 0; i < n_beats; i++) Serial.printf("%d %f\n", i, error[index_by_error[i]]);
-    n_main = max(0u, min(static_cast<uint>(round(n_beats * frac_main)), n_beats));
+    n_main = max(0u, min(n_beats, static_cast<uint>(round(n_beats * frac_main))));
     is_main.resize(n_beats, false);
     for (uint i = 0; i < n_main; i++) is_main[index_by_error[i]] = true;
     index_by_place.resize(n_places, -1);
     for (uint i = 0; i < n_beats; i++) index_by_place[place_off[i]] = i;
+    // for (uint i = 0; i < n_beats; i++) Serial.printf("%d: %d\n", i, place_ref[i]);
   };
-  Euclidean()
-    : Euclidean(2, 1, 0.5, MAX12, 0){};  // used only as temp value in arrays
+  Euclidean() : Euclidean(2, 1, 0.5, MAX12, 0) {};  // used only as temp value in arrays
   bool operator==(const Euclidean other) {
     return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
   }
@@ -624,7 +624,7 @@ public:
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
       trigger(main ? 0 : 1);
-      // if (DBG_PATTERN) Serial.printf("%d: %d/%d %d (%d)\n", voice, current_place, n_places, beat, main);
+      // Serial.printf("on_beat: place %d, beat %d, voice %d\n", current_place, beat, voice + (main ? 0 : 1));
       if (DBG_PATTERN) Serial.printf("%d", voice + (main ? 0 : 1));
     } else if (DBG_PATTERN) Serial.printf("-");
     if (!main) {  // main is done before minor
@@ -1263,6 +1263,7 @@ private:
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
     uint beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
+    // Serial.printf("reacalculate: voice %d major %d trigger %d\n", voice.idx, major, trigger);
   }
 public:
   Trigger(EuclideanVault& vault, Voice& voice, bool major, bool subdiv) : vault(vault), voice(voice), major(major), subdiv(subdiv) {
@@ -1292,7 +1293,8 @@ public:
   Audio(Trigger trigger1, Trigger trigger2, Trigger trigger3, Trigger trigger4) : triggers(trigger1, trigger2, trigger3, trigger4) {};
   void generate(uint n, uint8_t data[]) {
     for (uint i = 0; i < n; i++) {
-      triggers[ticks & 0x3].on(ticks);
+      uint j = ticks & 0x3;  // really subtle fix - we can get rhythms switching on the same beat if these don't match
+      triggers[j].on(ticks-j);
       ticks++;
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output_12();

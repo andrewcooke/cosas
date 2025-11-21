@@ -58,10 +58,10 @@ to edit a voice, press the corresponding button and then turn a pot.
 for example, to adjust voice 1 parameters, you press button 1.  the
 different pots control different parameters:
 
-1. volume
+1. volume (split in two - the first half has a sharper attack)
 2. frequency / pitch
 3. duration
-4. tone
+4. tone (split into drums, noise/cymbals, and squelchy fm beeps)
 
 #### catch-up
 
@@ -122,6 +122,12 @@ when no leds are lit - primes larger than 7 - give particularly long
 patterns).
 
 ### timing (TODO - rename in code from global)
+
+holding down the central buttons (2 and 3) gives accesss to timing
+parameters.  the pots adjust:
+
+1. overall bpm
+2. 
 
 ### post-processing
 
