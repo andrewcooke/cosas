@@ -1166,8 +1166,6 @@ public:
   }
 };
 
-// static Config CONFIG = Config();
-
 class EditButtons : public PotsReader {
 private:
   ButtonState state = ButtonState(0xe);

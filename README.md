@@ -32,7 +32,8 @@ v2](https://gclabchile.com/proto-synth-v2.html):
      [xqria](arduino/xqria).
 
 significant waypoints:
-* 2025-10-20 - proto-synth detour published
+* 2025-11-21 - proto-synth (xqria) feature complete(?)
+* 2025-10-20 - proto-synth (xqria) detour published
 * 2925-09-03 - reasonable / usable signal generation
 * 2025-08-31 - first signal generated
 * 2025-08-25 - refactored audio code to interface to knobs in UI
