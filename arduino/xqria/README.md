@@ -13,7 +13,11 @@
 
 ## examples
 
-TODO
+<audio controls>
+  <source src="audio/untitled7.mp3" type="audio/mpeg">
+</audio>
+
+https://github.com/andrewcooke/cosas/blob/main/arduino/xqria/audio/unititled7.mp3
 
 ## user interface
 
