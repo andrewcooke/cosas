@@ -439,7 +439,7 @@ public:
         out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
         break;
       case 2:
-        out = crash(fm_low10, final_amp, freq_scaled);
+        out = crash(fm_low10, final_amp, freq_scaled, quad_dec);
         break;
       case 3:
       default:
@@ -462,30 +462,25 @@ public:
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
-  int crash(uint fm, uint final_amp, uint freq_scaled) {
-    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d crash\n", idx);
-    noise[noise_idx] = LFSR.next() ? 1 : -1;
-    int out = 0;
-    int count = 0;  // ugh must be signed
-    uint conv_phase = 0;
-    uint conv_freq = (1 + fm) << (PHASE_EXTN + 2);
-    uint i = 0;
-    while (i < N_NOISE) {
-      conv_phase += conv_freq;
-      while (conv_phase >= N_SAMPLES_EXTN) conv_phase -= N_SAMPLES_EXTN;
-      out += (noise[(noise_idx + i++) & NOISE_MASK] * SINE(N12, conv_phase >> PHASE_EXTN));
-      count++;
-    }
-    noise_idx = (noise_idx + 1) & NOISE_MASK;
-    out /= count;
-    phase += freq_scaled;
+  int crash(uint fm, uint final_amp, uint freq_scaled, uint quad_dec) {
+    // iir high pass filter state
+    static int prev_in = 0;
+    static int prev_out = 0;
+    const int alpha = MAX10;
+    // initial sound is triangle fm modulating triangle
+    fm_phase += fm;
+    while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
+    phase += freq_scaled + TRIANGLE(MAX12, fm_phase >> PHASE_EXTN);
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
-    out += TRIANGLE(MAX8, phase >> PHASE_EXTN);
-    out = (out * static_cast<int>(final_amp)) >> 8;
-    if (DBG_CRASH && !random(DBG_LOTTERY))
-      Serial.printf("count %d, conv_freq %d, out %d\n", count, conv_freq, out);
-    return out;
+    int out = TRIANGLE(final_amp, phase >> PHASE_EXTN);
+    // add some initial, rapidly decaying noise for strike
+    out += ((final_amp * quad_dec) >> (14 + (fm & 0x3))) * (LFSR.next() ? 1 : -1);
+    // high pass filter
+    prev_out = (alpha * out - alpha * prev_in + (static_cast<int>(MAX12) - alpha) * prev_out) >> 12;
+    prev_in = out;
+    // add some more noise as it was too clean
+    return prev_out + (final_amp >> (3 + ((fm > 2) & 0x3))) * (LFSR.next() ? 1 : -1);
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
@@ -567,14 +562,11 @@ public:
       error.push_back(static_cast<int>(MAX12 * (x - round(x))));
     }
     uint regular[n_beats] = {0};
-    int penalty = 0;
+    int penalty = MAX11;
     for (uint i = 0; i < n_beats; i++) {
-      if (error[i]) {
-        if (penalty) penalty = min(penalty, abs(error[i]) - 1);
-        else penalty = abs(error[i]);
-      }
+      if (error[i]) penalty = min(penalty, abs(error[i]));
     }
-    if (!penalty) penalty = MAX10;
+    penalty /= 2;
     // should penalty be +ve or -ve?
     if (random(2)) penalty = -1 * penalty;
     for (uint i = 2; i < n_beats; i++) {
@@ -584,7 +576,7 @@ public:
       }
     }
     for (uint i = 0; i < n_beats; i++) {
-      if (!error[i]) error[i] += regular[i];
+      if (!error[i]) error[i] = regular[i];
     }
     index_by_error.resize(n_beats, 0);
     std::iota(index_by_error.begin(), index_by_error.end(), 0);
