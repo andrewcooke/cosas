@@ -57,7 +57,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
@@ -65,7 +65,7 @@ const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
 const bool DBG_TONE = false;
-const bool DBG_EUCLIDEAN = false;
+const bool DBG_EUCLIDEAN = true;
 const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 const bool DBG_COPY = true;
@@ -565,7 +565,27 @@ public:
       place_ref.push_back(round(x));
       place_off.push_back(round(x));
       error.push_back(static_cast<int>(MAX12 * (x - round(x))));
-    };
+    }
+    uint regular[n_beats] = {0};
+    int penalty = 0;
+    for (uint i = 0; i < n_beats; i++) {
+      if (error[i]) {
+        if (penalty) penalty = min(penalty, abs(error[i]) - 1);
+        else penalty = abs(error[i]);
+      }
+    }
+    if (!penalty) penalty = MAX10;
+    // should penalty be +ve or -ve?
+    if (random(2)) penalty = -1 * penalty;
+    for (uint i = 2; i < n_beats; i++) {
+      if (!(n_beats % i) && !(n_places % i)) {
+        for (uint j = 0; j < n_beats; j += i) regular[j] = penalty;
+        penalty /= 2;
+      }
+    }
+    for (uint i = 0; i < n_beats; i++) {
+      if (!error[i]) error[i] += regular[i];
+    }
     index_by_error.resize(n_beats, 0);
     std::iota(index_by_error.begin(), index_by_error.end(), 0);
     std::sort(index_by_error.begin(), index_by_error.end(), [this](int i, int j) {
@@ -852,7 +872,7 @@ private:
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
       if (editing) {
-        Serial.printf("Voice(%d, %d, %d, %d, %d)\n", idx, voice.amp, voice.freq, voice.durn, voice.fm);
+        // Serial.printf("Voice(%d, %d, %d, %d, %d)\n", idx, voice.amp, voice.freq, voice.durn, voice.fm);
         editing = false;
         STATE.led_clear();
       }
@@ -918,7 +938,7 @@ public:
     uint n_beats = max(1u, static_cast<uint>(n_places * frac_beats));
     Euclidean candidate = Euclidean(n_places, n_beats, frac_main, prob, voice);
     if (euclideans[updated ? next : current] != candidate) {
-      if (DBG_EUCLIDEAN) Serial.printf("Euclidean(%d, %d, %f.3, %d, %d)\n", n_places, n_beats, frac_main, prob, voice);
+      if (DBG_EUCLIDEAN) Serial.printf("Euclidean(%d, %d, %.3f, %d, %d)\n", n_places, n_beats, frac_main, prob, voice);
       euclideans[next] = candidate;
       updated = true;
     }
