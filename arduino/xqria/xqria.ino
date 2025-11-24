@@ -354,8 +354,7 @@ class Sine : public Quarter {
 private:
   std::array<uint, 1 + N_SAMPLES / 4> table;
 public:
-  Sine()
-    : Quarter() {
+  Sine() : Quarter() {
     for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / N_SAMPLES);
   }
   uint lookup(uint phase) override {
@@ -385,6 +384,24 @@ public:
 };
 
 Triangle TRIANGLE;
+
+class HiPass {
+private:
+  int prev_in = 0;
+  int prev_out = 0;
+  int alpha;
+public:
+  HiPass(int alpha) : alpha(alpha) {};
+  int next(int in, int alpha2) {
+    alpha = alpha2;
+    return next(in);
+  }
+  int next(int in) {
+    prev_out = (alpha * in - alpha * prev_in + (static_cast<int>(MAX12) - alpha) * prev_out) >> 12;
+    prev_in = in;
+    return prev_out;
+  }
+};
 
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
@@ -439,7 +456,7 @@ public:
         out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
         break;
       case 2:
-        out = crash(fm_low10, final_amp, freq_scaled, quad_dec);
+        out = crash(fm_low10, final_amp, freq_scaled, linear_dec, quad_dec);
         break;
       case 3:
       default:
@@ -462,25 +479,19 @@ public:
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
-  int crash(uint fm, uint final_amp, uint freq_scaled, uint quad_dec) {
+  int crash(uint fm, uint final_amp, uint freq_scaled, uint linear_dec, uint quad_dec) {
     // iir high pass filter state
-    static int prev_in = 0;
-    static int prev_out = 0;
-    const int alpha = MAX10;
-    // initial sound is triangle fm modulating triangle
+    static HiPass hp(MAX11);
     fm_phase += fm;
     while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
-    phase += freq_scaled + TRIANGLE(MAX12, fm_phase >> PHASE_EXTN);
+    phase += freq_scaled + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN);
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
-    int out = TRIANGLE(final_amp, phase >> PHASE_EXTN);
-    // add some initial, rapidly decaying noise for strike
-    out += ((final_amp * quad_dec) >> (14 + (fm & 0x3))) * (LFSR.next() ? 1 : -1);
-    // high pass filter
-    prev_out = (alpha * out - alpha * prev_in + (static_cast<int>(MAX12) - alpha) * prev_out) >> 12;
-    prev_in = out;
-    // add some more noise as it was too clean
-    return prev_out + (final_amp >> (3 + ((fm > 2) & 0x3))) * (LFSR.next() ? 1 : -1);
+    int out = SINE(MAX12, phase >> PHASE_EXTN);
+    out += (quad_dec >> (2 + (fm & 0x7))) * (LFSR.next() ? 1 : -1);
+    out += (linear_dec >> (2 + ((fm >> 3) & 0x7))) * (LFSR.next() ? 1 : -1);
+    out = hp.next(out, quad_dec);
+    return (out * final_amp) >> 12;
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
