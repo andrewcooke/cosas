@@ -480,7 +480,6 @@ public:
     return out;
   }
   int crash(uint fm, uint final_amp, uint freq_scaled, uint linear_dec, uint quad_dec) {
-    // iir high pass filter state
     static HiPass hp(MAX11);
     fm_phase += fm;
     while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
@@ -488,10 +487,10 @@ public:
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(MAX12, phase >> PHASE_EXTN);
-    out += (quad_dec >> (2 + (fm & 0x7))) * (LFSR.next() ? 1 : -1);
-    out += (linear_dec >> (2 + ((fm >> 3) & 0x7))) * (LFSR.next() ? 1 : -1);
+    out += static_cast<int>(quad_dec >> (2 + (fm & 0x7))) * (LFSR.next() ? 1 : -1);
+    out += static_cast<int>(linear_dec >> (2 + ((fm >> 3) & 0x7))) * (LFSR.next() ? 1 : -1);
     out = hp.next(out, quad_dec);
-    return (out * final_amp) >> 12;
+    return (out * static_cast<int>(final_amp)) >> 12;
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
@@ -1249,7 +1248,6 @@ void IRAM_ATTR timer_callback(void*) {
 // apply post-processing
 uint post_process(int vol) {
   // apply compressor
-  // int soft_clipped = vol;
   if (DBG_COMP) Serial.println(COMP_BITS);
   int sign = sgn(vol);
   uint absolute = abs(vol);
@@ -1260,6 +1258,7 @@ uint post_process(int vol) {
   int soft_clipped = sign * static_cast<int>(absolute);
   // apply reverb
   int reverbed = REVERB.next(soft_clipped);
+  // int reverbed = soft_clipped;
   if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + MAX7;
