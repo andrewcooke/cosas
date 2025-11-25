@@ -481,16 +481,18 @@ public:
   }
   int crash(uint fm, uint final_amp, uint freq_scaled, uint linear_dec, uint quad_dec) {
     static HiPass hp(MAX11);
-    fm_phase += fm;
+    fm_phase += (fm >> 2);
     while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
-    phase += freq_scaled + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN);
+    phase += (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN);
     while (phase < 0) phase += N_SAMPLES_EXTN;
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(MAX12, phase >> PHASE_EXTN);
-    out += static_cast<int>(quad_dec >> (2 + (fm & 0x7))) * (LFSR.next() ? 1 : -1);
-    out += static_cast<int>(linear_dec >> (2 + ((fm >> 3) & 0x7))) * (LFSR.next() ? 1 : -1);
-    out = hp.next(out, quad_dec);
-    return (out * static_cast<int>(final_amp)) >> 12;
+    out += static_cast<int>(quad_dec >> 5) * (LFSR.next() ? 1 : -1);
+    out += static_cast<int>(linear_dec >> 6) * (LFSR.next() ? 1 : -1);
+    out = hp.next(out, quad_dec << 1);
+    out = (out * static_cast<int>(final_amp)) >> 12;
+    out = (out * static_cast<int>(final_amp)) >> 12;
+    return compress(out, 3);
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
@@ -1245,17 +1247,20 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-// apply post-processing
-uint post_process(int vol) {
-  // apply compressor
-  if (DBG_COMP) Serial.println(COMP_BITS);
-  int sign = sgn(vol);
-  uint absolute = abs(vol);
-  for (uint i = (8 - COMP_BITS); i < 8; i++) {
+int compress(int out, uint bits) {
+  int sign = sgn(out);
+  uint absolute = abs(out);
+  for (uint i = (8 - bits); i < 8; i++) {
     uint limit = 1 << i;
     if (absolute > limit) absolute = limit + (absolute - limit) / 2;
   }
-  int soft_clipped = sign * static_cast<int>(absolute);
+  return sign * static_cast<int>(absolute);
+}
+
+// apply post-processing
+uint post_process(int vol) {
+  // apply compressor
+  int soft_clipped = compress(vol, COMP_BITS);
   // apply reverb
   int reverbed = REVERB.next(soft_clipped);
   // int reverbed = soft_clipped;
