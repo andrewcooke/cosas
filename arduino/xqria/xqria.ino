@@ -491,10 +491,7 @@ public:
     int out = SINE(MAX12, phase >> PHASE_EXTN);
     out += LFSR.scaled_bit(quad_dec >> 5);
     out += LFSR.scaled_bit(linear_dec >> 6);
-    out = hp.next(out, quad_dec << 1);
-    out = (out * static_cast<int>(final_amp)) >> 12;
-    out = (out * static_cast<int>(final_amp)) >> 12;
-    out = (out * static_cast<int>(final_amp)) >> 12;
+    out = hp.next(out, linear_dec << 1);
     out = (out * static_cast<int>(final_amp)) >> 12;
     return compress(out, 3);
   }
