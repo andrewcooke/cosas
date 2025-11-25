@@ -118,13 +118,15 @@ class LFSR16 {
 private:
   uint16_t state;
 public:
-  LFSR16(uint16_t seed = 0xACE1)
-    : state(seed) {}
+  LFSR16(uint16_t seed = 0xACE1) : state(seed) {}
   uint next() {
     uint16_t lsb = state & 0x1;
     state >>= 1;
     if (lsb) state ^= 0xB400;
     return lsb;
+  }
+  int scaled_bit(uint scale) {
+    return scale * (next() ? 1 : -1);
   }
   int n_bits(uint n) {
     int bits = un_bits(n);
@@ -385,6 +387,12 @@ public:
 
 Triangle TRIANGLE;
 
+int norm_phase(int phase) {
+  while (phase < 0) phase += N_SAMPLES_EXTN;
+  while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+  return phase;
+}
+
 class HiPass {
 private:
   int prev_in = 0;
@@ -469,11 +477,8 @@ public:
   int minifm(uint fm, uint final_amp, uint freq_scaled) {
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
-    fm_phase += series_exp(fm << 1, 3) >> 22;
-    while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
-    phase += freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN);  // sic
-    while (phase < 0) phase += N_SAMPLES_EXTN;
-    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+    fm_phase = norm_phase(fm_phase + (series_exp(fm << 1, 3) >> 22));
+    phase = norm_phase(phase + freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN));  // sic
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     if (DBG_MINIFM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
@@ -481,15 +486,14 @@ public:
   }
   int crash(uint fm, uint final_amp, uint freq_scaled, uint linear_dec, uint quad_dec) {
     static HiPass hp(MAX11);
-    fm_phase += (fm >> 2);
-    while (fm_phase >= N_SAMPLES_EXTN) fm_phase -= N_SAMPLES_EXTN;
-    phase += (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN);
-    while (phase < 0) phase += N_SAMPLES_EXTN;
-    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+    fm_phase = norm_phase(fm_phase + (fm >> 2));
+    phase = norm_phase(phase + (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN));
     int out = SINE(MAX12, phase >> PHASE_EXTN);
-    out += static_cast<int>(quad_dec >> 5) * (LFSR.next() ? 1 : -1);
-    out += static_cast<int>(linear_dec >> 6) * (LFSR.next() ? 1 : -1);
+    out += LFSR.scaled_bit(quad_dec >> 5);
+    out += LFSR.scaled_bit(linear_dec >> 6);
     out = hp.next(out, quad_dec << 1);
+    out = (out * static_cast<int>(final_amp)) >> 12;
+    out = (out * static_cast<int>(final_amp)) >> 12;
     out = (out * static_cast<int>(final_amp)) >> 12;
     out = (out * static_cast<int>(final_amp)) >> 12;
     return compress(out, 3);
@@ -506,8 +510,8 @@ public:
     while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
     int out = SINE(final_amp, phase >> PHASE_EXTN);
     uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
-    out += static_cast<int>((final_amp * cube_dec * fmhi) >> 20) * (LFSR.next() ? 1 : -1);
-    out += (fmhi > 16 && !(time & 0xf)) ? static_cast<int>((final_amp * quad_dec * fmhi) >> 19) * (LFSR.next() ? 1 : -1) : 0;
+    out += LFSR.scaled_bit((final_amp * cube_dec * fmhi) >> 20);
+    out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;
     if (DBG_DRUM && !idx && !random(DBG_LOTTERY))
       Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
     return out;
