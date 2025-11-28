@@ -33,7 +33,8 @@ const uint LED_BITS = 8;
 volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
-volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = 1024;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
@@ -411,6 +412,35 @@ public:
   }
 };
 
+class LoPass {
+private:
+  int prev_in = 0;
+  int prev_prev_in = 0;
+  int alpha;
+  int beta;
+public:
+  LoPass(int alpha) : alpha(alpha), beta((MAX12 - alpha) >> 1) {};
+  int next(int in) {
+    int out = (beta * in + alpha * prev_in + beta * prev_prev_in) >> 12;
+    prev_prev_in = prev_in;
+    prev_in = in;
+    return out;
+  }
+};
+
+class Latch {
+private:
+  bool saved = false;
+  int prev = 0;
+public:
+  int next(int value) {
+    if (saved) value = prev;
+    else prev = value;
+    saved = !saved;
+    return value;
+  }
+};
+
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
@@ -461,14 +491,15 @@ public:
     switch (waveform) {
       case 0:
       case 1:
-        out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
-        break;
+        // out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
+        // break;
+      case 3:
       case 2:
         out = crash(fm_low10, final_amp, freq_scaled, linear_dec, quad_dec);
         break;
-      case 3:
+      // case 3:
       default:
-        out = minifm(N10 - fm_low10, final_amp, freq_scaled);
+        // out = minifm(N10 - fm_low10, final_amp, freq_scaled);
         break;
     }
     time++;
@@ -484,16 +515,29 @@ public:
       Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
-  int crash(uint fm, uint final_amp, uint freq_scaled, uint linear_dec, uint quad_dec) {
-    static HiPass hp(MAX11);
-    fm_phase = norm_phase(fm_phase + (fm >> 2));
-    phase = norm_phase(phase + (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN));
-    int out = SINE(MAX12, phase >> PHASE_EXTN);
-    out += LFSR.scaled_bit(quad_dec >> 5);
-    out += LFSR.scaled_bit(linear_dec >> 6);
-    out = hp.next(out, linear_dec << 1);
-    out = (out * static_cast<int>(final_amp)) >> 12;
-    return compress(out, 3);
+  int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
+    // static HiPass hp(MAX11);
+    // static HiPass hp2(MAX11 * 1.5);
+    // static LoPass lp(MAX11 * 1.75);
+    // static int fm_phase2 = 0;
+    // fm_phase = norm_phase(fm_phase + fm);
+    // fm_phase2 = norm_phase(fm_phase2 + freq + TRIANGLE(MAX12, fm_phase >> PHASE_EXTN));
+    // phase = norm_phase(phase + (freq >> 1) + SINE(0, fm_phase2 >> PHASE_EXTN));
+    // phase = norm_phase(phase + freq);
+    phase += static_cast<int>(freq);
+    while (phase < 0) phase += N_SAMPLES_EXTN;
+    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+    // phase = norm_phase(phase + (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN));
+    int out = SINE(amp, phase >> PHASE_EXTN);
+    // out += LFSR.scaled_bit(quad_dec >> 5);  // aliasing from noise at sample freq seems to help?
+    // out += LFSR.scaled_bit(linear_dec);
+    // out = hp.next(out, linear_dec << 1);    while (phase < 0) phase += N_SAMPLES_EXTN;
+    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+
+    // out = lp.next(out);
+    // out = compress(out, 5);
+    // out = (out * static_cast<int>(amp)) >> 12;
+    return out;
   }
   int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
