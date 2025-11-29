@@ -13,7 +13,7 @@
 const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
-const uint SAMPLE_RATE_HZ = 40000;
+const uint SAMPLE_RATE_HZ = 160000;
 const uint LOWEST_F_HZ = 20;
 const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
 const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
