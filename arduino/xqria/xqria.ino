@@ -13,12 +13,18 @@
 const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
-const uint SAMPLE_RATE_HZ = 160000;
-const uint LOWEST_F_HZ = 20;
-const uint N_SAMPLES = SAMPLE_RATE_HZ / LOWEST_F_HZ;
-const uint PHASE_EXTN = 2;  // extra bits for phase to allow better resolution at low f  TODO - what limits this?
-const uint N_SAMPLES_EXTN = N_SAMPLES << PHASE_EXTN;
-const uint BEAT_SCALE = SAMPLE_RATE_HZ * 60;  // ticks for 1 bpm
+const uint SAMPLE_RATE_HZ = 40000;
+const uint INTERNAL_BITS = 16;
+const uint N_INTERNAL = 1 << INTERNAL_BITS;
+const uint INTERNAL_MAX = N_INTERNAL - 1;
+const uint POT_BITS = 12;
+const uint N_POT = 1 << POT_BITS;
+const uint POT_MAX = N_POT - 1;
+const uint DAC_BITS = 8;
+const uint OVERSAMPLE_BITS = 0;
+const uint SAMPLE_BITS = 12;
+const uint N_SAMPLES = 1 << SAMPLE_BITS;
+const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 
 // used in crash sound
@@ -28,30 +34,30 @@ const uint NOISE_MASK = N_NOISE - 1;
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
+const uint LED_MAX = (1 << 8) - 1;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
-// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
-volatile static uint ENABLED = 1;
-volatile static uint LOCAL_BUFFER_SIZE = 1024;  // has to be even
+volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
-const uint N6 = 1 << 6;
-const uint MAX6 = N6 - 1;
-const uint N7 = 1 << 7;
-const uint MAX7 = N7 - 1;
-const uint N8 = 1 << 8;
-const uint MAX8 = N8 - 1;
-const uint N9 = 1 << 9;
-const uint MAX9 = N9 - 1;
-const uint N10 = 1 << 10;
-const uint MAX10 = N10 - 1;
-const uint N11 = 1 << 11;
-const uint MAX11 = N11 - 1;
-const uint N12 = 1 << 12;
-const uint MAX12 = N12 - 1;
+// const uint N6 = 1 << 6;
+// const uint MAX6 = N6 - 1;
+// const uint N7 = 1 << 7;
+// const uint MAX7 = N7 - 1;
+// const uint N8 = 1 << 8;
+// const uint MAX8 = N8 - 1;
+// const uint N9 = 1 << 9;
+// const uint MAX9 = N9 - 1;
+// const uint N10 = 1 << 10;
+// const uint MAX10 = N10 - 1;
+// const uint N11 = 1 << 11;
+// const uint MAX11 = N11 - 1;
+// const uint N12 = 1 << 12;
+// const uint MAX12 = N12 - 1;
 
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
@@ -102,17 +108,17 @@ template<typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
 
-template<typename T> T series_exp(T val, uint n) {
-  T result = 1;
-  T fact = 1;
-  T nth = val;
-  for (uint i = 0; i < n; i++) {
-    result += nth / fact;
-    nth *= val;
-    fact *= (i + 2);
-  }
-  return result;
-}
+// template<typename T> T series_exp(T val, uint n) {
+//   T result = 1;
+//   T fact = 1;
+//   T nth = val;
+//   for (uint i = 0; i < n; i++) {
+//     result += nth / fact;
+//     nth *= val;
+//     fact *= (i + 2);
+//   }
+//   return result;
+// }
 
 // efficient random bits from an LFSR (random quality is not important here!)
 class LFSR16 {
@@ -157,6 +163,7 @@ public:
 static LFSR16 LFSR = LFSR16();
 
 // wrapper for LEDs
+// assumes values are INTERNAL_BITS and converts to LED_BITS
 class LEDs {
 private:
   uint n_leds = 4;
@@ -168,16 +175,16 @@ public:
     all_off();
   }
   void set(uint led, uint level) {
-    analogWrite(pins[led], level & 0xff);
+    analogWrite(pins[led], (level > (INTERNAL_BITS - LED_BITS)) & LED_MAX);
   }
   void on(uint led) {
-    set(led, 0xffu);
+    set(led, LED_MAX);
   }
   void on(uint led, bool on) {
-    set(led, on ? 0xffu : 0x0u);
+    set(led, on ?LED_MAX : 0);
   }
   void off(uint led) {
-    set(led, 0x0u);
+    set(led, 0);
   }
   void all_on() {
     for (uint i = 0; i < n_leds; i++) on(i);
@@ -194,39 +201,39 @@ public:
     delay(100);
     all_off();
   }
-  void uint12(uint value, bool full) {
-    for (uint i = 0; i < n_leds; i++) {
-      set(i, min(value, MAX12) >> (full ? 4 : 7));
-      if (value >= N10) value -= N10;
-      else value = 0;
-    }
-  }
-  void uint12r(uint value, bool full) {
-    for (uint i = 0; i < n_leds; i++) {
-      set(n_leds - 1 - i, min(value, MAX12) >> (full ? 4 : 7));
-      if (value >= N10) value -= N10;
-      else value = 0;
-    }
-  }
-  void uint5(uint value, bool full) {
-    all_off();
-    if (value) set(value - 1, MAX12 >> (full ? 4 : 7));
-  }
+  // void uint12(uint value, bool full) {
+  //   for (uint i = 0; i < n_leds; i++) {
+  //     set(i, min(value, MAX12) >> (full ? 4 : 7));
+  //     if (value >= N10) value -= N10;
+  //     else value = 0;
+  //   }
+  // }
+  // void uint12r(uint value, bool full) {
+  //   for (uint i = 0; i < n_leds; i++) {
+  //     set(n_leds - 1 - i, min(value, MAX12) >> (full ? 4 : 7));
+  //     if (value >= N10) value -= N10;
+  //     else value = 0;
+  //   }
+  // }
+  // void uint5(uint value, bool full) {
+  //   all_off();
+  //   if (value) set(value - 1, MAX12 >> (full ? 4 : 7));
+  // }
   void bin(uint value, bool full) {
     for (uint i = 0; i < n_leds; i++) {
-      set(i, value & (1 << i) ? MAX12 >> (full ? 4 : 7) : 0);
+      set(i, value & (1 << i) ? LED_MAX >> (full ? 0 : 3) : 0);
     }
   }
-  void uint_even(uint value, bool full) {
-    on(n_leds-1, value > MAX11);
-    value &= MAX11;
-    uint third = N11 / 3;
-    for (uint i = 0; i < n_leds-1; i++) {
-      set(i, min(value, MAX12) >> (full ? 4 : 7));
-      if (value >= third) value -= third;
-      else value = 0;
-    }
-  }
+  // void uint_even(uint value, bool full) {
+  //   on(n_leds-1, value > MAX11);
+  //   value &= MAX11;
+  //   uint third = N11 / 3;
+  //   for (uint i = 0; i < n_leds-1; i++) {
+  //     set(i, min(value, MAX12) >> (full ? 4 : 7));
+  //     if (value >= third) value -= third;
+  //     else value = 0;
+  //   }
+  // }
 };
 
 // central location for coordinating (multiple) button presses, also wraps leds
@@ -266,42 +273,42 @@ public:
   void pot_clear() {
     leds.all_off();
   }
-  void led_10(uint value, bool full) {
-    leds.uint12((value << 2) & 0xfff, full);
-  }
-  void led_11(uint value, bool full) {
-    leds.uint12((value << 1) & 0xfff, full);
-  }
-  void led_11r(uint value, bool full) {
-    leds.uint12r((value << 1) & 0xfff, full);
-  }
-  void led_12(uint value, bool full) {
-    leds.uint12(value, full);
-  }
-  void led_5(uint value, bool full) {
-    leds.uint5(value, full);
-  }
-  void led_bin(uint value, bool full) {
-    leds.bin(value, full);
-  }
-  void led_even(uint value, bool full) {
-    leds.uint_even(value, full);
-  }
-  void led_fm(uint value, bool full) {
-    if (value < N11) led_11(value, full);
-    else led_10(value, full);
-  }
-  void led(uint led, uint value, bool full) {
-    leds.set(led, value >> (full ? 4 : 7));
-  }
+  // void led_10(uint value, bool full) {
+  //   leds.uint12((value << 2) & 0xfff, full);
+  // }
+  // void led_11(uint value, bool full) {
+  //   leds.uint12((value << 1) & 0xfff, full);
+  // }
+  // void led_11r(uint value, bool full) {
+  //   leds.uint12r((value << 1) & 0xfff, full);
+  // }
+  // void led_12(uint value, bool full) {
+  //   leds.uint12(value, full);
+  // }
+  // void led_5(uint value, bool full) {
+  //   leds.uint5(value, full);
+  // }
+  // void led_bin(uint value, bool full) {
+  //   leds.bin(value, full);
+  // }
+  // void led_even(uint value, bool full) {
+  //   leds.uint_even(value, full);
+  // }
+  // void led_fm(uint value, bool full) {
+  //   if (value < N11) led_11(value, full);
+  //   else led_10(value, full);
+  // }
+  // void led(uint led, uint value, bool full) {
+  //   leds.set(led, value >> (full ? 4 : 7));
+  // }
   void led_clear() {
     leds.all_off();
   }
-  void led_centre(bool full) {
-    led_clear();
-    leds.on(1, 0xfff >> (full ? 4 : 7));
-    leds.on(2, 0xfff >> (full ? 4 : 7));
-  }
+  // void led_centre(bool full) {
+  //   led_clear();
+  //   leds.on(1, 0xfff >> (full ? 4 : 7));
+  //   leds.on(2, 0xfff >> (full ? 4 : 7));
+  // }
 };
 
 static CentralState STATE = CentralState();
@@ -358,10 +365,10 @@ private:
   std::array<uint, 1 + N_SAMPLES / 4> table;
 public:
   Sine() : Quarter() {
-    for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = MAX12 * sin(2 * PI * i / N_SAMPLES);
+    for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = INTERNAL_MAX * sin(2 * PI * i / N_SAMPLES);
   }
   uint lookup(uint phase) override {
-    return table[phase];
+    return table[phase_to_lookup(phase)];
   }
 };
 
@@ -372,7 +379,7 @@ class Square : public Quarter {
 public:
   Square() : Quarter() {}
   uint lookup(uint phase) override {
-    return MAX12;
+    return INTERNAL_MAX;
   }
 };
 
@@ -382,16 +389,21 @@ class Triangle : public Quarter {
 public:
   Triangle() : Quarter() {}
   uint lookup(uint phase) override {
-    return (4 * MAX12 * phase) / N_SAMPLES;
+    return (4 * INTERNAL_MAX * phase_to_lookup(phase)) / N_SAMPLES;
   }
 };
 
 Triangle TRIANGLE;
 
 int norm_phase(int phase) {
-  while (phase < 0) phase += N_SAMPLES_EXTN;
-  while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+  while (phase < 0) phase += N_INTERNAL;
+  while (phase >= N_INTERNAL) phase -= N_INTERNAL;
   return phase;
+}
+
+uint phase_to_lookup(int phase) {
+  // 0xffff corresponds to 20khz, which requires two waveform samples if no oversampling
+  return phase >> (INTERNAL_BITS - (SAMPLE_BITS - 1) + OVERSAMPLE_BITS);
 }
 
 class HiPass {
@@ -406,7 +418,7 @@ public:
     return next(in);
   }
   int next(int in) {
-    prev_out = (alpha * in - alpha * prev_in + (static_cast<int>(MAX12) - alpha) * prev_out) >> 12;
+    prev_out = (alpha * in - alpha * prev_in + (static_cast<int>(INTERNAL_MAX) - alpha) * prev_out) >> 16;
     prev_in = in;
     return prev_out;
   }
@@ -419,9 +431,9 @@ private:
   int alpha;
   int beta;
 public:
-  LoPass(int alpha) : alpha(alpha), beta((MAX12 - alpha) >> 1) {};
+  LoPass(int alpha) : alpha(alpha), beta((INTERNAL_MAX - alpha) >> 1) {};
   int next(int in) {
-    int out = (beta * in + alpha * prev_in + beta * prev_prev_in) >> 12;
+    int out = (beta * in + alpha * prev_in + beta * prev_prev_in) >> 16;
     prev_prev_in = prev_in;
     prev_in = in;
     return out;
@@ -444,117 +456,107 @@ public:
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
-  uint time = 0;
+  uint time = 0;  // ticks since triggered
   int phase = 0;
   int fm_phase = 0;
   int noise[N_NOISE] = { 0 };
   uint noise_idx = 0;
 public:
   uint idx;
-  // parameters madified by UI
-  volatile uint amp;   // 12 bits
-  volatile uint freq;  // 12 bits
-  volatile uint durn;  // 12 bits
-  volatile uint fm;    // 12 bits
-  volatile int shift;  // 12 bits signed
+  // parameters madified by UI (all INTERNAL_BITS)
+  volatile uint amp;
+  volatile uint freq;
+  volatile uint durn;
+  volatile uint fm;
+  volatile int shift;
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
     time = 0;
     phase = 0;
   }
-  int output_12() {
-    uint durn_scaled = durn << 2;
+  int output() {
+    // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
+    uint durn_scaled = durn << (2 + OVERSAMPLE_BITS);
     if (time == durn_scaled) STATE.voice(idx, false);
     if (time > durn_scaled) return 0;
     uint nv_fm = fm;
-    uint waveform = nv_fm >> 10;
-    uint fm_low10 = nv_fm & MAX10;
-    uint fm_low11 = nv_fm & MAX11;
+    uint waveform = nv_fm >> 14;
+    // 16 bits, but waveform removed
+    uint fm_drum = (nv_fm & 0x7fff) << 1;
+    uint fm_other = (nv_fm & 0x3fff) << 2;
     uint nv_amp = amp;
-    uint amp_11 = amp & MAX11;
-    uint amp_scaled = series_exp(amp_11, 3) >> 15;
-    uint linear_dec = MAX12 * (durn_scaled - time) / (durn_scaled + 1);
-    uint quad_dec = series_exp(linear_dec, 2) >> 11;
-    uint cube_dec = series_exp(linear_dec, 3) >> 17;
-    uint hard = amp_scaled * (waveform == 2 ? cube_dec : quad_dec) >> 12;
-    uint env_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
-    uint soft = abs(SINE((amp_scaled * linear_dec) >> 11, env_phase));
-    uint final_amp = nv_amp & N11 ? soft : hard;
-    uint nv_freq = freq;
-    // uint freq_scaled = 1 + (series_exp(nv_freq, 2) >> 12);
-    // uint freq_scaled = 1 + (nv_freq >> 4) + ((nv_freq * nv_freq) >> 12);
-    uint freq_scaled = 1 + nv_freq;
-    if ((DBG_BEEP | DBG_CRASH | DBG_DRUM | DBG_MINIFM) && !idx && !random(DBG_LOTTERY))
-      Serial.printf("amp_12 %d, amp_11 %d, amp_scaled %d, linear %d, quad %d, cube %d, hard %d, soft %d, amp %d, freq %d, freq_scaled %d, fm %d\n",
-                    nv_amp & N11, amp_11, amp_scaled, linear_dec, quad_dec, cube_dec, hard, soft, final_amp, nv_freq, freq_scaled, nv_fm);
+    uint low_amp = nv_amp & 0x7ffff;
+    uint quad_amp = (low_amp * low_amp) >> INTERNAL_BITS;
+    uint cube_amp = (quad_amp * low_amp) >> INTERNAL_BITS;
+    uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
+    uint quad_dec = (linear_dec * linear_dec) >> INTERNAL_BITS;
+    uint cube_dec = (quad_dec * linear_dec) >> INTERNAL_BITS;
+    uint hard_amp = cube_amp * (waveform == 2 ? cube_dec : quad_dec) >> INTERNAL_BITS;
+    uint time_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
+    uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
+    uint final_amp = nv_amp & 0x8000 ? soft_amp : hard_amp;
+    uint nv_freq = 1 + freq;  // avoid zero
+    uint quad_freq = 1 + ((nv_freq * nv_freq) >> INTERNAL_BITS);
+    // uint cube_freq = 1 + ((quad_freq * nv_freq) >> INTERNAL_BITS);
     int out = 0;
     switch (waveform) {
       case 0:
       case 1:
-        // out = drum(fm_low11, final_amp, freq_scaled, quad_dec, cube_dec);
-        // break;
-      case 3:
-      case 2:
-        out = crash(fm_low10, final_amp, freq_scaled, linear_dec, quad_dec);
+        out = drum(fm_drum, final_amp, quad_freq, quad_dec, cube_dec);
         break;
-      // case 3:
+      case 2:
+        out = crash(fm_other, final_amp, quad_freq, linear_dec, quad_dec);
+        break;
+      case 3:
       default:
-        // out = minifm(N10 - fm_low10, final_amp, freq_scaled);
+        out = minifm(INTERNAL_MAX - fm_other, final_amp, quad_freq);
         break;
     }
     time++;
     return out;
   }
-  int minifm(uint fm, uint final_amp, uint freq_scaled) {
+  int minifm(uint fm, uint amp, uint freq) {
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
-    fm_phase = norm_phase(fm_phase + (series_exp(fm << 1, 3) >> 22));
-    phase = norm_phase(phase + freq_scaled + SINE(max(1u, freq_scaled), fm_phase >> PHASE_EXTN));  // sic
-    int out = SINE(final_amp, phase >> PHASE_EXTN);
-    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY))
-      Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
+    uint quad_fm = (fm * fm) >> INTERNAL_BITS;
+    uint cube_fm = (fm * quad_fm) >> INTERNAL_BITS;
+    fm_phase = norm_phase(fm_phase + cube_fm);  // TODO - tune shift here
+    phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
+    int out = SINE(amp, phase);
+    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
-    // static HiPass hp(MAX11);
-    // static HiPass hp2(MAX11 * 1.5);
-    // static LoPass lp(MAX11 * 1.75);
+    // static HiPass hp(1 << 15);
+    // static HiPass hp2(3 << 14);
+    // static LoPass lp(3 << 14);
     // static int fm_phase2 = 0;
     // fm_phase = norm_phase(fm_phase + fm);
     // fm_phase2 = norm_phase(fm_phase2 + freq + TRIANGLE(MAX12, fm_phase >> PHASE_EXTN));
     // phase = norm_phase(phase + (freq >> 1) + SINE(0, fm_phase2 >> PHASE_EXTN));
     // phase = norm_phase(phase + freq);
-    phase += static_cast<int>(freq);
-    while (phase < 0) phase += N_SAMPLES_EXTN;
-    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
+    phase = norm_phase(phase + freq);
     // phase = norm_phase(phase + (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN));
-    int out = SINE(amp, phase >> PHASE_EXTN);
+    int out = SINE(amp, phase);
     // out += LFSR.scaled_bit(quad_dec >> 5);  // aliasing from noise at sample freq seems to help?
     // out += LFSR.scaled_bit(linear_dec);
     // out = hp.next(out, linear_dec << 1);    while (phase < 0) phase += N_SAMPLES_EXTN;
-    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
 
     // out = lp.next(out);
     // out = compress(out, 5);
     // out = (out * static_cast<int>(amp)) >> 12;
     return out;
   }
-  int drum(uint fm, uint final_amp, uint freq_scaled, uint quad_dec, uint cube_dec) {
+  int drum(uint fm, uint amp, uint freq, uint quad_dec, uint cube_dec) {
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
-    uint fmlo = ((fm & 0x3f) >> 2) + 1;  // bottom 6 bits
-    freq_scaled >>= 4;
-    // freq_scaled = freq_scaled >> 2;
-    // if (fmlo == 1) freq_scaled = freq_scaled;
-    phase += freq_scaled;
-    phase += (quad_dec * fmlo) >> 10;
-    while (phase < 0) phase += N_SAMPLES_EXTN;
-    while (phase >= N_SAMPLES_EXTN) phase -= N_SAMPLES_EXTN;
-    int out = SINE(final_amp, phase >> PHASE_EXTN);
-    uint fmhi = (fm & 0x7c0) >> 6;  // top 5 bits
-    out += LFSR.scaled_bit((final_amp * cube_dec * fmhi) >> 20);
-    out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;
-    if (DBG_DRUM && !idx && !random(DBG_LOTTERY))
-      Serial.printf("time %d, fm %d, lo %d, hi %d, out %d\n", time, fm, fmlo, fmhi, out);
+    // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
+    uint high_fm = (fm & 0xf800) >> 11;
+    uint low_fm = (fm & 0x07e0) >> 5;
+    freq >>= 8;
+    phase = norm_phase(phase + freq + ((quad_dec * low_fm) >> INTERNAL_BITS));
+    int out = SINE(amp, phase);
+    out += LFSR.scaled_bit((amp * cube_dec * high_fm) >> 28);
+    // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
     return out;
   }
   void to(Voice& other) {
@@ -580,10 +582,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, MAX10, 160, 1200,   0, 0),
-                               Voice(1, MAX9,  240, 1000, 240, 0),
-                               Voice(2, MAX9,  213, 1300, 150, 0),
-                               Voice(3, MAX9,  320,  900, 240, 0)};
+std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 1200 << 4,   0, 0),
+                               Voice(1, 0x7fff, 240 << 4, 1000 << 4, 240 << 4, 0),
+                               Voice(2, 0x7fff, 213 << 4, 1300 << 4, 150 << 4, 0),
+                               Voice(3, 0x7fff, 320 << 4,  900 << 4, 240 << 4, 0)};
 
 // standard euclidean pattern
 class Euclidean {
@@ -616,10 +618,10 @@ public:
       float x = n_places * i / static_cast<float>(n_beats);
       place_ref.push_back(round(x));
       place_off.push_back(round(x));
-      error.push_back(static_cast<int>(MAX12 * (x - round(x))));
+      error.push_back(static_cast<int>(INTERNAL_MAX * (x - round(x))));
     }
     uint regular[n_beats] = {0};
-    int penalty = MAX11;
+    int penalty = INTERNAL_MAX;
     for (uint i = 0; i < n_beats; i++) {
       if (error[i]) penalty = min(penalty, abs(error[i]));
     }
@@ -648,7 +650,7 @@ public:
     for (uint i = 0; i < n_beats; i++) index_by_place[place_off[i]] = i;
     // for (uint i = 0; i < n_beats; i++) Serial.printf("%d: %d\n", i, place_ref[i]);
   };
-  Euclidean() : Euclidean(2, 1, 0.5, MAX12, 0) {};  // used only as temp value in arrays
+  Euclidean() : Euclidean(2, 1, 0.5, INTERNAL_MAX, 0) {};  // used only as temp value in arrays
   bool operator==(const Euclidean other) {
     return other.n_places == n_places && other.n_beats == n_beats && other.n_main == n_main && other.prob == prob && other.voice == voice;
   }
@@ -656,7 +658,7 @@ public:
     // error is signed to MAX11 (MAX12 * 0.5) while prob is unisgned MAX12
     for (uint i = 0; i < n_beats - n_main; i++) {
       uint frac_m12 = (prob * static_cast<uint>(abs(error[i]))) >> 11;
-      if (random(MAX12) < frac_m12) {
+      if (random(INTERNAL_MAX) < frac_m12) {
         if (place_ref[i] == place_off[i]) {
           if (error[i] > 0 && index_by_place[place_off[i] + 1] == -1) {
             place_off[i]++;
@@ -743,7 +745,7 @@ public:
     pinMode(pin, INPUT);
   }
   void read_state() {
-    state = MAX12 - ema.next(analogRead(pin)) - 1;
+    state = (POT_MAX - ema.next(analogRead(pin)) - 1) << (INTERNAL_BITS - POT_BITS);
   }  // inverted and hack to zero
 };
 
@@ -792,11 +794,11 @@ class PotsReader {
 private:
   static const uint thresh = 10;
   std::array<bool, 4> enabled = {false, false, false, false};
-  std::array<uint, 4> posn = {N12, N12, N12, N12};
+  std::array<uint, 4> posn = {N_INTERNAL, N_INTERNAL, N_INTERNAL, N_INTERNAL};
   int active = -1;
   const std::array<uint, 4> prime = {2, 3, 5, 7};
   bool check_enabled(uint value, uint pot) {
-    if (posn[pot] == N12) posn[pot] = POTS[pot].state;
+    if (posn[pot] == N_INTERNAL) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
       posn[pot] = POTS[pot].state;
       if (active != pot) {
@@ -810,96 +812,95 @@ private:
 protected:
   void disable() {
     std::fill(std::begin(enabled), std::end(enabled), false);
-    std::fill(std::begin(posn), std::end(posn), N12);
+    std::fill(std::begin(posn), std::end(posn), N_INTERNAL);
     active = -1;
   }
-  void update_11(volatile uint* destn, uint pot) {
-    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.led_11(*destn, enabled[pot]);
-  }
-  void update_12(volatile uint* destn, uint pot) {
-    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.led_12(*destn, enabled[pot]);
-  }
-  void update_5(uint* destn, uint pot) {
-    uint target = (MAX12 * *destn) / 5;
-    if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / N12;  // 0-4
-    if (pot == active) STATE.led_5((target * 5) / MAX12, enabled[pot]);
-  }
-  void update_bin(uint* destn, uint pot) {
-    uint target = *destn << 8;
-    if (check_enabled(target, pot)) *destn = POTS[pot].state >> 8;
-    if (pot == active) STATE.led_bin(target >> 8, enabled[pot]);
-  }
-  void update_fm(volatile uint* destn, uint pot) {
-    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.led_fm(*destn, enabled[pot]);
-  }
-  void update_12(volatile uint* destn, uint zero, int bits, uint pot) {
-    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.led_12(target, enabled[pot]);
-  }
-  void update_12(float* destn, uint pot) {
-    static const int EDGE = 4;  // guarantee 0-1 float full range
-    if (check_enabled(*destn * MAX12, pot))
-      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-    if (pot == active) STATE.led_12(*destn * MAX12, pot);
-  }
-  void update_even(uint* destn, uint pot) {
-    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.led_even(*destn, enabled[pot]);
-  }
-  void update_lr(float* destn, uint pot, bool p1) {
-    static const int EDGE = 4;  // guarantee 0-1 float full range
-    if (check_enabled(*destn * MAX12, pot))
-      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-    if (pot == active) {
-      STATE.led(p1 ? 0 : 2, *destn * MAX12, enabled[pot]);
-      STATE.led(p1 ? 1 : 3, (1 - *destn) * MAX12, enabled[pot]);
-    }
-  }
-  void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
-    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) {
-      for (uint i = 0; i < 4; i++) STATE.pot(i, !(*destn % prime[i]));
-    }
-  }
-  void update_prime(float* destn, uint scale, uint pot) {
-    static const int EDGE = 4;  // guarantee 0-1 float full range
-    if (check_enabled(*destn * MAX12, pot))
-      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-    if (pot == active) {
-      for (uint i = 0; i < 4; i++) STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
-    }
-  }
-  void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
-    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) {
-      for (uint i = 0; i < 4; i++) STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
-    }
-  }
-  void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
-    uint mask = (1 << bits) - 1;
-    uint target = ((static_cast<int>(*destn) - zero) & mask) << (12 - bits);
-    if (check_enabled(target, pot)) *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
-    if (pot == active) {
-      uint g = gray(*destn);
-      for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
-    }
-  }
-  void update_signed(volatile int* destn, uint pot) {
-    int target = *destn + MAX11;
-    if (check_enabled(target, pot)) *destn = POTS[pot].state - MAX11;
-    if (pot == active) {
-      if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
-      else if (*destn >= 0) STATE.led_11(MAX11 - *destn, enabled[pot]);
-      else STATE.led_11r(MAX11 + *destn, enabled[pot]);
-    }
-    // if (enabled[pot] && !random(DBG_LOTTERY/10)) Serial.printf("%d\n", *destn);
-  }
+  // void update_11(volatile uint* destn, uint pot) {
+  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+  //   if (pot == active) STATE.led_11(*destn, enabled[pot]);
+  // }
+  // void update_12(volatile uint* destn, uint pot) {
+  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+  //   if (pot == active) STATE.led_12(*destn, enabled[pot]);
+  // }
+  // void update_5(uint* destn, uint pot) {
+  //   uint target = (MAX12 * *destn) / 5;
+  //   if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / N12;  // 0-4
+  //   if (pot == active) STATE.led_5((target * 5) / MAX12, enabled[pot]);
+  // }
+  // void update_bin(uint* destn, uint pot) {
+  //   uint target = *destn << 8;
+  //   if (check_enabled(target, pot)) *destn = POTS[pot].state >> 8;
+  //   if (pot == active) STATE.led_bin(target >> 8, enabled[pot]);
+  // }
+  // void update_fm(volatile uint* destn, uint pot) {
+  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+  //   if (pot == active) STATE.led_fm(*destn, enabled[pot]);
+  // }
+  // void update_12(volatile uint* destn, uint zero, int bits, uint pot) {
+  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+  //   if (pot == active) STATE.led_12(target, enabled[pot]);
+  // }
+  // void update_12(float* destn, uint pot) {
+  //   static const int EDGE = 4;  // guarantee 0-1 float full range
+  //   if (check_enabled(*destn * MAX12, pot))
+  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+  //   if (pot == active) STATE.led_12(*destn * MAX12, pot);
+  // }
+  // void update_even(uint* destn, uint pot) {
+  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
+  //   if (pot == active) STATE.led_even(*destn, enabled[pot]);
+  // }
+  // void update_lr(float* destn, uint pot, bool p1) {
+  //   static const int EDGE = 4;  // guarantee 0-1 float full range
+  //   if (check_enabled(*destn * MAX12, pot))
+  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+  //   if (pot == active) {
+  //     STATE.led(p1 ? 0 : 2, *destn * MAX12, enabled[pot]);
+  //     STATE.led(p1 ? 1 : 3, (1 - *destn) * MAX12, enabled[pot]);
+  //   }
+  // }
+  // void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
+  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+  //   if (pot == active) {
+  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(*destn % prime[i]));
+  //   }
+  // }
+  // void update_prime(float* destn, uint scale, uint pot) {
+  //   static const int EDGE = 4;  // guarantee 0-1 float full range
+  //   if (check_enabled(*destn * MAX12, pot))
+  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
+  //   if (pot == active) {
+  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
+  //   }
+  // }
+  // void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
+  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+  //   if (pot == active) {
+  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
+  //   }
+  // }
+  // void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
+  //   uint mask = (1 << bits) - 1;
+  //   uint target = ((static_cast<int>(*destn) - zero) & mask) << (12 - bits);
+  //   if (check_enabled(target, pot)) *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
+  //   if (pot == active) {
+  //     uint g = gray(*destn);
+  //     for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
+  //   }
+  // }
+  // void update_signed(volatile int* destn, uint pot) {
+  //   int target = *destn + MAX11;
+  //   if (check_enabled(target, pot)) *destn = POTS[pot].state - MAX11;
+  //   if (pot == active) {
+  //     if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
+  //     else if (*destn >= 0) STATE.led_11(MAX11 - *destn, enabled[pot]);
+  //     else STATE.led_11r(MAX11 + *destn, enabled[pot]);
+  //   }
+  // }
 };
 
 uint gray(uint n) {
