@@ -34,7 +34,8 @@ const uint NOISE_MASK = N_NOISE - 1;
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
-const uint LED_MAX = (1 << 8) - 1;
+const uint LED_MAX = (1 << LED_BITS) - 1;
+const uint LED_DIM_BITS = 3;
 
 // global parameters that can be changed during use
 volatile static uint BPM = 90;
@@ -168,20 +169,24 @@ class LEDs {
 private:
   uint n_leds = 4;
   // PINS - edit these values for the led pins
-  std::array<uint, 4> pins = { 23, 32, 5, 2 };
+  const std::array<uint, 4> pins = { 23, 32, 5, 2 };
+  const std::array<uint, 4> primes = {2, 3, 5, 7};
 public:
   void init() {
     for (uint i = 0; i < n_leds; i++) ledcAttach(pins[i], LED_FREQ, LED_BITS);
     all_off();
   }
   void set(uint led, uint level) {
-    analogWrite(pins[led], (level > (INTERNAL_BITS - LED_BITS)) & LED_MAX);
+    analogWrite(pins[led], (level >> (INTERNAL_BITS - LED_BITS)) & LED_MAX);
+  }
+  void set(uint led, uint level, bool full) {
+    set(led, level >> (full ? 0 : LED_DIM_BITS));
   }
   void on(uint led) {
     set(led, LED_MAX);
   }
   void on(uint led, bool on) {
-    set(led, on ?LED_MAX : 0);
+    set(led, on ? LED_MAX : 0);
   }
   void off(uint led) {
     set(led, 0);
@@ -201,6 +206,37 @@ public:
     delay(100);
     all_off();
   }
+  void centre(bool full) {
+    for (uint i = 0; i < n_leds; i++) set(i, ((i == 1 || i == 2) ? INTERNAL_MAX : 0) >> (full ? 0 : LED_DIM_BITS));
+  }
+  void bar(uint value, bool full) {
+    uint quarter = INTERNAL_MAX >> 2;
+    for (uint i = 0; i < n_leds; i++) {
+      set(i, (value > quarter ? INTERNAL_MAX : value << 2) >> (full ? 0 : LED_DIM_BITS));
+      value -= quarter;
+    }
+  }
+  void bar_right(uint value, bool full) {
+    uint quarter = INTERNAL_MAX >> 2;
+    for (uint i = 0; i < n_leds; i++) {
+      set(n_leds - i + 1, (value > quarter ? INTERNAL_MAX : value << 2) >> (full ? 0 : LED_DIM_BITS));
+      value -= quarter;
+    }
+  }
+  void prime(uint value) {
+     for (uint i = 0; i < n_leds; i++) on(!(value % primes[i]));
+  }
+  void gray(uint value) {
+    uint g = ::gray(value);
+    for (uint i = 0; i < n_leds; i++) on(i, g & (1 << i));
+  }
+  void index(uint value, bool full) {
+    if (value) set(value - 1, LED_MAX, full);
+    else all_off();
+  }
+  void bin(uint value, bool full) {
+    for (uint i = 0; i < n_leds; i++) set(i, (value & (1 << i)) ? LED_MAX : 0, full);
+  }
   // void uint12(uint value, bool full) {
   //   for (uint i = 0; i < n_leds; i++) {
   //     set(i, min(value, MAX12) >> (full ? 4 : 7));
@@ -219,11 +255,11 @@ public:
   //   all_off();
   //   if (value) set(value - 1, MAX12 >> (full ? 4 : 7));
   // }
-  void bin(uint value, bool full) {
-    for (uint i = 0; i < n_leds; i++) {
-      set(i, value & (1 << i) ? LED_MAX >> (full ? 0 : 3) : 0);
-    }
-  }
+  // void bin(uint value, bool full) {
+  //   for (uint i = 0; i < n_leds; i++) {
+  //     set(i, value & (1 << i) ? LED_MAX >> (full ? 0 : 3) : 0);
+  //   }
+  // }
   // void uint_even(uint value, bool full) {
   //   on(n_leds-1, value > MAX11);
   //   value &= MAX11;
@@ -273,9 +309,34 @@ public:
   void pot_clear() {
     leds.all_off();
   }
-  // void led_10(uint value, bool full) {
-  //   leds.uint12((value << 2) & 0xfff, full);
-  // }
+  void led_centre(bool full) {
+    leds.centre(full);
+  }
+  void led_bar(uint value, bool full) {
+    leds.bar(value, full);
+  }
+  void led_bar_right(uint value, bool full) {
+    leds.bar_right(value, full);
+  }
+  void led_fm(uint value, bool full) {
+    if (value < 0x7fff) led_bar(value << 1, full);
+    else led_bar((value << 2) & 0xffff, full);
+  }
+  void led_prime(uint value) {
+    leds.prime(value);
+  }
+  void led_gray(uint value) {
+    leds.gray(value);
+  }
+  void led_5(uint value, bool full) {
+    leds.index(value, full);
+  }
+  void led_bin(uint value, bool full) {
+    leds.bin(value, full);
+  }
+  void led(uint led, uint value, bool full) {
+    leds.set(led, value, full);
+  }
   // void led_11(uint value, bool full) {
   //   leds.uint12((value << 1) & 0xfff, full);
   // }
@@ -720,8 +781,7 @@ protected:
   }
 public:
   uint num;
-  EMA(uint bits, uint num, uint xtra, T state)
-    : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num){};
+  EMA(uint bits, uint num, uint xtra, T state) : bits(bits), denom(1 << bits), xtra(xtra), state(state << xtra), num(num){};
   T next(T val) {
     set_state((get_state() * static_cast<T>(denom - num) + (val << xtra) * static_cast<T>(num)) >> bits);
     return read();
@@ -796,7 +856,7 @@ private:
   std::array<bool, 4> enabled = {false, false, false, false};
   std::array<uint, 4> posn = {N_INTERNAL, N_INTERNAL, N_INTERNAL, N_INTERNAL};
   int active = -1;
-  const std::array<uint, 4> prime = {2, 3, 5, 7};
+  // exclude pots that have not been moved
   bool check_enabled(uint value, uint pot) {
     if (posn[pot] == N_INTERNAL) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
@@ -815,11 +875,84 @@ protected:
     std::fill(std::begin(posn), std::end(posn), N_INTERNAL);
     active = -1;
   }
-  // void update_11(volatile uint* destn, uint pot) {
+  void update(volatile uint* destn, uint zero, int bits, uint pot) {
+    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) STATE.led_bar(pot_target << (INTERNAL_BITS - POT_BITS), enabled[pot]);
+  }
+  void update(volatile uint* destn, uint pot) {
+    update(destn, 0, INTERNAL_BITS - POT_BITS, pot);  // TODO - unsure of sign here
+  }
+  void update_no_msb(volatile uint* destn, uint pot) {
+    uint shift = INTERNAL_BITS - POT_BITS;
+    uint pot_target = *destn >> shift;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
+    if (pot == active) STATE.led_bar((*destn & 0x7fff) << 1, enabled[pot]);
+  }
+  void update_fm(volatile uint* destn, uint pot) {
+    uint shift = INTERNAL_BITS - POT_BITS;
+    uint pot_target = *destn >> shift;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
+    if (pot == active) STATE.led_fm(*destn, enabled[pot]);
+  }
+  void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
+    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) STATE.led_prime(SUBDIVS[*destn]);  // TODO - no enabled?
+  }
+  void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
+    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) STATE.led_prime(*destn);  // TODO - no enabled?
+  }
+  void update_prime(float* destn, uint scale, uint pot) {
+    int pot_target = *destn * POT_MAX;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / POT_MAX;
+    if (pot == active) STATE.led_prime(*destn * scale);  // TODO - no enabled?
+  }
+  void update_lr(float* destn, uint pot, bool p1) {
+    static const int EDGE = 4;  // guarantee 0-1 float full range
+    int pot_target = *destn * POT_MAX;
+    if (check_enabled(pot_target, pot))
+      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(POT_MAX) - 2 * EDGE)));
+    if (pot == active) {
+      STATE.led(p1 ? 0 : 2, *destn * INTERNAL_MAX, enabled[pot]);
+      STATE.led(p1 ? 1 : 3, (1 - *destn) * INTERNAL_MAX, enabled[pot]);
+    }
+  }
+  void update_gray(volatile uint* destn, uint zero, int bits, uint pot) {
+    uint mask = (1 << bits) - 1;
+    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(pot_target, pot)) *destn = (zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits)) & mask;
+    if (pot == active) STATE.led_gray(*destn);  // TODO - no enabled?
+  }
+  void update_signed(volatile int* destn, uint pot) {
+    uint shift = INTERNAL_BITS - POT_BITS;
+    uint pot_target = (*destn + (INTERNAL_MAX >> 1)) >> shift;
+    if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state << shift) - (INTERNAL_MAX >> 1);
+    if (pot == active) {
+      if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
+      else if (*destn >= 0) STATE.led_bar(((INTERNAL_MAX >> 1) - *destn) << 1, enabled[pot]);
+      else STATE.led_bar_right(((INTERNAL_MAX >> 1) + *destn) << 1, enabled[pot]);
+    }
+  }
+  void update_5(uint* destn, uint pot) {
+    uint pot_target = (POT_MAX * *destn) / 5;
+    if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state * 5) / (POT_MAX + 1);
+    if (pot == active) STATE.led_5(*destn, enabled[pot]);
+  }
+  void update_bin(uint* destn, uint pot) {
+    uint shift = INTERNAL_BITS - 4;
+    uint pot_target = *destn << shift;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state >> shift;
+    if (pot == active) STATE.led_bin(*destn, enabled[pot]);
+  }
+
+  // void update_11(volatile uint* destn, uint pot) {  // no update_no_msb
   //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-  //   if (pot == active) STATE.led_11(*destn, enabled[pot]);
+  //   if (pot == active) STATE.led_15(*destn, enabled[pot]);
   // }
-  // void update_12(volatile uint* destn, uint pot) {
+  // void update_12(volatile uint* destn, uint pot) {  // now plain update()
   //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
   //   if (pot == active) STATE.led_12(*destn, enabled[pot]);
   // }
@@ -915,9 +1048,9 @@ private:
   void take_action() {
     if (pressed && STATE.n_buttons == 1) {
       editing = true;
-      update_11(&voice.amp, 0);
-      update_12(&voice.freq, 1);
-      update_12(&voice.durn, 2);
+      update_no_msb(&voice.amp, 0);
+      update(&voice.freq, 1);
+      update(&voice.durn, 2);
       update_fm(&voice.fm, 3);
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
@@ -945,8 +1078,8 @@ public:
   GlobalButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
-      update_12(&BPM, 30, -2, 0);
-      update_subdiv(&SUBDIV_IDX, 0, -8, 1);
+      update(&BPM, 30, -6, 0);
+      update_subdiv(&SUBDIV_IDX, 0, -12, 1);
     } else {
       disable();
     }
@@ -1003,7 +1136,7 @@ public:
   }
 };
 
-static EuclideanVault VAULTS[2] = {EuclideanVault(16, 0.666, 0.5, 0, 0), EuclideanVault(25, 0.666, 0.5, MAX11, 2)};
+static EuclideanVault VAULTS[2] = {EuclideanVault(16, 0.666, 0.5, 0, 0), EuclideanVault(25, 0.666, 0.5, 0x7fff, 2)};
 
 // edit patterns - hold down left or right two buttons (mask)
 class EuclideanButtons : public PotsReader {
@@ -1019,7 +1152,7 @@ public:
       update_prime(&vault.n_places, 2, -7, 0);
       update_prime(&vault.frac_beats, vault.n_places, 1);
       update_lr(&vault.frac_main, 2, mask == 0x3u);
-      update_12(&vault.prob, 3);
+      update(&vault.prob, 3);
       vault.apply_edit(false);
     } else if (editing) {
       vault.apply_edit(true);
@@ -1056,7 +1189,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, N12, 4)) {};  // by default disabled
+  Reverb() : head(TapeEMA(this, 12, INTERNAL_MAX, 4)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -1068,20 +1201,20 @@ static Reverb REVERB = Reverb<13>();
 // post-process - outer two buttons
 class PostButtons : public PotsReader {
 private:
-  uint buffer_frac = ((LOCAL_BUFFER_SIZE * MAX11) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : N11);
+  uint buffer_frac = ((LOCAL_BUFFER_SIZE * (INTERNAL_MAX >> 1)) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : (INTERNAL_MAX >> 1));
 public:
   PostButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x9) {
-      update_12(&REVERB.size, 0, 1, 0);
-      update_12(&REVERB.head.num, 1, 0, 1);
-      update_12(&COMP_BITS, 0, -9, 2);
+      update(&REVERB.size, 0, 1, 0);
+      update(&REVERB.head.num, 1, 0, 1);
+      update(&COMP_BITS, 0, -9, 2);
       float prev = buffer_frac;
-      update_even(&buffer_frac, 3);
+      update_no_msb(&buffer_frac, 3);
       if (buffer_frac != prev) {
         // frac is 12 bits; msb is even flag
-        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & MAX11) * MAX_LOCAL_BUFFER_SIZE / MAX11));
-        if (buffer_frac > MAX11) {
+        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
+        if (buffer_frac > (INTERNAL_MAX >> 1)) {
           if (LOCAL_BUFFER_SIZE & 0x1) {
             LOCAL_BUFFER_SIZE += 1;
             if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
@@ -1312,8 +1445,8 @@ uint post_process(int vol) {
   // int reverbed = soft_clipped;
   if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
-  int offset = reverbed + MAX7;
-  int hard_clipped = max(0, min(static_cast<int>(MAX8), offset));
+  int offset = reverbed + 0x80;
+  int hard_clipped = max(0, min(static_cast<int>(0xff), offset));
   if (DBG_VOLUME && !random(DBG_LOTTERY))
     Serial.printf("comp %d; vol %d; soft %d; hard %d\n",
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
@@ -1370,7 +1503,7 @@ public:
       triggers[j].on(ticks-j);
       ticks++;
       int vol = 0;
-      for (Voice& voice : VOICES) vol += voice.output_12();
+      for (Voice& voice : VOICES) vol += voice.output();
       data[i] = post_process(vol >> 4);
     }
   }
