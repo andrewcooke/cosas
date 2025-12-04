@@ -45,21 +45,6 @@ volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
-// const uint N6 = 1 << 6;
-// const uint MAX6 = N6 - 1;
-// const uint N7 = 1 << 7;
-// const uint MAX7 = N7 - 1;
-// const uint N8 = 1 << 8;
-// const uint MAX8 = N8 - 1;
-// const uint N9 = 1 << 9;
-// const uint MAX9 = N9 - 1;
-// const uint N10 = 1 << 10;
-// const uint MAX10 = N10 - 1;
-// const uint N11 = 1 << 11;
-// const uint MAX11 = N11 - 1;
-// const uint N12 = 1 << 12;
-// const uint MAX12 = N12 - 1;
-
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
@@ -77,6 +62,7 @@ const bool DBG_EUCLIDEAN = true;
 const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 const bool DBG_COPY = true;
+const bool DBG_STARTUP = true;
 
 struct VoiceData {
   uint amp;
@@ -173,7 +159,10 @@ private:
   const std::array<uint, 4> primes = {2, 3, 5, 7};
 public:
   void init() {
-    for (uint i = 0; i < n_leds; i++) ledcAttach(pins[i], LED_FREQ, LED_BITS);
+    for (uint i = 0; i < n_leds; i++) {
+      bool ok = ledcAttach(pins[i], LED_FREQ, LED_BITS);
+      if (DBG_STARTUP) Serial.printf("led %d %d\n", i, ok);
+    }
     all_off();
   }
   void set(uint led, uint level) {
@@ -198,12 +187,16 @@ public:
     for (uint i = 0; i < n_leds; i++) off(i);
   }
   void start_up() {
+    if (DBG_STARTUP) Serial.printf("leds on\n");S
     all_on();
-    delay(100);
+    delay(1000);
+    if (DBG_STARTUP) Serial.printf("leds off\n");
     all_off();
-    delay(100);
+    delay(1000);
+    if (DBG_STARTUP) Serial.printf("leds on\n");
     all_on();
-    delay(100);
+    delay(1000);
+    if (DBG_STARTUP) Serial.printf("leds off\n");
     all_off();
   }
   void centre(bool full) {
@@ -337,39 +330,9 @@ public:
   void led(uint led, uint value, bool full) {
     leds.set(led, value, full);
   }
-  // void led_11(uint value, bool full) {
-  //   leds.uint12((value << 1) & 0xfff, full);
-  // }
-  // void led_11r(uint value, bool full) {
-  //   leds.uint12r((value << 1) & 0xfff, full);
-  // }
-  // void led_12(uint value, bool full) {
-  //   leds.uint12(value, full);
-  // }
-  // void led_5(uint value, bool full) {
-  //   leds.uint5(value, full);
-  // }
-  // void led_bin(uint value, bool full) {
-  //   leds.bin(value, full);
-  // }
-  // void led_even(uint value, bool full) {
-  //   leds.uint_even(value, full);
-  // }
-  // void led_fm(uint value, bool full) {
-  //   if (value < N11) led_11(value, full);
-  //   else led_10(value, full);
-  // }
-  // void led(uint led, uint value, bool full) {
-  //   leds.set(led, value >> (full ? 4 : 7));
-  // }
   void led_clear() {
     leds.all_off();
   }
-  // void led_centre(bool full) {
-  //   led_clear();
-  //   leds.on(1, 0xfff >> (full ? 4 : 7));
-  //   leds.on(2, 0xfff >> (full ? 4 : 7));
-  // }
 };
 
 static CentralState STATE = CentralState();
@@ -947,93 +910,6 @@ protected:
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state >> shift;
     if (pot == active) STATE.led_bin(*destn, enabled[pot]);
   }
-
-  // void update_11(volatile uint* destn, uint pot) {  // no update_no_msb
-  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-  //   if (pot == active) STATE.led_15(*destn, enabled[pot]);
-  // }
-  // void update_12(volatile uint* destn, uint pot) {  // now plain update()
-  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-  //   if (pot == active) STATE.led_12(*destn, enabled[pot]);
-  // }
-  // void update_5(uint* destn, uint pot) {
-  //   uint target = (MAX12 * *destn) / 5;
-  //   if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / N12;  // 0-4
-  //   if (pot == active) STATE.led_5((target * 5) / MAX12, enabled[pot]);
-  // }
-  // void update_bin(uint* destn, uint pot) {
-  //   uint target = *destn << 8;
-  //   if (check_enabled(target, pot)) *destn = POTS[pot].state >> 8;
-  //   if (pot == active) STATE.led_bin(target >> 8, enabled[pot]);
-  // }
-  // void update_fm(volatile uint* destn, uint pot) {
-  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-  //   if (pot == active) STATE.led_fm(*destn, enabled[pot]);
-  // }
-  // void update_12(volatile uint* destn, uint zero, int bits, uint pot) {
-  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-  //   if (pot == active) STATE.led_12(target, enabled[pot]);
-  // }
-  // void update_12(float* destn, uint pot) {
-  //   static const int EDGE = 4;  // guarantee 0-1 float full range
-  //   if (check_enabled(*destn * MAX12, pot))
-  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-  //   if (pot == active) STATE.led_12(*destn * MAX12, pot);
-  // }
-  // void update_even(uint* destn, uint pot) {
-  //   if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-  //   if (pot == active) STATE.led_even(*destn, enabled[pot]);
-  // }
-  // void update_lr(float* destn, uint pot, bool p1) {
-  //   static const int EDGE = 4;  // guarantee 0-1 float full range
-  //   if (check_enabled(*destn * MAX12, pot))
-  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-  //   if (pot == active) {
-  //     STATE.led(p1 ? 0 : 2, *destn * MAX12, enabled[pot]);
-  //     STATE.led(p1 ? 1 : 3, (1 - *destn) * MAX12, enabled[pot]);
-  //   }
-  // }
-  // void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
-  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-  //   if (pot == active) {
-  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(*destn % prime[i]));
-  //   }
-  // }
-  // void update_prime(float* destn, uint scale, uint pot) {
-  //   static const int EDGE = 4;  // guarantee 0-1 float full range
-  //   if (check_enabled(*destn * MAX12, pot))
-  //     *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(MAX12) - 2 * EDGE)));
-  //   if (pot == active) {
-  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(static_cast<uint>(scale * *destn) % prime[i]));
-  //   }
-  // }
-  // void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
-  //   int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-  //   if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-  //   if (pot == active) {
-  //     for (uint i = 0; i < 4; i++) STATE.pot(i, !(SUBDIVS[*destn] % prime[i]));
-  //   }
-  // }
-  // void update_gray(volatile uint* destn, int zero, int bits, uint pot) {
-  //   uint mask = (1 << bits) - 1;
-  //   uint target = ((static_cast<int>(*destn) - zero) & mask) << (12 - bits);
-  //   if (check_enabled(target, pot)) *destn = (zero + (POTS[pot].state >> (12 - bits))) & mask;
-  //   if (pot == active) {
-  //     uint g = gray(*destn);
-  //     for (uint i = 0; i < 4; i++) STATE.pot(i, g & (1 << i));
-  //   }
-  // }
-  // void update_signed(volatile int* destn, uint pot) {
-  //   int target = *destn + MAX11;
-  //   if (check_enabled(target, pot)) *destn = POTS[pot].state - MAX11;
-  //   if (pot == active) {
-  //     if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
-  //     else if (*destn >= 0) STATE.led_11(MAX11 - *destn, enabled[pot]);
-  //     else STATE.led_11r(MAX11 + *destn, enabled[pot]);
-  //   }
-  // }
 };
 
 uint gray(uint n) {
@@ -1575,12 +1451,15 @@ void loop() {
 
 void setup() {
   Serial.begin(115200);
-  delay(100);
+  delay(1000);
   Serial.println("hello world");
+  if (DBG_STARTUP) Serial.printf("%d buttons\n", VOICE_BUTTONS.size());
   for (Button& b : VOICE_BUTTONS) b.init();
+  if (DBG_STARTUP) Serial.printf("%d pots\n", POTS.size());
   for (Pot& p : POTS) p.init();
   STATE.init();
 
+  if (DBG_STARTUP) Serial.printf("create ui loop\n");
   xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
 
   update_buffer();  // first callback happens immediately
