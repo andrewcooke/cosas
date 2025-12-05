@@ -192,7 +192,7 @@ public:
     uint quarter = INTERNAL_MAX >> 2;
     for (uint i = 0; i < n_leds; i++) {
       set(i, (value > quarter ? INTERNAL_MAX : value << 2) >> (full ? 0 : LED_DIM_BITS));
-      value -= quarter;
+      value = value > quarter ? value - quarter : 0;
     }
   }
   void bar_right(uint value, bool full) {
@@ -781,7 +781,7 @@ private:
     uint posn_error = abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state));
     if (DBG_POT && !random(DBG_LOTTERY)) Serial.printf("pot %d posn %d state %d posn error %d enabled %d active %d\n", pot, posn[pot], POTS[pot].state, posn_error, enabled[pot], active);
     if (posn[pot] == unknown) posn[pot] = POTS[pot].state;
-    else if (posn_error < thresh) {
+    else if (posn_error > thresh) {
       // exclude pots that have not been moved
       posn[pot] = POTS[pot].state;
       if (active != pot) {
