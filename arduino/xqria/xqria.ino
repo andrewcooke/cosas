@@ -135,7 +135,7 @@ public:
   }
 };
 
-static LFSR16 LFSR;
+// static LFSR16 LFSR;
 
 // wrapper for LEDs
 // assumes values are INTERNAL_BITS and converts to LED_BITS
@@ -143,13 +143,14 @@ class LEDs {
 private:
   uint n_leds = 4;
   // PINS - edit these values for the led pins
-  const std::array<uint, 4> pins = { 23, 32, 5, 2 };
+  const std::array<uint, 4> pins = {23, 32, 5, 2};
   const std::array<uint, 4> primes = {2, 3, 5, 7};
 public:
   void init() {
     for (uint i = 0; i < n_leds; i++) {
+      pinMode(pins[i], OUTPUT);
       bool ok = ledcAttach(pins[i], LED_FREQ, LED_BITS);
-      if (DBG_STARTUP) Serial.printf("led %d %d\n", i, ok);
+      if (DBG_STARTUP) Serial.printf("led %d %d/1\n", i, ok);
     }
     all_off();
   }
@@ -160,10 +161,10 @@ public:
     set(led, level >> (full ? 0 : LED_DIM_BITS));
   }
   void on(uint led) {
-    set(led, LED_MAX);
+    set(led, INTERNAL_MAX);
   }
   void on(uint led, bool on) {
-    set(led, on ? LED_MAX : 0);
+    set(led, on ? INTERNAL_MAX : 0);
   }
   void off(uint led) {
     set(led, 0);
@@ -175,17 +176,13 @@ public:
     for (uint i = 0; i < n_leds; i++) off(i);
   }
   void start_up() {
-    if (DBG_STARTUP) Serial.printf("leds on\n");
-    all_on();
-    delay(1000);
-    if (DBG_STARTUP) Serial.printf("leds off\n");
-    all_off();
-    delay(1000);
-    if (DBG_STARTUP) Serial.printf("leds on\n");
-    all_on();
-    delay(1000);
-    if (DBG_STARTUP) Serial.printf("leds off\n");
-    all_off();
+    for (uint i = 0; i < 3; i++) {
+      all_on();
+      delay(100);
+      all_off();
+      delay(100);
+    };
+    if (DBG_STARTUP) Serial.printf("leds flashed\n");
   }
   void centre(bool full) {
     for (uint i = 0; i < n_leds; i++) set(i, ((i == 1 || i == 2) ? INTERNAL_MAX : 0) >> (full ? 0 : LED_DIM_BITS));
@@ -341,7 +338,7 @@ public:
   }
 };
 
-Sine SINE;
+// Sine SINE;
 
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
@@ -352,7 +349,7 @@ public:
   }
 };
 
-Square SQUARE;
+// Square SQUARE;
 
 class Triangle : public Quarter {
 public:
@@ -362,7 +359,7 @@ public:
   }
 };
 
-Triangle TRIANGLE;
+// Triangle TRIANGLE;
 
 int norm_phase(int phase) {
   while (phase < 0) phase += N_INTERNAL;
@@ -444,6 +441,7 @@ public:
     phase = 0;
   }
   int output() {
+    /*
     // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
     uint durn_scaled = durn << (2 + OVERSAMPLE_BITS);
     if (time == durn_scaled) STATE.voice(idx, false);
@@ -483,8 +481,11 @@ public:
     }
     time++;
     return out;
+    */
+    return 0;
   }
   int minifm(uint fm, uint amp, uint freq) {
+    /*
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
     uint quad_fm = (fm * fm) >> INTERNAL_BITS;
@@ -494,8 +495,11 @@ public:
     int out = SINE(amp, phase);
     if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
+    */
+    return 0;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
+    /*
     // static HiPass hp(1 << 15);
     // static HiPass hp2(3 << 14);
     // static LoPass lp(3 << 14);
@@ -515,8 +519,11 @@ public:
     // out = compress(out, 5);
     // out = (out * static_cast<int>(amp)) >> 12;
     return out;
+    */
+    return 0;
   }
   int drum(uint fm, uint amp, uint freq, uint quad_dec, uint cube_dec) {
+    /*
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
     uint high_fm = (fm & 0xf800) >> 11;
@@ -527,6 +534,8 @@ public:
     out += LFSR.scaled_bit((amp * cube_dec * high_fm) >> 28);
     // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
     return out;
+    */
+    return 0;
   }
   void to(Voice& other) {
     other.amp = amp;
@@ -573,11 +582,13 @@ private:
   std::vector<bool> is_main;         // beat index -> true if main (small error)
   std::vector<int> index_by_place;   // (offset) place index -> beat index (or -1)
   void trigger(uint delta) {
+    /*
     uint n = voice + delta;
     if (gray(ENABLED) & 1 << n) {
       VOICES[n].trigger();
       STATE.voice(n, true);
     }
+    */
   }
 public:
   // 1 <= n_beats <= n_places
@@ -766,6 +777,7 @@ private:
   int active = -1;
   // exclude pots that have not been moved
   bool check_enabled(uint value, uint pot) {
+    /*
     if (posn[pot] == N_INTERNAL) posn[pot] = POTS[pot].state;
     else if (abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state)) > thresh) {
       posn[pot] = POTS[pot].state;
@@ -776,6 +788,8 @@ private:
     }
     if (!enabled[pot] && abs(static_cast<int>(value) - static_cast<int>(POTS[pot].state)) < thresh) enabled[pot] = true;
     return enabled[pot];
+    */
+    return false;
   }
 protected:
   void disable() {
@@ -784,41 +798,54 @@ protected:
     active = -1;
   }
   void update(volatile uint* destn, uint zero, int bits, uint pot) {
+    /*
     int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
     if (pot == active) STATE.led_bar(pot_target << (INTERNAL_BITS - POT_BITS), enabled[pot]);
+    */
   }
   void update(volatile uint* destn, uint pot) {
     update(destn, 0, INTERNAL_BITS - POT_BITS, pot);  // TODO - unsure of sign here
   }
   void update_no_msb(volatile uint* destn, uint pot) {
+    /*
     uint shift = INTERNAL_BITS - POT_BITS;
     uint pot_target = *destn >> shift;
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
     if (pot == active) STATE.led_bar((*destn & 0x7fff) << 1, enabled[pot]);
+    */
   }
   void update_fm(volatile uint* destn, uint pot) {
+    /*
     uint shift = INTERNAL_BITS - POT_BITS;
     uint pot_target = *destn >> shift;
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
     if (pot == active) STATE.led_fm(*destn, enabled[pot]);
+    */
   }
   void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
+    /*
     int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
     if (pot == active) STATE.led_prime(SUBDIVS[*destn]);  // TODO - no enabled?
+    */
   }
   void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
+    /*
     int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
     if (pot == active) STATE.led_prime(*destn);  // TODO - no enabled?
+    */
   }
   void update_prime(float* destn, uint scale, uint pot) {
+    /*
     int pot_target = *destn * POT_MAX;
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / POT_MAX;
     if (pot == active) STATE.led_prime(*destn * scale);  // TODO - no enabled?
+    */
   }
   void update_lr(float* destn, uint pot, bool p1) {
+    /*
     static const int EDGE = 4;  // guarantee 0-1 float full range
     int pot_target = *destn * POT_MAX;
     if (check_enabled(pot_target, pot))
@@ -827,14 +854,18 @@ protected:
       STATE.led(p1 ? 0 : 2, *destn * INTERNAL_MAX, enabled[pot]);
       STATE.led(p1 ? 1 : 3, (1 - *destn) * INTERNAL_MAX, enabled[pot]);
     }
+    */
   }
   void update_gray(volatile uint* destn, uint zero, int bits, uint pot) {
+    /*
     uint mask = (1 << bits) - 1;
     int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(pot_target, pot)) *destn = (zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits)) & mask;
     if (pot == active) STATE.led_gray(*destn);  // TODO - no enabled?
+    */
   }
   void update_signed(volatile int* destn, uint pot) {
+    /*
     uint shift = INTERNAL_BITS - POT_BITS;
     uint pot_target = (*destn + (INTERNAL_MAX >> 1)) >> shift;
     if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state << shift) - (INTERNAL_MAX >> 1);
@@ -843,17 +874,22 @@ protected:
       else if (*destn >= 0) STATE.led_bar(((INTERNAL_MAX >> 1) - *destn) << 1, enabled[pot]);
       else STATE.led_bar_right(((INTERNAL_MAX >> 1) + *destn) << 1, enabled[pot]);
     }
+    */
   }
   void update_5(uint* destn, uint pot) {
+    /*
     uint pot_target = (POT_MAX * *destn) / 5;
     if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state * 5) / (POT_MAX + 1);
     if (pot == active) STATE.led_5(*destn, enabled[pot]);
+    */
   }
   void update_bin(uint* destn, uint pot) {
+    /*
     uint shift = INTERNAL_BITS - 4;
     uint pot_target = *destn << shift;
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state >> shift;
     if (pot == active) STATE.led_bin(*destn, enabled[pot]);
+    */
   }
 };
 
@@ -907,7 +943,7 @@ public:
   }
 };
 
-static GlobalButtons GLOBAL_BUTTONS;
+// static GlobalButtons GLOBAL_BUTTONS;
 
 // handle passing of complex state between threads (everything else is a volatile uint, i think, but the Euclidean class is complex)
 // this stores three things:
@@ -983,8 +1019,8 @@ public:
   }
 };
 
-static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULTS[0]);
-static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULTS[1]);
+// static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULTS[0]);
+// static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULTS[1]);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 template<int BITS> class Reverb {
@@ -1017,7 +1053,7 @@ public:
   }
 };
 
-static Reverb REVERB = Reverb<13>();
+// static Reverb REVERB = Reverb<13>();
 
 // post-process - outer two buttons
 class PostButtons : public PotsReader {
@@ -1026,6 +1062,7 @@ private:
 public:
   PostButtons() = default;
   void read_state() {
+    /*
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, 1, 0);
       update(&REVERB.head.num, 1, 0, 1);
@@ -1051,10 +1088,11 @@ public:
     } else {
       disable();
     }
+    */
   }
 };
 
-static PostButtons POST_BUTTONS;
+// static PostButtons POST_BUTTONS;
 
 // performance controls - inner two buttoms plus left
 class PerfButtons : public PotsReader {
@@ -1063,6 +1101,7 @@ private:
 public:
   PerfButtons() = default;
   void read_state() {
+    /*
     if (STATE.button_mask == 0x7) {
       update_gray(&enabled, 11, 4, 0);
       update_signed(&VOICES[1].shift, 1);
@@ -1072,10 +1111,11 @@ public:
       ENABLED = enabled;
       disable();
     }
+    */
   }
 };
 
-static PerfButtons PERFORMANCE_BUTTONS;
+// static PerfButtons PERFORMANCE_BUTTONS;
 
 class Config {
 private:
@@ -1083,6 +1123,7 @@ private:
   AllData build() {
     Serial.printf("build\n");
     AllData current;
+    /*
     for (uint i = 0; i < 4; i++) VOICES[i].to(current.voices[i]);
     for (uint i = 0; i < 2; i++) {
       current.vaults[i].n_places = VAULTS[i].n_places;
@@ -1097,9 +1138,11 @@ private:
     current.subdiv_idx = SUBDIV_IDX;
     current.comp_bits = COMP_BITS;
     current.local_buffer_size = LOCAL_BUFFER_SIZE;
+    */
     return current;
   }
   void apply(AllData data) {
+    /*
     Serial.printf("apply\n");
     for (uint i = 0; i < 4; i++) VOICES[i].from(data.voices[i]);
     for (uint i = 0; i < 2; i++) {
@@ -1115,6 +1158,7 @@ private:
     SUBDIV_IDX = data.subdiv_idx;
     COMP_BITS = data.comp_bits;
     LOCAL_BUFFER_SIZE = data.local_buffer_size;
+    */
   }
   bool exists(uint idx) {
     char* key = new_key(idx);
@@ -1202,6 +1246,7 @@ private:
 public:
   EditButtons() = default;
   void read_state() {
+    /*
     state.update();
     if (state.selected) {
       update_5(&source, 0);
@@ -1232,10 +1277,11 @@ public:
       save = 0;
       disable();
     }
+    */
   }
 };
 
-static EditButtons EDIT_BUTTONS = EditButtons();
+// static EditButtons EDIT_BUTTONS = EditButtons();
 
 // use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
@@ -1259,6 +1305,7 @@ int compress(int out, uint bits) {
 
 // apply post-processing
 uint post_process(int vol) {
+  /*
   // apply compressor
   int soft_clipped = compress(vol, COMP_BITS);
   // apply reverb
@@ -1272,6 +1319,8 @@ uint post_process(int vol) {
     Serial.printf("comp %d; vol %d; soft %d; hard %d\n",
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   return hard_clipped;
+  */
+  return 0;
 }
 
 class Trigger {
@@ -1319,6 +1368,7 @@ private:
 public:
   Audio(Trigger trigger1, Trigger trigger2, Trigger trigger3, Trigger trigger4) : triggers(trigger1, trigger2, trigger3, trigger4) {};
   void generate(uint n, uint8_t data[]) {
+    /*
     for (uint i = 0; i < n; i++) {
       uint j = ticks & 0x3;  // really subtle fix - we can get rhythms switching on the same beat if these don't match
       triggers[j].on(ticks-j);
@@ -1327,6 +1377,7 @@ public:
       for (Voice& voice : VOICES) vol += voice.output();
       data[i] = post_process(vol >> 4);
     }
+    */
   }
 };
 
@@ -1336,6 +1387,7 @@ static TaskHandle_t ui_handle = NULL;
 // main loop on other core for slow/ui operations
 void ui_loop(void*) {
   while (1) {
+    /*
     for (Pot& p : POTS) p.read_state();
     for (Button& b : VOICE_BUTTONS) b.read_state();
     GLOBAL_BUTTONS.read_state();
@@ -1344,6 +1396,7 @@ void ui_loop(void*) {
     POST_BUTTONS.read_state();
     PERFORMANCE_BUTTONS.read_state();
     EDIT_BUTTONS.read_state();
+    */
     vTaskDelay(1);
   }
 }
@@ -1374,6 +1427,7 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
 
 // slow fill of buffer
 void update_buffer() {
+  static uint count = 0;
   static EMA<uint> avg = EMA<uint>(4, 1, 3, REFRESH_US);
   unsigned long start = micros();
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER);
@@ -1385,6 +1439,7 @@ void update_buffer() {
                   LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US),
                   dma_durn, dma_durn + avg_durn, 100 * (dma_durn + avg_durn) / static_cast<float>(REFRESH_US), 
                   DMA_ERRORS, DMA_ERRORS ? "XXXX" : "");
+  if (count < 2 && DBG_STARTUP) Serial.printf("update buffer %d/2\n", ++count);
 }
 
 // refill buffer when flagged
@@ -1397,18 +1452,20 @@ void loop() {
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("hello world");
-  if (DBG_STARTUP) Serial.printf("%d buttons\n", VOICE_BUTTONS.size());
+  Serial.println("xqria dice hola al mundo");
+  if (DBG_STARTUP) Serial.printf("buttons %d/4\n", VOICE_BUTTONS.size());
   for (Button& b : VOICE_BUTTONS) b.init();
-  if (DBG_STARTUP) Serial.printf("%d pots\n", POTS.size());
+  if (DBG_STARTUP) Serial.printf("pots %d/4\n", POTS.size());
   for (Pot& p : POTS) p.init();
   STATE.init();
 
-  if (DBG_STARTUP) Serial.printf("create ui loop\n");
-  xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
+  int ok = xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
+  if (DBG_STARTUP) Serial.printf("task created %d/1\n", ok);
 
   update_buffer();  // first callback happens immediately
+  if (DBG_STARTUP) Serial.printf("first buffer updated\n");
   dma_semaphore = xSemaphoreCreateBinary();
+  if (DBG_STARTUP) Serial.printf("semaphore created %d/1\n", dma_semaphore != nullptr);
   dac_continuous_config_t dac_config = {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
     .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
@@ -1418,12 +1475,16 @@ void setup() {
     .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
     .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
   };
-  dac_continuous_new_channels(&dac_config, &dac_handle);
-  dac_continuous_enable(dac_handle);
+  ok = dac_continuous_new_channels(&dac_config, &dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac new channels %d/0\n", ok);
+  ok = dac_continuous_enable(dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac continuous %d/0\n", ok);
   dac_event_callbacks_t callbacks = {
     .on_convert_done = dac_callback,
     .on_stop = nullptr
   };
-  dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
-  dac_continuous_start_async_writing(dac_handle);
+  ok = dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
+  if (DBG_STARTUP) Serial.printf("callback registered %d/0\n", ok);
+  ok = dac_continuous_start_async_writing(dac_handle);
+  if (DBG_STARTUP) Serial.printf("asynch started %d/0\n", ok);
 };
