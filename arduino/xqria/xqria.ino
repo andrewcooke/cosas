@@ -773,13 +773,14 @@ public:
 class PotsReader {
 private:
   static const uint thresh = 160;
+  static const uint unknown = N_INTERNAL << 8;
   std::array<bool, 4> enabled = {false, false, false, false};
-  std::array<uint, 4> posn = {N_INTERNAL, N_INTERNAL, N_INTERNAL, N_INTERNAL};
+  std::array<uint, 4> posn = {unknown, unknown, unknown, unknown};
   int active = -1;
   bool check_enabled(uint target, uint pot) {
     uint posn_error = abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state));
     if (DBG_POT && !random(DBG_LOTTERY)) Serial.printf("pot %d posn %d state %d posn error %d enabled %d active %d\n", pot, posn[pot], POTS[pot].state, posn_error, enabled[pot], active);
-    if (posn[pot] == N_INTERNAL) posn[pot] = POTS[pot].state;
+    if (posn[pot] == unknown) posn[pot] = POTS[pot].state;
     else if (posn_error < thresh) {
       // exclude pots that have not been moved
       posn[pot] = POTS[pot].state;
@@ -790,33 +791,32 @@ private:
     }
     uint target_error = abs(static_cast<int>(target) - static_cast<int>(POTS[pot].state));
     if (!enabled[pot] && target_error < thresh) enabled[pot] = true;
-    if (DBG_POT && enabled[pot]) Serial.printf("enabled pot %d target %d state %d error %d\n", pot, target, POTS[pot].state, target_error);
+    if (DBG_POT && enabled[pot] && !random(DBG_LOTTERY >> 6)) Serial.printf("enabled pot %d target %d state %d error %d\n", pot, target, POTS[pot].state, target_error);
     return enabled[pot];
   }
 protected:
   void disable() {
     std::fill(std::begin(enabled), std::end(enabled), false);
-    std::fill(std::begin(posn), std::end(posn), N_INTERNAL);
+    std::fill(std::begin(posn), std::end(posn), unknown);
     active = -1;
   }
   void update(volatile uint* destn, uint zero, int bits, uint pot) {
-    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.led_bar(pot_target << (INTERNAL_BITS - POT_BITS), enabled[pot]);
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
+    if (pot == active) {
+      if (DBG_POT && !random(DBG_LOTTERY >> 6)) Serial.printf("led_bar %d %d %d\n", pot, target, enabled[pot]);
+      STATE.led_bar(target, enabled[pot]);
+    }
   }
   void update(volatile uint* destn, uint pot) {
-    update(destn, 0, INTERNAL_BITS - POT_BITS, pot);  // TODO - unsure of sign here
+    update(destn, 0, 0, pot);
   }
   void update_no_msb(volatile uint* destn, uint pot) {
-    uint shift = INTERNAL_BITS - POT_BITS;
-    uint pot_target = *destn >> shift;
-    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_bar((*destn & 0x7fff) << 1, enabled[pot]);
   }
   void update_fm(volatile uint* destn, uint pot) {
-    uint shift = INTERNAL_BITS - POT_BITS;
-    uint pot_target = *destn >> shift;
-    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state << shift;
+    if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_fm(*destn, enabled[pot]);
   }
   void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
@@ -830,15 +830,15 @@ protected:
     if (pot == active) STATE.led_prime(*destn);  // TODO - no enabled?
   }
   void update_prime(float* destn, uint scale, uint pot) {
-    int pot_target = *destn * POT_MAX;
-    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / POT_MAX;
+    int pot_target = *destn * INTERNAL_MAX;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / INTERNAL_MAX;
     if (pot == active) STATE.led_prime(*destn * scale);  // TODO - no enabled?
   }
   void update_lr(float* destn, uint pot, bool p1) {
     static const int EDGE = 4;  // guarantee 0-1 float full range
-    int pot_target = *destn * POT_MAX;
-    if (check_enabled(pot_target, pot))
-      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(POT_MAX) - 2 * EDGE)));
+    int target = *destn * INTERNAL_MAX;
+    if (check_enabled(target, pot))
+      *destn = max(0.0f, min(1.0f, static_cast<float>((static_cast<int>(POTS[pot].state) - EDGE)) / (static_cast<int>(INTERNAL_MAX) - 2 * EDGE)));
     if (pot == active) {
       STATE.led(p1 ? 0 : 2, *destn * INTERNAL_MAX, enabled[pot]);
       STATE.led(p1 ? 1 : 3, (1 - *destn) * INTERNAL_MAX, enabled[pot]);
@@ -846,14 +846,13 @@ protected:
   }
   void update_gray(volatile uint* destn, uint zero, int bits, uint pot) {
     uint mask = (1 << bits) - 1;
-    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(pot_target, pot)) *destn = (zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits)) & mask;
+    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
+    if (check_enabled(target, pot)) *destn = (zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits)) & mask;
     if (pot == active) STATE.led_gray(*destn);  // TODO - no enabled?
   }
   void update_signed(volatile int* destn, uint pot) {
-    uint shift = INTERNAL_BITS - POT_BITS;
-    uint pot_target = (*destn + (INTERNAL_MAX >> 1)) >> shift;
-    if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state << shift) - (INTERNAL_MAX >> 1);
+    uint target = (*destn + (INTERNAL_MAX >> 1));
+    if (check_enabled(target, pot)) *destn = POTS[pot].state - (INTERNAL_MAX >> 1);
     if (pot == active) {
       if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
       else if (*destn >= 0) STATE.led_bar(((INTERNAL_MAX >> 1) - *destn) << 1, enabled[pot]);
@@ -861,14 +860,14 @@ protected:
     }
   }
   void update_5(uint* destn, uint pot) {
-    uint pot_target = (POT_MAX * *destn) / 5;
-    if (check_enabled(pot_target, pot)) *destn = (POTS[pot].state * 5) / (POT_MAX + 1);
+    uint target = (INTERNAL_MAX * *destn) / 5;
+    if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / (INTERNAL_MAX + 1);
     if (pot == active) STATE.led_5(*destn, enabled[pot]);
   }
   void update_bin(uint* destn, uint pot) {
-    uint shift = INTERNAL_BITS - 4;
-    uint pot_target = *destn << shift;
-    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state >> shift;
+    uint shift = INTERNAL_BITS - 4;  // TODO ?
+    uint target = *destn << shift;
+    if (check_enabled(target, pot)) *destn = POTS[pot].state >> shift;
     if (pot == active) STATE.led_bin(*destn, enabled[pot]);
   }
 };
