@@ -95,18 +95,6 @@ template<typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
 
-// template<typename T> T series_exp(T val, uint n) {
-//   T result = 1;
-//   T fact = 1;
-//   T nth = val;
-//   for (uint i = 0; i < n; i++) {
-//     result += nth / fact;
-//     nth *= val;
-//     fact *= (i + 2);
-//   }
-//   return result;
-// }
-
 // efficient random bits from an LFSR (random quality is not important here!)
 class LFSR16 {
 private:
@@ -147,7 +135,7 @@ public:
   }
 };
 
-static LFSR16 LFSR = LFSR16();
+static LFSR16 LFSR;
 
 // wrapper for LEDs
 // assumes values are INTERNAL_BITS and converts to LED_BITS
@@ -187,7 +175,7 @@ public:
     for (uint i = 0; i < n_leds; i++) off(i);
   }
   void start_up() {
-    if (DBG_STARTUP) Serial.printf("leds on\n");S
+    if (DBG_STARTUP) Serial.printf("leds on\n");
     all_on();
     delay(1000);
     if (DBG_STARTUP) Serial.printf("leds off\n");
@@ -230,39 +218,6 @@ public:
   void bin(uint value, bool full) {
     for (uint i = 0; i < n_leds; i++) set(i, (value & (1 << i)) ? LED_MAX : 0, full);
   }
-  // void uint12(uint value, bool full) {
-  //   for (uint i = 0; i < n_leds; i++) {
-  //     set(i, min(value, MAX12) >> (full ? 4 : 7));
-  //     if (value >= N10) value -= N10;
-  //     else value = 0;
-  //   }
-  // }
-  // void uint12r(uint value, bool full) {
-  //   for (uint i = 0; i < n_leds; i++) {
-  //     set(n_leds - 1 - i, min(value, MAX12) >> (full ? 4 : 7));
-  //     if (value >= N10) value -= N10;
-  //     else value = 0;
-  //   }
-  // }
-  // void uint5(uint value, bool full) {
-  //   all_off();
-  //   if (value) set(value - 1, MAX12 >> (full ? 4 : 7));
-  // }
-  // void bin(uint value, bool full) {
-  //   for (uint i = 0; i < n_leds; i++) {
-  //     set(i, value & (1 << i) ? LED_MAX >> (full ? 0 : 3) : 0);
-  //   }
-  // }
-  // void uint_even(uint value, bool full) {
-  //   on(n_leds-1, value > MAX11);
-  //   value &= MAX11;
-  //   uint third = N11 / 3;
-  //   for (uint i = 0; i < n_leds-1; i++) {
-  //     set(i, min(value, MAX12) >> (full ? 4 : 7));
-  //     if (value >= third) value -= third;
-  //     else value = 0;
-  //   }
-  // }
 };
 
 // central location for coordinating (multiple) button presses, also wraps leds
@@ -291,16 +246,6 @@ public:
   }
   void voice(uint idx, bool on) {
     if (!button_mask) leds.on(idx, on);
-  }
-  // todo - drop these (pot) once replaced by led calls - we don't care if it's a pot or not, so use led directly
-  void pot(uint idx) {
-    leds.on(idx);
-  }
-  void pot(uint idx, bool on) {
-    leds.on(idx, on);
-  }
-  void pot_clear() {
-    leds.all_off();
   }
   void led_centre(bool full) {
     leds.centre(full);
@@ -335,7 +280,7 @@ public:
   }
 };
 
-static CentralState STATE = CentralState();
+static CentralState STATE;
 
 class ButtonState {
 private:
@@ -464,18 +409,18 @@ public:
   }
 };
 
-class Latch {
-private:
-  bool saved = false;
-  int prev = 0;
-public:
-  int next(int value) {
-    if (saved) value = prev;
-    else prev = value;
-    saved = !saved;
-    return value;
-  }
-};
+// class Latch {
+// private:
+//   bool saved = false;
+//   int prev = 0;
+// public:
+//   int next(int value) {
+//     if (saved) value = prev;
+//     else prev = value;
+//     saved = !saved;
+//     return value;
+//   }
+// };
 
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
@@ -962,7 +907,7 @@ public:
   }
 };
 
-static GlobalButtons GLOBAL_BUTTONS = GlobalButtons();
+static GlobalButtons GLOBAL_BUTTONS;
 
 // handle passing of complex state between threads (everything else is a volatile uint, i think, but the Euclidean class is complex)
 // this stores three things:
@@ -1109,7 +1054,7 @@ public:
   }
 };
 
-static PostButtons POST_BUTTONS = PostButtons();
+static PostButtons POST_BUTTONS;
 
 // performance controls - inner two buttoms plus left
 class PerfButtons : public PotsReader {
@@ -1130,7 +1075,7 @@ public:
   }
 };
 
-static PerfButtons PERFORMANCE_BUTTONS = PerfButtons();
+static PerfButtons PERFORMANCE_BUTTONS;
 
 class Config {
 private:
