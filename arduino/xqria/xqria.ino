@@ -136,7 +136,7 @@ public:
   }
 };
 
-// static LFSR16 LFSR;
+static LFSR16 LFSR;
 
 // wrapper for LEDs
 // assumes values are INTERNAL_BITS and converts to LED_BITS
@@ -339,7 +339,7 @@ public:
   }
 };
 
-// Sine SINE;
+Sine SINE;
 
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
@@ -350,7 +350,7 @@ public:
   }
 };
 
-// Square SQUARE;
+Square SQUARE;
 
 class Triangle : public Quarter {
 public:
@@ -360,7 +360,7 @@ public:
   }
 };
 
-// Triangle TRIANGLE;
+Triangle TRIANGLE;
 
 int norm_phase(int phase) {
   while (phase < 0) phase += N_INTERNAL;
@@ -442,7 +442,6 @@ public:
     phase = 0;
   }
   int output() {
-    /*
     // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
     uint durn_scaled = durn << (2 + OVERSAMPLE_BITS);
     if (time == durn_scaled) STATE.voice(idx, false);
@@ -482,11 +481,8 @@ public:
     }
     time++;
     return out;
-    */
-    return 0;
   }
   int minifm(uint fm, uint amp, uint freq) {
-    /*
     // hand tuned for squelchy noises
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
     uint quad_fm = (fm * fm) >> INTERNAL_BITS;
@@ -496,11 +492,8 @@ public:
     int out = SINE(amp, phase);
     if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
     return out;
-    */
-    return 0;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
-    /*
     // static HiPass hp(1 << 15);
     // static HiPass hp2(3 << 14);
     // static LoPass lp(3 << 14);
@@ -520,11 +513,8 @@ public:
     // out = compress(out, 5);
     // out = (out * static_cast<int>(amp)) >> 12;
     return out;
-    */
-    return 0;
   }
   int drum(uint fm, uint amp, uint freq, uint quad_dec, uint cube_dec) {
-    /*
     if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
     uint high_fm = (fm & 0xf800) >> 11;
@@ -535,8 +525,6 @@ public:
     out += LFSR.scaled_bit((amp * cube_dec * high_fm) >> 28);
     // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
     return out;
-    */
-    return 0;
   }
   void to(Voice& other) {
     other.amp = amp;
@@ -583,13 +571,11 @@ private:
   std::vector<bool> is_main;         // beat index -> true if main (small error)
   std::vector<int> index_by_place;   // (offset) place index -> beat index (or -1)
   void trigger(uint delta) {
-    /*
     uint n = voice + delta;
-    if (gray(ENABLED) & 1 << n) {
+    if (gray(ENABLED) & (1 << n)) {
       VOICES[n].trigger();
       STATE.voice(n, true);
     }
-    */
   }
 public:
   // 1 <= n_beats <= n_places
@@ -846,8 +832,8 @@ protected:
   }
   void update_gray(volatile uint* destn, uint zero, int bits, uint pot) {
     uint mask = (1 << bits) - 1;
-    int target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(target, pot)) *destn = (zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits)) & mask;
+    uint target = ((static_cast<int>(*destn) - zero) & mask) << (INTERNAL_BITS - bits);
+    if (check_enabled(target, pot)) *destn = (zero + (POTS[pot].state >> (INTERNAL_BITS - bits))) & mask;
     if (pot == active) STATE.led_gray(*destn);  // TODO - no enabled?
   }
   void update_signed(volatile int* destn, uint pot) {
@@ -1278,7 +1264,6 @@ int compress(int out, uint bits) {
 
 // apply post-processing
 uint post_process(int vol) {
-  /*
   // apply compressor
   int soft_clipped = compress(vol, COMP_BITS);
   // apply reverb
@@ -1292,8 +1277,6 @@ uint post_process(int vol) {
     Serial.printf("comp %d; vol %d; soft %d; hard %d\n",
                   8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   return hard_clipped;
-  */
-  return 0;
 }
 
 class Trigger {
@@ -1341,7 +1324,6 @@ private:
 public:
   Audio(Trigger trigger1, Trigger trigger2, Trigger trigger3, Trigger trigger4) : triggers(trigger1, trigger2, trigger3, trigger4) {};
   void generate(uint n, uint8_t data[]) {
-    /*
     for (uint i = 0; i < n; i++) {
       uint j = ticks & 0x3;  // really subtle fix - we can get rhythms switching on the same beat if these don't match
       triggers[j].on(ticks-j);
@@ -1350,7 +1332,6 @@ public:
       for (Voice& voice : VOICES) vol += voice.output();
       data[i] = post_process(vol >> 4);
     }
-    */
   }
 };
 
