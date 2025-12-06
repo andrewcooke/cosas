@@ -41,8 +41,8 @@ const uint LED_DIM_BITS = 3;
 volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
-// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
-volatile static uint ENABLED = 1;
+volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+// volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
@@ -324,8 +324,8 @@ public:
       sign = -1;
     };
     if (phase >= N_INTERNAL / 4) phase = (N_INTERNAL / 2) - phase;
-    int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow
-    Serial.printf("(%d %d %d %d) ", initial, phase, sign, result);
+    int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow (TODO - needed?)
+    // Serial.printf("(%d %d %d %d) ", initial, phase, sign, result);
     return result;
   }
 };
@@ -339,6 +339,7 @@ public:
     for (uint i = 0; i < 1 + (N_SAMPLES / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / N_SAMPLES));
   }
   uint lookup(uint phase) override {
+    // phase already in first quadrant
     return table[phase >> (INTERNAL_BITS - SAMPLE_BITS)];
   }
 };
@@ -360,7 +361,7 @@ class Triangle : public Quarter {
 public:
   Triangle() : Quarter() {}
   uint lookup(uint phase) override {
-    // this should only be called in first quadrant and phase is normalized
+    // this should only be called in first quadrant and phase is internal bits
     return phase << 2;
   }
 };
@@ -369,9 +370,6 @@ Triangle TRIANGLE;
 
 int norm_phase(int phase) {
   return phase & INTERNAL_MAX;
-  // while (phase < 0) phase += N_INTERNAL;
-  // while (phase >= N_INTERNAL) phase -= N_INTERNAL;
-  // return phase;
 }
 
 class HiPass {
@@ -429,6 +427,7 @@ private:
   int fm_phase = 0;
   int noise[N_NOISE] = { 0 };
   uint noise_idx = 0;
+  bool on = false;
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -439,14 +438,19 @@ public:
   volatile int shift;
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
+    on = true;
     time = 0;
     phase = 0;
   }
   int output() {
+    if (!on) return 0;
     // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
-    uint durn_scaled = durn << (2 + OVERSAMPLE_BITS);
-    if (time == durn_scaled) STATE.voice(idx, false);
-    if (time > durn_scaled) return 0;
+    uint durn_scaled = (durn * durn) >> (INTERNAL_BITS - 2 - OVERSAMPLE_BITS);
+    if (time >= durn_scaled) {
+      STATE.voice(idx, false);    
+      on = false;
+      return 0;
+    }
     uint nv_fm = fm;
     uint waveform = nv_fm >> 14;
     // 16 bits, but waveform removed
@@ -460,9 +464,8 @@ public:
     uint quad_dec = (linear_dec * linear_dec) >> INTERNAL_BITS;
     uint cube_dec = (quad_dec * linear_dec) >> INTERNAL_BITS;
     uint hard_amp = cube_amp * (waveform == 2 ? cube_dec : quad_dec) >> INTERNAL_BITS;
-    uint time_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
-    // uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
-    uint soft_amp = hard_amp;
+    uint time_phase = (N_INTERNAL * time) / (1 + 2 * durn_scaled);
+    uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
     uint final_amp = nv_amp & 0x8000 ? soft_amp : hard_amp;
     uint nv_freq = 1 + freq;  // avoid zero
     uint quad_freq = 1 + ((nv_freq * nv_freq) >> INTERNAL_BITS);
@@ -494,8 +497,8 @@ public:
     phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
     */
     phase = norm_phase(phase + static_cast<int>(freq));
-    int out = TRIANGLE(amp, phase);
-    Serial.printf("[%d]\n", out);
+    int out = SINE(amp, phase);
+    // Serial.printf("[%d]\n", out);
     // if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("time %d amp %d phase %d/%d/%d out %d\n", time, amp, phase, phase_to_lookup(phase), N_SAMPLES, out);
     return out;
   }
@@ -708,7 +711,7 @@ class Pot {
 private:
   static const uint ema_xbits = 3;
   uint pin;
-  EMA<uint> ema = EMA<uint>(3, 1, 3, 0);
+  EMA<uint> ema = EMA<uint>(3, 2, 3, 0);
 public:
   uint state;
   Pot(uint pin)
