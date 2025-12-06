@@ -41,7 +41,8 @@ const uint LED_DIM_BITS = 3;
 volatile static uint BPM = 90;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
-volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
@@ -51,19 +52,17 @@ const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
 const bool DBG_TIMING = false;
-const bool DBG_FM = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
-const bool DBG_TONE = false;
-const bool DBG_EUCLIDEAN = true;
+const bool DBG_EUCLIDEAN = false;
 const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
-const bool DBG_COPY = true;
+const bool DBG_COPY = false;
 const bool DBG_STARTUP = true;
-const bool DBG_POT = true;
+const bool DBG_POT = false;
 
 struct VoiceData {
   uint amp;
@@ -315,27 +314,32 @@ private:
   virtual uint lookup(uint phase);
 public:
   Quarter() = default;
-  int operator()(uint amp, int phase) {
+  int operator()(uint amp, uint phase) {
+    uint initial = phase;
+    // NOTE - this all works on INTERNAL_BITS, so lookup needs to correct
+    phase >>= OVERSAMPLE_BITS;
     int sign = 1;
-    if (phase >= N_SAMPLES / 2) {
-      phase = N_SAMPLES - phase;
+    if (phase >= N_INTERNAL / 2) {
+      phase = N_INTERNAL - phase;
       sign = -1;
     };
-    if (phase >= N_SAMPLES / 4) phase = (N_SAMPLES / 2) - phase;
-    return sign * ((amp * lookup(phase)) >> 12);
+    if (phase >= N_INTERNAL / 4) phase = (N_INTERNAL / 2) - phase;
+    int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow
+    Serial.printf("(%d %d %d %d) ", initial, phase, sign, result);
+    return result;
   }
 };
 
 // implement sine as lookup
 class Sine : public Quarter {
 private:
-  std::array<uint, 1 + N_SAMPLES / 4> table;
+  std::array<uint16_t, 1 + N_SAMPLES / 4> table;
 public:
   Sine() : Quarter() {
-    for (uint i = 0; i < 1 + N_SAMPLES / 4; i++) table[i] = INTERNAL_MAX * sin(2 * PI * i / N_SAMPLES);
+    for (uint i = 0; i < 1 + (N_SAMPLES / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / N_SAMPLES));
   }
   uint lookup(uint phase) override {
-    return table[phase_to_lookup(phase)];
+    return table[phase >> (INTERNAL_BITS - SAMPLE_BITS)];
   }
 };
 
@@ -356,21 +360,18 @@ class Triangle : public Quarter {
 public:
   Triangle() : Quarter() {}
   uint lookup(uint phase) override {
-    return (4 * INTERNAL_MAX * phase_to_lookup(phase)) / N_SAMPLES;
+    // this should only be called in first quadrant and phase is normalized
+    return phase << 2;
   }
 };
 
 Triangle TRIANGLE;
 
 int norm_phase(int phase) {
-  while (phase < 0) phase += N_INTERNAL;
-  while (phase >= N_INTERNAL) phase -= N_INTERNAL;
-  return phase;
-}
-
-uint phase_to_lookup(int phase) {
-  // 0xffff corresponds to 20khz, which requires two waveform samples if no oversampling
-  return phase >> (INTERNAL_BITS - (SAMPLE_BITS - 1) + OVERSAMPLE_BITS);
+  return phase & INTERNAL_MAX;
+  // while (phase < 0) phase += N_INTERNAL;
+  // while (phase >= N_INTERNAL) phase -= N_INTERNAL;
+  // return phase;
 }
 
 class HiPass {
@@ -449,7 +450,7 @@ public:
     uint nv_fm = fm;
     uint waveform = nv_fm >> 14;
     // 16 bits, but waveform removed
-    uint fm_drum = (nv_fm & 0x7fff) << 1;
+    // uint fm_drum = (nv_fm & 0x7fff) << 1;
     uint fm_other = (nv_fm & 0x3fff) << 2;
     uint nv_amp = amp;
     uint low_amp = nv_amp & 0x7ffff;
@@ -460,7 +461,8 @@ public:
     uint cube_dec = (quad_dec * linear_dec) >> INTERNAL_BITS;
     uint hard_amp = cube_amp * (waveform == 2 ? cube_dec : quad_dec) >> INTERNAL_BITS;
     uint time_phase = (N_SAMPLES * time) / (1 + 2 * durn_scaled);
-    uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
+    // uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
+    uint soft_amp = hard_amp;
     uint final_amp = nv_amp & 0x8000 ? soft_amp : hard_amp;
     uint nv_freq = 1 + freq;  // avoid zero
     uint quad_freq = 1 + ((nv_freq * nv_freq) >> INTERNAL_BITS);
@@ -469,11 +471,11 @@ public:
     switch (waveform) {
       case 0:
       case 1:
-        out = drum(fm_drum, final_amp, quad_freq, quad_dec, cube_dec);
-        break;
+        // out = drum(fm_drum, final_amp, quad_freq, quad_dec, cube_dec);
+        // break;
       case 2:
-        out = crash(fm_other, final_amp, quad_freq, linear_dec, quad_dec);
-        break;
+        // out = crash(fm_other, final_amp, quad_freq, linear_dec, quad_dec);
+        // break;
       case 3:
       default:
         out = minifm(INTERNAL_MAX - fm_other, final_amp, quad_freq);
@@ -484,13 +486,17 @@ public:
   }
   int minifm(uint fm, uint amp, uint freq) {
     // hand tuned for squelchy noises
-    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d fm %d\n", idx, fm);
+    if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
+/*
     uint quad_fm = (fm * fm) >> INTERNAL_BITS;
     uint cube_fm = (fm * quad_fm) >> INTERNAL_BITS;
     fm_phase = norm_phase(fm_phase + cube_fm);  // TODO - tune shift here
     phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
-    int out = SINE(amp, phase);
-    if (DBG_MINIFM && !idx && !random(DBG_LOTTERY)) Serial.printf("time %d, phase %d, out %d\n", time, phase, out);
+    */
+    phase = norm_phase(phase + static_cast<int>(freq));
+    int out = TRIANGLE(amp, phase);
+    Serial.printf("[%d]\n", out);
+    // if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("time %d amp %d phase %d/%d/%d out %d\n", time, amp, phase, phase_to_lookup(phase), N_SAMPLES, out);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
@@ -515,7 +521,7 @@ public:
     return out;
   }
   int drum(uint fm, uint amp, uint freq, uint quad_dec, uint cube_dec) {
-    if (DBG_TONE && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
+    if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
     uint high_fm = (fm & 0xf800) >> 11;
     uint low_fm = (fm & 0x07e0) >> 5;
@@ -758,14 +764,14 @@ public:
 // assorted ways to apply changes from a pot to some underlying parameter (implements the catch-up mechanism)
 class PotsReader {
 private:
-  static const uint thresh = 160;
+  static const uint thresh = 200;
   static const uint unknown = N_INTERNAL << 8;
   std::array<bool, 4> enabled = {false, false, false, false};
   std::array<uint, 4> posn = {unknown, unknown, unknown, unknown};
   int active = -1;
   bool check_enabled(uint target, uint pot) {
     uint posn_error = abs(static_cast<int>(posn[pot]) - static_cast<int>(POTS[pot].state));
-    if (DBG_POT && !random(DBG_LOTTERY)) Serial.printf("pot %d posn %d state %d posn error %d enabled %d active %d\n", pot, posn[pot], POTS[pot].state, posn_error, enabled[pot], active);
+    if (DBG_POT && !random(DBG_LOTTERY >> 4)) Serial.printf("pot %d posn %d state %d posn error %d enabled %d active %d\n", pot, posn[pot], POTS[pot].state, posn_error, enabled[pot], active == pot);
     if (posn[pot] == unknown) posn[pot] = POTS[pot].state;
     else if (posn_error > thresh) {
       // exclude pots that have not been moved
@@ -799,7 +805,7 @@ protected:
   }
   void update_no_msb(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
-    if (pot == active) STATE.led_bar((*destn & 0x7fff) << 1, enabled[pot]);
+    if (pot == active) STATE.led_bar((*destn & 0x7fffu) << 1, enabled[pot]);
   }
   void update_fm(volatile uint* destn, uint pot) {
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
@@ -1034,7 +1040,6 @@ public:
       float prev = buffer_frac;
       update_no_msb(&buffer_frac, 3);
       if (buffer_frac != prev) {
-        // frac is 12 bits; msb is even flag
         LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
         if (buffer_frac > (INTERNAL_MAX >> 1)) {
           if (LOCAL_BUFFER_SIZE & 0x1) {
@@ -1266,16 +1271,17 @@ int compress(int out, uint bits) {
 uint post_process(int vol) {
   // apply compressor
   int soft_clipped = compress(vol, COMP_BITS);
+  /*
   // apply reverb
   int reverbed = REVERB.next(soft_clipped);
   // int reverbed = soft_clipped;
   if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + 0x80;
-  int hard_clipped = max(0, min(static_cast<int>(0xff), offset));
-  if (DBG_VOLUME && !random(DBG_LOTTERY))
-    Serial.printf("comp %d; vol %d; soft %d; hard %d\n",
-                  8 - COMP_BITS, vol, soft_clipped, hard_clipped);
+  */
+  int offset = soft_clipped + 0x80;
+  int hard_clipped = max(0, min(0xff, offset));
+  // if (DBG_VOLUME && !random(DBG_LOTTERY)) Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 8 - COMP_BITS, vol, soft_clipped, hard_clipped);
   return hard_clipped;
 }
 

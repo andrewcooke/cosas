@@ -15,7 +15,7 @@ have a filter.  And one simple way to address this is to oversample.
 
 ## Frequency and Lookup Table Depth
 
-The audio range from  20Hz to 20kHz needs a factor of 1000, or 10 bits.
+The audio range from 20Hz to 20kHz needs a factor of 1000, or 10 bits.
 
 In fact, 10 bits for frequency isn't great because resolution at low
 frequencies is very low (20Hz then 40Hz).  So it's better to use 12
