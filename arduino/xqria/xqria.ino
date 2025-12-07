@@ -15,15 +15,18 @@ const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
 const uint SAMPLE_RATE_HZ = 40000;
 const uint INTERNAL_BITS = 16;
-const uint N_INTERNAL = 1 << INTERNAL_BITS;
-const uint INTERNAL_MAX = N_INTERNAL - 1;
+const uint INTERNAL_N = 1 << INTERNAL_BITS;
+const uint INTERNAL_MAX = INTERNAL_N - 1;
 const uint POT_BITS = 12;
-const uint N_POT = 1 << POT_BITS;
-const uint POT_MAX = N_POT - 1;
+const uint POT_N = 1 << POT_BITS;
+const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
 const uint OVERSAMPLE_BITS = 2;
-const uint SAMPLE_BITS = 12;
-const uint N_SAMPLES = 1 << SAMPLE_BITS;
+const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
+const uint TAU_N = 1 << TAU_BITS;
+const uint TAU_MAX = TAU_N - 1;
+const uint TABLE_BITS = 12;
+const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 
@@ -110,7 +113,8 @@ uint non_linear(uint val, uint n) {
   case 0: return 1;
   case 1: return val;
   case 2: return (val + ipow(val, 2)) / 2;
-  default: return (val + ipow(val, 2) + 2 * ipow(val, 3)) / 4;
+  case 3: return (val + ipow(val, 2) + 2 * ipow(val, 3)) / 4;
+  default: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
   }
 }
 
@@ -334,13 +338,12 @@ private:
 public:
   Quarter() = default;
   int operator()(uint amp, uint phase) {
-    // NOTE - this all works on INTERNAL_BITS, so lookup needs to reduce to SAMPLE_BITS if necessary
-    uint whole = 1 << (INTERNAL_BITS + OVERSAMPLE_BITS);
-    uint half = whole >> 1;
+    // NOTE - this all works on INTERNAL_BITS, so lookup needs to reduce to TABLE_BITS if necessary
+    uint half = TAU_N >> 1;
     uint quarter = half >> 1;
     int sign = 1;
     if (phase >= half) {
-      phase = whole - phase;
+      phase = TAU_N - phase;
       sign = -1;
     };
     if (phase >= quarter) phase = half - phase;
@@ -352,14 +355,14 @@ public:
 // implement sine as lookup
 class Sine : public Quarter {
 private:
-  std::array<uint16_t, 1 + N_SAMPLES / 4> table;
+  std::array<uint16_t, 1 + TABLE_N / 4> table;
 public:
   Sine() : Quarter() {
-    for (uint i = 0; i < 1 + (N_SAMPLES / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / N_SAMPLES));
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / TABLE_N));
   }
   uint lookup(uint phase) override {
     // phase already in first quadrant
-    return table[phase >> (INTERNAL_BITS - SAMPLE_BITS + OVERSAMPLE_BITS)];
+    return table[phase >> (TAU_BITS - TABLE_BITS)];
   }
 };
 
@@ -388,8 +391,7 @@ public:
 Triangle TRIANGLE;
 
 int norm_phase(int phase) {
-  uint mask = (1 << (INTERNAL_BITS + OVERSAMPLE_BITS)) - 1;
-  return phase & mask;
+  return phase & TAU_MAX;
 }
 
 class HiPass {
@@ -484,12 +486,13 @@ public:
     uint quad_dec = non_linear(linear_dec, 2);
     uint cube_dec = non_linear(linear_dec, 3);
     uint hard_amp = cube_amp * (waveform == 2 ? cube_dec : quad_dec) >> INTERNAL_BITS;
-    uint time_phase = (N_INTERNAL * time) / (1 + 2 * durn_scaled);
+    uint time_phase = (INTERNAL_N * time) / (1 + 2 * durn_scaled);
     uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
     uint final_amp = nv_amp & 0x8000 ? soft_amp : hard_amp;
     uint linear_freq = 1 + freq;  // avoid zero
     uint quad_freq = 1 + non_linear(linear_freq, 2);
-    // uint cube_freq = 1 + non_linear(linear_freq, 3);
+    uint cube_freq = 1 + non_linear(linear_freq, 3);
+    uint tetr_freq = 1 + non_linear(linear_freq, 4);
     int out = 0;
     switch (waveform) {
       case 0:
@@ -501,7 +504,7 @@ public:
         break;
       case 3:
       default:
-        out = minifm(INTERNAL_MAX - fm_other, final_amp, quad_freq);
+        out = minifm(INTERNAL_MAX - fm_other, final_amp, tetr_freq);
         break;
     }
     time++;
@@ -519,7 +522,7 @@ public:
     phase = norm_phase(phase + freq);
     int out = SINE(amp, phase);
     // Serial.printf("[%d]\n", out);
-    // if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("time %d amp %d phase %d/%d/%d out %d\n", time, amp, phase, phase_to_lookup(phase), N_SAMPLES, out);
+    // if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("time %d amp %d phase %d/%d/%d out %d\n", time, amp, phase, phase_to_lookup(phase), TABLE_N, out);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
@@ -536,7 +539,7 @@ public:
     int out = SINE(amp, phase);
     // out += LFSR.scaled_bit(quad_dec >> 5);  // aliasing from noise at sample freq seems to help?
     // out += LFSR.scaled_bit(linear_dec);
-    // out = hp.next(out, linear_dec << 1);    while (phase < 0) phase += N_SAMPLES_EXTN;
+    // out = hp.next(out, linear_dec << 1);    while (phase < 0) phase += TABLE_N_EXTN;
 
     // out = lp.next(out);
     // out = compress(out, 5);
@@ -788,7 +791,7 @@ public:
 class PotsReader {
 private:
   static const uint thresh = 200;
-  static const uint unknown = N_INTERNAL << 8;  // big enough to be unique
+  static const uint unknown = INTERNAL_N << 8;  // big enough to be unique
   std::array<bool, 4> enabled = {false, false, false, false};
   std::array<uint, 4> posn = {unknown, unknown, unknown, unknown};
   int active = -1;
@@ -1446,7 +1449,7 @@ void setup() {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
     .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
-    .freq_hz = SAMPLE_RATE_HZ,
+    .freq_hz = SAMPLE_RATE_HZ << OVERSAMPLE_BITS,
     .offset = 0,
     .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
     .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
