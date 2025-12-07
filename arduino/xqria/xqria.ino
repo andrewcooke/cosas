@@ -21,7 +21,7 @@ const uint POT_BITS = 12;
 const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
-const uint OVERSAMPLE_BITS = 2;
+const uint OVERSAMPLE_BITS = 1;
 const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
 const uint TAU_N = 1 << TAU_BITS;
 const uint TAU_MAX = TAU_N - 1;
@@ -1384,7 +1384,8 @@ static Audio AUDIO(Trigger(VAULTS[0], VOICES[0], true, false),
                    Trigger(VAULTS[0], VOICES[1], false, false), 
                    Trigger(VAULTS[1], VOICES[2], true, true),
                    Trigger(VAULTS[1], VOICES[3], false, true));
-static uint8_t BUFFER[MAX_LOCAL_BUFFER_SIZE];
+static uint8_t BUFFER[2][MAX_LOCAL_BUFFER_SIZE];
+volatile static uint dma_idx = 0;
 static SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 static dac_continuous_handle_t dac_handle;
@@ -1395,10 +1396,11 @@ static uint DMA_ERRORS = 0;
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
   unsigned long start = micros();
   uint loaded = 0;
-  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER, LOCAL_BUFFER_SIZE, &loaded);
+  dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER[dma_idx], LOCAL_BUFFER_SIZE, &loaded);
   if (loaded != LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
   if (event->buf_size != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
   if (event->write_bytes != 2 * LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
+  dma_idx = !dma_idx;
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag);  // flag refill
   DMA_INTERVAL.next(micros() - start);
   return false;
@@ -1409,7 +1411,7 @@ void update_buffer() {
   static uint count = 0;
   static EMA<uint> avg = EMA<uint>(4, 1, 3, REFRESH_US);
   unsigned long start = micros();
-  AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER);
+  AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[dma_idx]);
   uint durn = micros() - start;
   uint avg_durn = avg.next(durn);
   uint dma_durn = DMA_INTERVAL.read();
@@ -1447,7 +1449,7 @@ void setup() {
   if (DBG_STARTUP) Serial.printf("semaphore created %d/1\n", dma_semaphore != nullptr);
   dac_continuous_config_t dac_config = {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
-    .desc_num = 2,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
+    .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
     .freq_hz = SAMPLE_RATE_HZ << OVERSAMPLE_BITS,
     .offset = 0,
