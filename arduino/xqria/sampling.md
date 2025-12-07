@@ -1,4 +1,6 @@
 
+TODO - extend to include TAU
+
 # Sampling
 
 Notes on calculation of sampling frequencies, buffers, etc (xqria is

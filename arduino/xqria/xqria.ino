@@ -21,7 +21,7 @@ const uint POT_BITS = 12;
 const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
-const uint OVERSAMPLE_BITS = 1;
+const uint OVERSAMPLE_BITS = 1;  // currently can't quite suppoer 2 bits - get underruns when all voices active
 const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
 const uint TAU_N = 1 << TAU_BITS;
 const uint TAU_MAX = TAU_N - 1;
@@ -47,7 +47,7 @@ volatile static uint COMP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 // volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
-volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
+volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / (SAMPLE_RATE_HZ << OVERSAMPLE_BITS);
 
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
@@ -1385,42 +1385,46 @@ static Audio AUDIO(Trigger(VAULTS[0], VOICES[0], true, false),
                    Trigger(VAULTS[1], VOICES[2], true, true),
                    Trigger(VAULTS[1], VOICES[3], false, true));
 static uint8_t BUFFER[2][MAX_LOCAL_BUFFER_SIZE];
-volatile static uint dma_idx = 0;
+volatile static uint dma_idx = 0;  // not needed, afaict, because dma buffer is always large enough for what we have
 static SemaphoreHandle_t dma_semaphore;
 static BaseType_t dma_flag = pdFALSE;
 static dac_continuous_handle_t dac_handle;
-static EMA<uint> DMA_INTERVAL = EMA<uint>(4, 1, 3, 0);
-static uint DMA_ERRORS = 0;
+volatile static uint dma_time = 0;
+volatile static uint dma_errors = 0;
 
-// fast copy of existing data into buffer
+// fast copy of existing data into buffer - seems to take a very consistent 200us
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
   unsigned long start = micros();
   uint loaded = 0;
   dac_continuous_write_asynchronously(handle, static_cast<uint8_t*>(event->buf), event->buf_size, BUFFER[dma_idx], LOCAL_BUFFER_SIZE, &loaded);
-  if (loaded != LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
-  if (event->buf_size != DMA_BUFFER_SIZE) DMA_ERRORS += 1;
-  if (event->write_bytes != 2 * LOCAL_BUFFER_SIZE) DMA_ERRORS += 1;
+  if (loaded != LOCAL_BUFFER_SIZE) dma_errors += 1;
+  if (event->buf_size != DMA_BUFFER_SIZE) dma_errors += 1;
+  if (event->write_bytes != 2 * LOCAL_BUFFER_SIZE) dma_errors += 1;
   dma_idx = !dma_idx;
   xSemaphoreGiveFromISR(dma_semaphore, &dma_flag);  // flag refill
-  DMA_INTERVAL.next(micros() - start);
+  dma_time = micros() - start;
   return false;
 }
 
-// slow fill of buffer
+// slow fill of buffer - time depends on number of voices active (obvs)
 void update_buffer() {
-  static uint count = 0;
-  static EMA<uint> avg = EMA<uint>(4, 1, 3, REFRESH_US);
+  static EMA<uint> avg_duty = EMA<uint>(8, 1, 4, 100);
   unsigned long start = micros();
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[dma_idx]);
-  uint durn = micros() - start;
-  uint avg_durn = avg.next(durn);
-  uint dma_durn = DMA_INTERVAL.read();
-  if (DBG_TIMING && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3)))
-    Serial.printf("buffer %d filled in %dus (avg %dus, free %dus, duty %.1f%%); dma loaded in %dus; total %dus, duty %.1f%%; errors %d %s\n",
-                  LOCAL_BUFFER_SIZE, durn, avg_durn, REFRESH_US - avg_durn, 100 * avg_durn / static_cast<float>(REFRESH_US),
-                  dma_durn, dma_durn + avg_durn, 100 * (dma_durn + avg_durn) / static_cast<float>(REFRESH_US), 
-                  DMA_ERRORS, DMA_ERRORS ? "XXXX" : "");
-  if (count < 2 && DBG_STARTUP) Serial.printf("update buffer %d/2\n", ++count);
+  uint calc_time = micros() - start;
+  uint duty = (100 * (dma_time + calc_time)) / REFRESH_US;
+  uint avg = avg_duty.next(duty);
+  static uint burst = 0;
+  if (DBG_TIMING && !burst && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3))) {
+    burst = 3;
+    Serial.println("--");
+  }
+  if (burst) {
+    Serial.printf("buffer %d; dma %d, calc %d, duty %d/%d; errors %d\n", LOCAL_BUFFER_SIZE, dma_time, calc_time, duty, avg, dma_errors);
+    burst--;
+  }
+  static uint startup_count = 0;
+  if (startup_count < 2 && DBG_STARTUP) Serial.printf("update buffer %d/2\n", ++startup_count);
 }
 
 // refill buffer when flagged
