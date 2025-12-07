@@ -1,6 +1,4 @@
 
-TODO - extend to include TAU
-
 # Sampling
 
 Notes on calculation of sampling frequencies, buffers, etc (xqria is
@@ -23,8 +21,8 @@ In fact, 10 bits for frequency isn't great because resolution at low
 frequencies is very low (20Hz then 40Hz).  So it's better to use 12
 bits, ie all that is available from a single pot.
 
-Considering bit depth (not table size), the lookup table for sine is
-amplitude, not frequency, but it seems reasonable that we want a
+Considering bit depth (and not table size), the lookup table for sine
+is amplitude, not frequency, but it seems reasonable that we want a
 similar dynamic range for FM modulation.  And if I am going to use
 more than 8 bits I might as well use 16 for no penalty over 10
 (packing two 12 bit values into 3 bytes is tricky because it involves
@@ -34,6 +32,16 @@ So, for simplicity, with the possibility of reducing noise, and no
 real cost I will use 16 bits for frequency and amplitude values
 internally, where 0xffff corresponds to the maximum value and inputs
 and oututs are shifted accordingly.
+
+## Phase (Tau)
+
+While generating audio we accumulate phase.  This loops at the
+equivalent of 2 pi.  If the highest frequency (20khz) uses 16 bits
+then we need to accumulate over 17 bits, because we need to sample
+twice in a single cycle.
+
+In other words, by selecting frequency as 16 bits we have defined 2 pi
+(aka tau) as 17 bits.
 
 ## (Base) Sampling Frequency
 
@@ -49,9 +57,14 @@ since it allows for bitshift conversion.
 ## Lookup Table Width
 
 This should be a power of 2 so that we can shift max frequency (20kHz)
-to correspond to half table size.  In practica only a quarter table is
-needed.  The exact value can be tuned on compiling/listening (along
-with oversample bits).
+to correspond to half table size.  In practice only a quarter table is
+needed.  The exact value can be tuned on compiling/listening.
+
+Note that if the table width is not equal to tau then we need to
+down-sample the phase before lookup.  It is not clear to me whether
+this will have a noticeable effect on the sound (it seems like it will
+increase the noise floor).  So, again, I need to experiment with
+different table sizes.
 
 ## Oversampling
 
@@ -59,5 +72,10 @@ If we oversample then phase increments need to be reduced
 appropriately, which is equivalent to shifting frequency down by
 oversample bits.
 
-This argues for a progressively larger lookup table to avoid repeated
-values at low frequencies.
+But this leads to a loss of resolution, which might affect sound
+quality (especially for percussion, which uses extreme high and low
+frequencies).
+
+An alternative to down-shifting rfequency is to increase tau.  This is
+equivalent mathematically, This will also affect either the lookup
+table width or, more likely, the down-sampling needed on lookup.
