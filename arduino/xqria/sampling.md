@@ -79,3 +79,9 @@ frequencies).
 An alternative to down-shifting rfequency is to increase tau.  This is
 equivalent mathematically, This will also affect either the lookup
 table width or, more likely, the down-sampling needed on lookup.
+
+Note added later: experiments show that only 1 bit of oversampling is
+possible with the current code (we cannot fill the buffer in time when
+all 4 voices are active).  When development is (laegely) complete it
+would be worth seeing if performance tuning could extend this to 2
+bits.
