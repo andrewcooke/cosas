@@ -76,9 +76,9 @@ But this leads to a loss of resolution, which might affect sound
 quality (especially for percussion, which uses extreme high and low
 frequencies).
 
-An alternative to down-shifting rfequency is to increase tau.  This is
-equivalent mathematically, This will also affect either the lookup
-table width or, more likely, the down-sampling needed on lookup.
+An alternative to down-shifting rfequency is to increase tau by a
+corresponding amount.  This will also affect either the lookup table
+width or, more likely, the down-sampling needed on lookup.
 
 Note added later: experiments show that only 1 bit of oversampling is
 possible with the current code (we cannot fill the buffer in time when
