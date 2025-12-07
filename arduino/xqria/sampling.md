@@ -31,12 +31,12 @@ factors of 3, not 2, and that complexity doesn't seem worthwhile).
 So, for simplicity, with the possibility of reducing noise, and no
 real cost I will use 16 bits for frequency and amplitude values
 internally, where 0xffff corresponds to the maximum value and inputs
-and oututs are shifted accordingly.
+and outputs are shifted accordingly.
 
 ## Phase (Tau)
 
 While generating audio we accumulate phase.  This loops at the
-equivalent of 2 pi.  If the highest frequency (20khz) uses 16 bits
+equivalent of 2 pi.  If the highest frequency (20kHz) uses 16 bits
 then we need to accumulate over 17 bits, because we need to sample
 twice in a single cycle.
 
@@ -51,8 +51,8 @@ an oversampling factor.
 Base frequency could be 40, 44 or 48kHz.  Since we're not
 inter-operating with anything digitally, let's choose 40kHz.
 
-For oversampling, it's probaby simplest to describe that in bits,
-since it allows for bitshift conversion.
+For oversampling, it's probably simplest to describe that in bits,
+since it allows for bit-shift conversion.
 
 ## Lookup Table Width
 
@@ -76,12 +76,12 @@ But this leads to a loss of resolution, which might affect sound
 quality (especially for percussion, which uses extreme high and low
 frequencies).
 
-An alternative to down-shifting rfequency is to increase tau by a
+An alternative to down-shifting frequency is to increase tau by a
 corresponding amount.  This will also affect either the lookup table
 width or, more likely, the down-sampling needed on lookup.
 
 Note added later: experiments show that only 1 bit of oversampling is
 possible with the current code (we cannot fill the buffer in time when
-all 4 voices are active).  When development is (laegely) complete it
+all 4 voices are active).  When development is (largely) complete it
 would be worth seeing if performance tuning could extend this to 2
 bits.
