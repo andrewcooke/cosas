@@ -54,7 +54,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
@@ -113,8 +113,8 @@ uint non_linear(uint val, uint n) {
   case 0: return 1;
   case 1: return val;
   case 2: return (val + ipow(val, 2)) / 2;
-  case 3: return (val + ipow(val, 2) + 2 * ipow(val, 3)) / 4;
-  default: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
+  case 3: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
+  default: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
   }
 }
 
@@ -1447,7 +1447,7 @@ void setup() {
   if (DBG_STARTUP) Serial.printf("semaphore created %d/1\n", dma_semaphore != nullptr);
   dac_continuous_config_t dac_config = {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
-    .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
+    .desc_num = 2,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
     .freq_hz = SAMPLE_RATE_HZ << OVERSAMPLE_BITS,
     .offset = 0,
