@@ -99,13 +99,21 @@ template<typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
 
-uint ipow(uint val, uint n) {
+inline uint mult(uint a, uint b) {
+  return (a * b) >> INTERNAL_BITS;
+}
+
+inline uint imult(int a, int b) {
+  return (a * b) >> INTERNAL_BITS;
+}
+
+inline uint ipow(uint val, uint n) {
   switch (n) {
   case 0: return 1;
   case 1: return val;
   default:
     uint m = n / 2;
-    return (ipow(val, m) * ipow(val, n - m)) >> INTERNAL_BITS;
+    return mult(ipow(val, m), ipow(val, n - m));;
   }
 }
 
@@ -486,9 +494,9 @@ public:
     uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
     uint dec_2 = non_linear(linear_dec, 2);
     uint dec_3 = non_linear(linear_dec, 3);
-    uint hard_amp = amp_3 * (waveform == 2 ? dec_3 : dec_2) >> INTERNAL_BITS;
+    uint hard_amp = mult(amp_3, dec_3);
     uint time_phase = (INTERNAL_N * time) / (1 + 2 * durn_scaled);
-    uint soft_amp = abs(SINE((amp_3 * linear_dec) >> INTERNAL_BITS, time_phase));
+    uint soft_amp = abs(SINE(mult(amp_3, linear_dec), time_phase));
     uint final_amp = linear_amp & 0x8000 ? soft_amp : hard_amp;
     uint linear_freq = 1 + freq;  // avoid zero
     uint freq_2 = 1 + non_linear(linear_freq, 2);
@@ -501,7 +509,7 @@ public:
         out = drum(fm_drum, final_amp, freq_2, dec_2, dec_3);
         break;
       case 2:
-        out = crash(fm_other, final_amp, freq_2, linear_dec, dec_2);
+        out = crash(fm_other, final_amp, freq_2, dec_3, dec_2);
         break;
       case 3:
       default:
@@ -514,43 +522,33 @@ public:
   int minifm(uint fm, uint amp, uint freq) {
     // hand tuned for squelchy noises
     if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-    // uint fm_2 = non_linear(fm, 2);
     uint fm_3 = non_linear(fm, 3);
     fm_phase = norm_phase(fm_phase + fm_3);  // TODO - tune shift here
     phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
     int out = SINE(amp, phase);
     return out;
   }
-  int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
-    // static HiPass hp(1 << 15);
-    // static HiPass hp2(3 << 14);
-    // static LoPass lp(3 << 14);
-    // static int fm_phase2 = 0;
-    // fm_phase = norm_phase(fm_phase + fm);
-    // fm_phase2 = norm_phase(fm_phase2 + freq + TRIANGLE(MAX12, fm_phase >> PHASE_EXTN));
-    // phase = norm_phase(phase + (freq >> 1) + SINE(0, fm_phase2 >> PHASE_EXTN));
-    // phase = norm_phase(phase + freq);
-    phase = norm_phase(phase + freq);
-    // phase = norm_phase(phase + (freq_scaled << 1) + TRIANGLE(quad_dec, fm_phase >> PHASE_EXTN));
+  int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
+    static HiPass hp(3 << 14);
+    static int fm_phase2 = 0;
+    fm_phase = norm_phase(fm_phase + (fm >> 1));
+    fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
+    phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
     int out = SINE(amp, phase);
-    // out += LFSR.scaled_bit(quad_dec >> 5);  // aliasing from noise at sample freq seems to help?
-    // out += LFSR.scaled_bit(linear_dec);
-    // out = hp.next(out, linear_dec << 1);    while (phase < 0) phase += TABLE_N_EXTN;
-
-    // out = lp.next(out);
-    // out = compress(out, 5);
-    // out = (out * static_cast<int>(amp)) >> 12;
+    out += LFSR.scaled_bit(noise_dec >> 5);  // aliasing from noise at sample freq seems to help?
+    out = hp.next(out, filter_dec << 1);
+    out = imult(out, amp);
     return out;
   }
-  int drum(uint fm, uint amp, uint freq, uint quad_dec, uint cube_dec) {
+  int drum(uint fm, uint amp, uint freq, uint fm_dec, uint noise_dec) {
     if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
     // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
     uint high_fm = (fm & 0xf800) >> 11;
     uint low_fm = (fm & 0x07e0) >> 5;
-    freq >>= 8;
-    phase = norm_phase(phase + freq + ((quad_dec * low_fm) >> INTERNAL_BITS));
+    freq >>= 6;
+    phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 13));
     int out = SINE(amp, phase);
-    out += LFSR.scaled_bit((amp * cube_dec * high_fm) >> 28);
+    out += LFSR.scaled_bit((amp * noise_dec * high_fm) >> 23);
     // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
     return out;
   }
