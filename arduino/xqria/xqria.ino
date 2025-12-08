@@ -41,11 +41,12 @@ const uint LED_MAX = (1 << LED_BITS) - 1;
 const uint LED_DIM_BITS = 3;
 
 // global parameters that can be changed during use
-volatile static uint BPM = 90;
+//volatile static uint BPM = 90;
+volatile static uint BPM = 200;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
-volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
-// volatile static uint ENABLED = 1;
+// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / (SAMPLE_RATE_HZ << OVERSAMPLE_BITS);
 
@@ -478,33 +479,33 @@ public:
     // 16 bits, but waveform removed
     uint fm_drum = (nv_fm & 0x7fff) << 1;
     uint fm_other = (nv_fm & 0x3fff) << 2;
-    uint nv_amp = amp;
-    uint low_amp = (nv_amp & 0x7fff) << 1;
+    uint linear_amp = amp;
+    uint low_amp = (linear_amp & 0x7fff) << 1;
     // uint quad_amp = non_linear(low_amp, 2);
-    uint cube_amp = non_linear(low_amp, 3);
+    uint amp_3 = non_linear(low_amp, 3);
     uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
-    uint quad_dec = non_linear(linear_dec, 2);
-    uint cube_dec = non_linear(linear_dec, 3);
-    uint hard_amp = cube_amp * (waveform == 2 ? cube_dec : quad_dec) >> INTERNAL_BITS;
+    uint dec_2 = non_linear(linear_dec, 2);
+    uint dec_3 = non_linear(linear_dec, 3);
+    uint hard_amp = amp_3 * (waveform == 2 ? dec_3 : dec_2) >> INTERNAL_BITS;
     uint time_phase = (INTERNAL_N * time) / (1 + 2 * durn_scaled);
-    uint soft_amp = abs(SINE((cube_amp * linear_dec) >> INTERNAL_BITS, time_phase));
-    uint final_amp = nv_amp & 0x8000 ? soft_amp : hard_amp;
+    uint soft_amp = abs(SINE((amp_3 * linear_dec) >> INTERNAL_BITS, time_phase));
+    uint final_amp = linear_amp & 0x8000 ? soft_amp : hard_amp;
     uint linear_freq = 1 + freq;  // avoid zero
-    uint quad_freq = 1 + non_linear(linear_freq, 2);
-    uint cube_freq = 1 + non_linear(linear_freq, 3);
-    uint tetr_freq = 1 + non_linear(linear_freq, 4);
+    uint freq_2 = 1 + non_linear(linear_freq, 2);
+    // uint freq_3 = 1 + non_linear(linear_freq, 3);
+    uint freq_4 = 1 + non_linear(linear_freq, 4);
     int out = 0;
     switch (waveform) {
       case 0:
       case 1:
-        out = drum(fm_drum, final_amp, quad_freq, quad_dec, cube_dec);
+        out = drum(fm_drum, final_amp, freq_2, dec_2, dec_3);
         break;
       case 2:
-        out = crash(fm_other, final_amp, quad_freq, linear_dec, quad_dec);
+        out = crash(fm_other, final_amp, freq_2, linear_dec, dec_2);
         break;
       case 3:
       default:
-        out = minifm(INTERNAL_MAX - fm_other, final_amp, tetr_freq);
+        out = minifm(INTERNAL_MAX - fm_other, final_amp, freq_4);
         break;
     }
     time++;
@@ -513,16 +514,11 @@ public:
   int minifm(uint fm, uint amp, uint freq) {
     // hand tuned for squelchy noises
     if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-/*
-    uint quad_fm = non_linear(fm, 2);
-    uint cube_fm = non_linear(fm, 3);
-    fm_phase = norm_phase(fm_phase + cube_fm);  // TODO - tune shift here
+    // uint fm_2 = non_linear(fm, 2);
+    uint fm_3 = non_linear(fm, 3);
+    fm_phase = norm_phase(fm_phase + fm_3);  // TODO - tune shift here
     phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
-    */
-    phase = norm_phase(phase + freq);
     int out = SINE(amp, phase);
-    // Serial.printf("[%d]\n", out);
-    // if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("time %d amp %d phase %d/%d/%d out %d\n", time, amp, phase, phase_to_lookup(phase), TABLE_N, out);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint linear_dec, uint quad_dec) {
