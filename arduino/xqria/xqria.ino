@@ -123,7 +123,8 @@ uint non_linear(uint val, uint n) {
   case 1: return val;
   case 2: return (val + ipow(val, 2)) / 2;
   case 3: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
-  default: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
+  case 4: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
+  default: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4), + 28 * ipow(val, 5)) / 32;
   }
 }
 
@@ -491,7 +492,10 @@ public:
     uint low_amp = (linear_amp & 0x7fff) << 1;
     // uint quad_amp = non_linear(low_amp, 2);
     uint amp_3 = non_linear(low_amp, 3);
-    uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
+    // hack because d > 16 biys so we get overflow
+    uint RESOLN = 1 << 12;
+    uint linear_dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));
+    // uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
     uint dec_2 = non_linear(linear_dec, 2);
     uint dec_3 = non_linear(linear_dec, 3);
     uint hard_amp = mult(amp_3, dec_3);
@@ -502,14 +506,15 @@ public:
     uint freq_2 = 1 + non_linear(linear_freq, 2);
     // uint freq_3 = 1 + non_linear(linear_freq, 3);
     uint freq_4 = 1 + non_linear(linear_freq, 4);
+    // uint freq_5 = 1 + non_linear(linear_freq, 5);
     int out = 0;
     switch (waveform) {
       case 0:
       case 1:
-        out = drum(fm_drum, final_amp, freq_2, dec_2, dec_3);
+        out = drum(fm_drum, final_amp, freq_2, dec_2, dec_2);
         break;
       case 2:
-        out = crash(fm_other, final_amp, freq_2, dec_3, dec_2);
+        out = crash(fm_other, final_amp, freq_2, dec_3, dec_3);
         break;
       case 3:
       default:
@@ -529,9 +534,10 @@ public:
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
+    if (DBG_CRASH && !random(DBG_LOTTERY)) Serial.printf("fm %d amp %d freq %d filter_dec %d noise_dec %d\n", fm, amp, freq, filter_dec, noise_dec);
     static HiPass hp(3 << 14);
     static int fm_phase2 = 0;
-    fm_phase = norm_phase(fm_phase + (fm >> 1));
+    fm_phase = norm_phase(fm_phase + (fm << 1));
     fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
     phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
     int out = SINE(amp, phase);
@@ -546,9 +552,9 @@ public:
     uint high_fm = (fm & 0xf800) >> 11;
     uint low_fm = (fm & 0x07e0) >> 5;
     freq >>= 6;
-    phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 13));
+    phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 14));
     int out = SINE(amp, phase);
-    out += LFSR.scaled_bit((amp * noise_dec * high_fm) >> 23);
+    out += LFSR.scaled_bit(mult(mult(amp, noise_dec), high_fm << 8));
     // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
     return out;
   }
@@ -1037,7 +1043,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, 12, INTERNAL_MAX, 4)) {};  // by default disabled
+  Reverb() : head(TapeEMA(this, INTERNAL_BITS, INTERNAL_MAX, 4)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -1054,9 +1060,9 @@ public:
   PostButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x9) {
-      update(&REVERB.size, 0, 1, 0);
+      update(&REVERB.size, 0, -3, 0);
       update(&REVERB.head.num, 1, 0, 1);
-      update(&COMP_BITS, 0, -9, 2);
+      update(&COMP_BITS, 0, -12, 2);
       float prev = buffer_frac;
       update_no_msb(&buffer_frac, 3);
       if (buffer_frac != prev) {
@@ -1276,7 +1282,7 @@ void IRAM_ATTR timer_callback(void*) {
 int compress(int out, uint bits) {
   int sign = sgn(out);
   uint absolute = abs(out);
-  for (uint i = (8 - bits); i < 8; i++) {
+  for (uint i = (INTERNAL_BITS - bits); i < INTERNAL_BITS; i++) {
     uint limit = 1 << i;
     if (absolute > limit) absolute = limit + (absolute - limit) / 2;
   }
@@ -1288,9 +1294,9 @@ uint post_process(int vol) {
   // apply compressor
   int soft_clipped = compress(vol, COMP_BITS);
   // apply reverb
-  // int reverbed = REVERB.next(soft_clipped);
-  int reverbed = soft_clipped;
-  if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
+  // int reverbed = soft_clipped;
+  int reverbed = REVERB.next(soft_clipped);
+  // if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + 0x80;
   int hard_clipped = max(0, min(0xff, offset));
@@ -1411,7 +1417,7 @@ void update_buffer() {
   static uint burst = 0;
   if (DBG_TIMING && !burst && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3))) {
     burst = 3;
-    Serial.println("--");
+    Serial.println("---");
   }
   if (burst) {
     Serial.printf("buffer %d; dma %d, calc %d, duty %d/%d; errors %d\n", LOCAL_BUFFER_SIZE, dma_time, calc_time, duty, avg, dma_errors);
