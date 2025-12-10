@@ -45,6 +45,7 @@ const uint LED_DIM_BITS = 3;
 volatile static uint BPM = 200;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
+volatile static uint SHIFT_BITS = 0;
 // volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
@@ -123,8 +124,7 @@ uint non_linear(uint val, uint n) {
   case 1: return val;
   case 2: return (val + ipow(val, 2)) / 2;
   case 3: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
-  case 4: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
-  default: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4), + 28 * ipow(val, 5)) / 32;
+  default: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
   }
 }
 
@@ -454,12 +454,21 @@ public:
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
+  static const uint RESOLN = 1 << 12;  // hack because d > 16 bits so we get overflow
   uint time = 0;  // ticks since triggered
   int phase = 0;
   int fm_phase = 0;
+  int fm_phase2 = 0;
   int noise[N_NOISE] = { 0 };
   uint noise_idx = 0;
   bool on = false;
+  uint instantaneous_amp(uint amp, uint durn, uint dec, uint hard_deg) {
+    uint low_amp = (amp & 0x7fff) << 1;
+    uint hard_amp = mult(non_linear(low_amp, 4), non_linear(dec, hard_deg));
+    uint phase = (INTERNAL_N * time) / (1 + 2 * durn);
+    uint soft_amp = abs(SINE(mult(non_linear(low_amp, 4), dec), phase));
+    return amp & 0x8000 ? soft_amp : hard_amp;
+  }
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -488,55 +497,36 @@ public:
     // 16 bits, but waveform removed
     uint fm_drum = (nv_fm & 0x7fff) << 1;
     uint fm_other = (nv_fm & 0x3fff) << 2;
-    uint linear_amp = amp;
-    uint low_amp = (linear_amp & 0x7fff) << 1;
-    // uint quad_amp = non_linear(low_amp, 2);
-    uint amp_3 = non_linear(low_amp, 3);
-    // hack because d > 16 biys so we get overflow
-    uint RESOLN = 1 << 12;
-    uint linear_dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));
-    // uint linear_dec = INTERNAL_MAX * (durn_scaled - time) / (durn_scaled + 1);
-    uint dec_2 = non_linear(linear_dec, 2);
-    uint dec_3 = non_linear(linear_dec, 3);
-    uint hard_amp = mult(amp_3, dec_3);
-    uint time_phase = (INTERNAL_N * time) / (1 + 2 * durn_scaled);
-    uint soft_amp = abs(SINE(mult(amp_3, linear_dec), time_phase));
-    uint final_amp = linear_amp & 0x8000 ? soft_amp : hard_amp;
-    uint linear_freq = 1 + freq;  // avoid zero
-    uint freq_2 = 1 + non_linear(linear_freq, 2);
-    // uint freq_3 = 1 + non_linear(linear_freq, 3);
-    uint freq_4 = 1 + non_linear(linear_freq, 4);
-    // uint freq_5 = 1 + non_linear(linear_freq, 5);
+    uint dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));
     int out = 0;
     switch (waveform) {
       case 0:
       case 1:
-        out = drum(fm_drum, final_amp, freq_2, dec_2, dec_2);
+        out = drum(fm_drum, instantaneous_amp(amp, durn_scaled, dec, 2), 1 + non_linear(freq, 2), non_linear(dec, 2), non_linear(dec, 2));
         break;
       case 2:
-        out = crash(fm_other, final_amp, freq_2, dec_3, dec_3);
+        out = crash(fm_other, instantaneous_amp(amp, durn_scaled, dec, 4), 1 + non_linear(freq, 2), non_linear(dec, 3), non_linear(dec, 3));
         break;
       case 3:
       default:
-        out = minifm(INTERNAL_MAX - fm_other, final_amp, freq_4);
+        out = bass(fm_other, instantaneous_amp(amp, durn_scaled, dec, 1), 1 + non_linear(freq, 4));
         break;
     }
     time++;
     return out;
   }
-  int minifm(uint fm, uint amp, uint freq) {
-    // hand tuned for squelchy noises
+  int bass(uint fm, uint amp, uint freq) {
     if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-    uint fm_3 = non_linear(fm, 3);
-    fm_phase = norm_phase(fm_phase + fm_3);  // TODO - tune shift here
-    phase = norm_phase(phase + freq + SINE(freq, fm_phase));  // sic
+    freq >>= 4;
+    fm >>= 6;
+    fm_phase = norm_phase(fm_phase + non_linear(fm, 3));
+    phase = norm_phase(phase + freq + SINE((freq >> 4) + non_linear(fm, 3), fm_phase) + SINE(non_linear(fm, 4), freq >> 1));
     int out = SINE(amp, phase);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
     if (DBG_CRASH && !random(DBG_LOTTERY)) Serial.printf("fm %d amp %d freq %d filter_dec %d noise_dec %d\n", fm, amp, freq, filter_dec, noise_dec);
     static HiPass hp(3 << 14);
-    static int fm_phase2 = 0;
     fm_phase = norm_phase(fm_phase + (fm << 1));
     fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
     phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
@@ -790,7 +780,7 @@ public:
 // assorted ways to apply changes from a pot to some underlying parameter (implements the catch-up mechanism)
 class PotsReader {
 private:
-  static const uint thresh = 200;
+  static const uint thresh = 256;
   static const uint unknown = INTERNAL_N << 8;  // big enough to be unique
   std::array<bool, 4> enabled = {false, false, false, false};
   std::array<uint, 4> posn = {unknown, unknown, unknown, unknown};
@@ -1016,8 +1006,8 @@ public:
   }
 };
 
-static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3u, VAULTS[0]);
-static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xcu, VAULTS[1]);
+static EuclideanButtons EUCLIDEAN_BUTTONS_LEFT = EuclideanButtons(0x3, VAULTS[0]);
+static EuclideanButtons EUCLIDEAN_BUTTONS_RIGHT = EuclideanButtons(0xc, VAULTS[1]);
 
 // reverb via array of values (could maybe save space with int16, but store extra bits to reduce noise)
 template<int BITS> class Reverb {
@@ -1063,23 +1053,7 @@ public:
       update(&REVERB.size, 0, -3, 0);
       update(&REVERB.head.num, 1, 0, 1);
       update(&COMP_BITS, 0, -12, 2);
-      float prev = buffer_frac;
-      update_no_msb(&buffer_frac, 3);
-      if (buffer_frac != prev) {
-        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
-        if (buffer_frac > (INTERNAL_MAX >> 1)) {
-          if (LOCAL_BUFFER_SIZE & 0x1) {
-            LOCAL_BUFFER_SIZE += 1;
-            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
-          }
-        } else {
-          if (!(LOCAL_BUFFER_SIZE & 0x1)) {
-            LOCAL_BUFFER_SIZE += 1;
-            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
-          }
-        }
-        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
-      }
+      update(&SHIFT_BITS, 0, -12, 3);
     } else {
       disable();
     }
@@ -1108,6 +1082,39 @@ public:
 };
 
 static PerfButtons PERFORMANCE_BUTTONS;
+
+// post-process - outer two buttons
+class SysButtons : public PotsReader {
+private:
+  uint buffer_frac = ((LOCAL_BUFFER_SIZE * (INTERNAL_MAX >> 1)) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : (INTERNAL_MAX >> 1));
+public:
+  SysButtons() = default;
+  void read_state() {
+    if (STATE.button_mask == 0xf) {
+      float prev = buffer_frac;
+      update_no_msb(&buffer_frac, 0);
+      if (buffer_frac != prev) {
+        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
+        if (buffer_frac > (INTERNAL_MAX >> 1)) {
+          if (LOCAL_BUFFER_SIZE & 0x1) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        } else {
+          if (!(LOCAL_BUFFER_SIZE & 0x1)) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        }
+        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
+      }
+    } else {
+      disable();
+    }
+  }
+};
+
+static SysButtons SYS_BUTTONS;
 
 class Config {
 private:
@@ -1290,12 +1297,14 @@ int compress(int out, uint bits) {
 }
 
 // apply post-processing
-uint post_process(int vol) {
+uint post_process(int amp) {
   // apply compressor
-  int soft_clipped = compress(vol, COMP_BITS);
+  int soft_clipped = compress(amp, COMP_BITS);
+  // apply quantisation
+  int shifted = (soft_clipped >> SHIFT_BITS) << SHIFT_BITS;  // implementation dependent but signed here
   // apply reverb
   // int reverbed = soft_clipped;
-  int reverbed = REVERB.next(soft_clipped);
+  int reverbed = REVERB.next(shifted);
   // if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
   // hard clip
   int offset = reverbed + 0x80;
@@ -1368,13 +1377,14 @@ void ui_loop(void*) {
   uint count = 0;
   while (1) {
     for (Pot& p : POTS) p.read_state();
-    for (Button& b : VOICE_BUTTONS) b.read_state();
-    GLOBAL_BUTTONS.read_state();
-    EUCLIDEAN_BUTTONS_LEFT.read_state();
-    EUCLIDEAN_BUTTONS_RIGHT.read_state();
-    POST_BUTTONS.read_state();
-    PERFORMANCE_BUTTONS.read_state();
-    EDIT_BUTTONS.read_state();
+    for (Button& b : VOICE_BUTTONS) b.read_state();  // each button individually
+    GLOBAL_BUTTONS.read_state();                     // central pair
+    EUCLIDEAN_BUTTONS_LEFT.read_state();             // left pair
+    EUCLIDEAN_BUTTONS_RIGHT.read_state();            // right pair
+    POST_BUTTONS.read_state();                       // outer pair
+    PERFORMANCE_BUTTONS.read_state();                // left triplet
+    EDIT_BUTTONS.read_state();                       // right triplet
+    SYS_BUTTONS.read_state();                        // all
     if (count < 2 && DBG_STARTUP) Serial.printf("ui loop %d/2\n", ++count);
     vTaskDelay(1);
   }
