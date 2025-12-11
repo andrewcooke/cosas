@@ -357,7 +357,8 @@ public:
       sign = -1;
     };
     if (phase >= quarter) phase = half - phase;
-    int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow (TODO - needed?)
+    int result = sign * static_cast<int>(mult(amp, lookup(phase)));
+    // int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow (TODO - needed?)
     return result;
   }
 };
@@ -402,6 +403,9 @@ Triangle TRIANGLE;
 
 int norm_phase(int phase) {
   return phase & TAU_MAX;
+  // while (phase < 0) phase += TAU_MAX;
+  // while (phase > TAU_MAX) phase -= TAU_MAX;
+  // return phase;
 }
 
 class HiPass {
@@ -409,14 +413,15 @@ private:
   int prev_in = 0;
   int prev_out = 0;
   int alpha;
+  int beta;
 public:
-  HiPass(int alpha) : alpha(alpha) {};
+  HiPass(int alpha) : alpha(alpha), beta(static_cast<int>(INTERNAL_MAX) - alpha) {};
   int next(int in, int alpha2) {
     alpha = alpha2;
     return next(in);
   }
   int next(int in) {
-    prev_out = (alpha * in - alpha * prev_in + (static_cast<int>(INTERNAL_MAX) - alpha) * prev_out) >> 16;
+    prev_out = imult(alpha, in) - imult(alpha, prev_in) + imult(beta, prev_out);  // TODO - really?
     prev_in = in;
     return prev_out;
   }
@@ -431,7 +436,7 @@ private:
 public:
   LoPass(int alpha) : alpha(alpha), beta((INTERNAL_MAX - alpha) >> 1) {};
   int next(int in) {
-    int out = (beta * in + alpha * prev_in + beta * prev_prev_in) >> 16;
+    int out = imult(beta, in) + imult(alpha, prev_in) + imult(beta, prev_prev_in);
     prev_prev_in = prev_in;
     prev_in = in;
     return out;
@@ -482,6 +487,8 @@ public:
     on = true;
     time = 0;
     phase = 0;
+    fm_phase = 0;
+    fm_phase2 = 0;
   }
   int output() {
     if (!on) return 0;
@@ -516,12 +523,16 @@ public:
     return out;
   }
   int bass(uint fm, uint amp, uint freq) {
+    static LoPass lp(1 << 15);
     if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-    freq >>= 4;
-    fm >>= 6;
-    fm_phase = norm_phase(fm_phase + non_linear(fm, 3));
-    phase = norm_phase(phase + freq + SINE((freq >> 4) + non_linear(fm, 3), fm_phase) + SINE(non_linear(fm, 4), freq >> 1));
+    uint low_freq = freq >> 4;
+    uint low_fm = fm >> 6;
+    fm_phase = norm_phase(fm_phase + fm);
+    fm_phase2 = norm_phase(fm_phase2 + (freq >> 3) + LFSR.n_bits(4));
+    // phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2) + TRIANGLE(fm >> 9, fm_phase2));
+    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2)); // + TRIANGLE(fm >> 9, fm_phase2));
     int out = SINE(amp, phase);
+    // return lp.next(out);
     return out;
   }
   int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
