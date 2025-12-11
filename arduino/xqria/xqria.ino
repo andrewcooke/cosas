@@ -1392,7 +1392,7 @@ void ui_loop(void*) {
     PERFORMANCE_BUTTONS.read_state();                // left triplet
     EDIT_BUTTONS.read_state();                       // right triplet
     SYS_BUTTONS.read_state();                        // all
-    if (count < 2 && DBG_STARTUP) Serial.printf("ui loop %d/2\n", ++count);
+    if (count < 2 && DBG_STARTUP) Serial.printf("ui loop %d/2 on core %d\n", ++count, xPortGetCoreID());
     vTaskDelay(1);
   }
 }
@@ -1443,7 +1443,7 @@ void update_buffer() {
     burst--;
   }
   static uint startup_count = 0;
-  if (startup_count < 2 && DBG_STARTUP) Serial.printf("update buffer %d/2\n", ++startup_count);
+  if (startup_count < 2 && DBG_STARTUP) Serial.printf("update buffer %d/2 on core %d\n", ++startup_count, xPortGetCoreID());
 }
 
 // refill buffer when flagged
