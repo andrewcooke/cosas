@@ -29,6 +29,7 @@ const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+const uint MAX_COMP_BITS = 12;
 
 // used in crash sound
 const uint NOISE_BITS = 6;
@@ -517,11 +518,8 @@ public:
     static LoPass lp(1 << 15);
     if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
     uint low_freq = freq >> 4;
-    uint low_fm = fm >> 6;
-    fm_phase = norm_phase(fm_phase + fm);
-    fm_phase2 = norm_phase(fm_phase2 + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
-    // phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2) + TRIANGLE(fm >> 9, fm_phase2));
-    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2) + TRIANGLE(fm >> 9, fm_phase2));
+    fm_phase = norm_phase(fm_phase + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
+    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase) + TRIANGLE(fm >> 9, fm_phase));
     int out = SINE(amp, phase);
     // return lp.next(out);
     return out;
@@ -880,6 +878,11 @@ protected:
     if (check_enabled(target, pot)) *destn = POTS[pot].state >> shift;
     if (pot == active) STATE.led_bin(*destn, enabled[pot]);
   }
+  void update_frac(volatile uint* destn, uint lo, uint hi, uint pot) {
+    uint target = INTERNAL_MAX * (static_cast<float>(*destn - lo) / (hi - lo));
+    if (check_enabled(target, pot)) *destn = lo + (hi - lo) * (static_cast<float>(POTS[pot].state) / INTERNAL_MAX);
+    if (pot == active) STATE.led_bar(target, enabled[pot]);
+  }
 };
 
 uint gray(uint n) {
@@ -1054,7 +1057,7 @@ public:
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, -3, 0);
       update(&REVERB.head.num, 1, 0, 1);
-      update(&COMP_BITS, 0, -12, 2);
+      update_frac(&COMP_BITS, 0, MAX_COMP_BITS, 2);
       update(&SHIFT_BITS, 0, -12, 3);
     } else {
       disable();
@@ -1288,10 +1291,11 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-int compress(int out, uint bits, uint max) {
+int compress(int out, uint bits, uint ceiling) {
   int sign = sgn(out);
   uint absolute = abs(out);
-  for (uint i = (max - bits); i < max; i++) {
+  bits = min(bits, ceiling);
+  for (uint i = (ceiling - bits); i < ceiling; i++) {
     uint limit = 1 << i;
     if (absolute > limit) absolute = limit + ((absolute - limit) >> 1);
     else break;
@@ -1302,7 +1306,7 @@ int compress(int out, uint bits, uint max) {
 // apply post-processing
 uint post_process(int amp) {
   // apply compressor
-  int soft_clipped = compress(amp, COMP_BITS, 12);
+  int soft_clipped = compress(amp, COMP_BITS, MAX_COMP_BITS);
   // apply quantisation
   int shifted = (soft_clipped >> SHIFT_BITS) << SHIFT_BITS;  // implementation dependent but signed here
   // apply reverb
@@ -1421,19 +1425,21 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
 
 // slow fill of buffer - time depends on number of voices active (obvs)
 void update_buffer() {
+  static uint burst = 0;
+  static uint late = 0;
   static EMA<uint> avg_duty = EMA<uint>(8, 1, 4, 100);
   unsigned long start = micros();
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[dma_idx]);
   uint calc_time = micros() - start;
   uint duty = (100 * (dma_time + calc_time)) / REFRESH_US;
+  if (duty > 100) late++;
   uint avg = avg_duty.next(duty);
-  static uint burst = 0;
   if (DBG_TIMING && !burst && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3))) {
     burst = 3;
     Serial.println("---");
   }
   if (burst) {
-    Serial.printf("buffer %d; dma %d, calc %d, duty %d/%d; errors %d\n", LOCAL_BUFFER_SIZE, dma_time, calc_time, duty, avg, dma_errors);
+    Serial.printf("buffer %d; dma %d, calc %d, duty %d/%d; errors %d, late %d\n", LOCAL_BUFFER_SIZE, dma_time, calc_time, duty, avg, dma_errors, late);
     burst--;
   }
   static uint startup_count = 0;
