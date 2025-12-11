@@ -108,24 +108,15 @@ inline uint imult(int a, int b) {
   return (a * b) >> INTERNAL_BITS;
 }
 
-inline uint ipow(uint val, uint n) {
-  switch (n) {
-  case 0: return 1;
-  case 1: return val;
-  default:
-    uint m = n / 2;
-    return mult(ipow(val, m), ipow(val, n - m));;
-  }
-}
-
 uint non_linear(uint val, uint n) {
-  switch (n) {
-  case 0: return 1;
-  case 1: return val;
-  case 2: return (val + ipow(val, 2)) / 2;
-  case 3: return (val + ipow(val, 2) + ipow(val, 3) + ipow(val, 4)) / 4;
-  default: return (val + 2 * ipow(val, 2) + 4 * ipow(val, 3) + 9 * ipow(val, 4)) / 16;
-  }
+  if (n == 0) return 1;
+  else if (n == 1) return val;
+  uint val2 = mult(val, val);
+  if (n == 2) return (val + val2) >> 1;
+  uint val3 = mult(val, val2);
+  if (n == 3) return (val + val2 + 2 * val3) >> 2;
+  uint val4 = mult(val, val3);
+  return (val + (val2 << 1) + (val3 << 2) + val4 + (val4 << 3)) >> 4;
 }
 
 // efficient random bits from an LFSR (random quality is not important here!)
@@ -528,9 +519,9 @@ public:
     uint low_freq = freq >> 4;
     uint low_fm = fm >> 6;
     fm_phase = norm_phase(fm_phase + fm);
-    fm_phase2 = norm_phase(fm_phase2 + (freq >> 3) + LFSR.n_bits(4));
+    fm_phase2 = norm_phase(fm_phase2 + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
     // phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2) + TRIANGLE(fm >> 9, fm_phase2));
-    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2)); // + TRIANGLE(fm >> 9, fm_phase2));
+    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase2) + TRIANGLE(fm >> 9, fm_phase2));
     int out = SINE(amp, phase);
     // return lp.next(out);
     return out;
@@ -1297,12 +1288,13 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-int compress(int out, uint bits) {
+int compress(int out, uint bits, uint max) {
   int sign = sgn(out);
   uint absolute = abs(out);
-  for (uint i = (INTERNAL_BITS - bits); i < INTERNAL_BITS; i++) {
+  for (uint i = (max - bits); i < max; i++) {
     uint limit = 1 << i;
-    if (absolute > limit) absolute = limit + (absolute - limit) / 2;
+    if (absolute > limit) absolute = limit + ((absolute - limit) >> 1);
+    else break;
   }
   return sign * static_cast<int>(absolute);
 }
@@ -1310,7 +1302,7 @@ int compress(int out, uint bits) {
 // apply post-processing
 uint post_process(int amp) {
   // apply compressor
-  int soft_clipped = compress(amp, COMP_BITS);
+  int soft_clipped = compress(amp, COMP_BITS, 12);
   // apply quantisation
   int shifted = (soft_clipped >> SHIFT_BITS) << SHIFT_BITS;  // implementation dependent but signed here
   // apply reverb
