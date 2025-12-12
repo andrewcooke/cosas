@@ -1291,7 +1291,7 @@ void IRAM_ATTR timer_callback(void*) {
   if (xHigherPriorityTaskWoken) portYIELD_FROM_ISR();
 }
 
-int compress(int out, uint bits, uint ceiling) {
+int compress3(int out, uint bits, uint ceiling) {
   int sign = sgn(out);
   uint absolute = abs(out);
   bits = min(bits, ceiling);
@@ -1301,6 +1301,38 @@ int compress(int out, uint bits, uint ceiling) {
     else break;
   }
   return sign * static_cast<int>(absolute);
+}
+
+// possibly faster?
+int compress2(int out, uint bits, uint ceiling) {
+  int sign = sgn(out);
+  uint absolute = abs(out);
+  uint n = ceiling - bits;
+  uint low = absolute & ((1u << n) - 1u);
+  uint high = absolute >> n;
+  while (n < ceiling && high) {
+    high >>= 1;
+    low |= (high & 0x1u) << n;
+    high >>= 1;
+    n++;
+  }
+  return sign * static_cast<int>(low | (high << n));
+}
+
+int compress(int out, uint bits, uint ceiling) {
+  int sign = sgn(out);
+  uint absolute = abs(out);
+  uint n = ceiling - bits;
+  uint mask = 1u << n;
+  uint low = absolute & (mask - 1u);
+  uint high = absolute;
+  while (n < ceiling && high > low) {
+    high >>= 1;
+    low |= high & mask;
+    mask <<= 1;
+    n++;
+  }
+  return sign * static_cast<int>(low | (high & ~(mask - 1u)));
 }
 
 // apply post-processing
