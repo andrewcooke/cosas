@@ -29,7 +29,7 @@ const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
-const uint MAX_COMP_BITS = 4;
+const uint MAX_COMP_BITS = 12;
 
 // used in crash sound
 const uint NOISE_BITS = 6;
@@ -47,8 +47,8 @@ volatile static uint BPM = 200;
 volatile static uint SUBDIV_IDX = 15;
 volatile static uint COMP_BITS = 0;
 volatile static uint SHIFT_BITS = 0;
-// volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
-volatile static uint ENABLED = 1;
+volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
+// volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / (SAMPLE_RATE_HZ << OVERSAMPLE_BITS);
 
@@ -350,7 +350,6 @@ public:
     };
     if (phase >= quarter) phase = half - phase;
     int result = sign * static_cast<int>(mult(amp, lookup(phase)));
-    // int result = sign * static_cast<int>(((amp >> 1) * lookup(phase)) >> (INTERNAL_BITS - 1));  // avoid 32 bit overflow (TODO - needed?)
     return result;
   }
 };
@@ -571,10 +570,14 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 1200 << 4,   0, 0),
-                               Voice(1, 0x7fff, 240 << 4, 1000 << 4, 240 << 4, 0),
-                               Voice(2, 0x7fff, 213 << 4, 1300 << 4, 150 << 4, 0),
-                               Voice(3, 0x7fff, 320 << 4,  900 << 4, 240 << 4, 0)};
+// std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 1200 << 4,   0, 0),
+//                                Voice(1, 0x7fff, 240 << 4, 1000 << 4, 240 << 4, 0),
+//                                Voice(2, 0x7fff, 213 << 4, 1300 << 4, 150 << 4, 0),
+//                                Voice(3, 0x7fff, 320 << 4,  900 << 4, 240 << 4, 0)};
+std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 0xffff, 0xffff, 0),
+                               Voice(1, 0x7fff, 240 << 4, 0xffff, 0xffff, 0),
+                               Voice(2, 0x7fff, 213 << 4, 0xffff, 0xffff, 0),
+                               Voice(3, 0x7fff, 320 << 4, 0xffff, 0xffff, 0)};
 
 // standard euclidean pattern
 class Euclidean {
@@ -1371,7 +1374,7 @@ public:
       ticks++;
       int vol = 0;
       for (Voice& voice : VOICES) vol += voice.output();
-      data[i] = post_process(vol >> 4);
+      data[i] = post_process(vol >> 2);  // avg
     }
   }
 };
