@@ -496,12 +496,16 @@ public:
     int nv_amp = amp;
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
-      out = cymbal(non_linear(amp, 2), 1 + nv_freq, durn_scaled, fm, dec);
+      if (nv_amp & INTERNAL_MSB) {
+        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + nv_freq, durn_scaled, fm, dec);
+      } else {
+        out = ride(non_linear(amp, 2) >> 4, 1 + nv_freq, durn_scaled, fm, dec);
+      }
     } else {
       if (nv_amp & INTERNAL_MSB) {
         out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + (non_linear(nv_freq, 2) >> 4), durn_scaled, fm, dec);
       } else {
-        out = bdrum(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), durn_scaled, fm, dec);
+        out = bass(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), durn_scaled, fm, dec);
       }
     }
     time++;
@@ -509,17 +513,28 @@ public:
   }
   int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + (fm >> 6));
-    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm, fm_phase));
-    return mult(amp, SQUARE(dec, phase) + LFSR.scaled_bit(mult(non_linear(dec, 2), fm)));    
+    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 1, fm_phase) + SINE(INTERNAL_N >> 8, freq >> 1));
+    return mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(non_linear(dec, 2), fm >> 2)));    
   }
-  int bdrum(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int bass(uint amp, uint freq, uint durn, uint fm, uint dec) {
     phase = norm_phase(phase + freq + (mult(fm, dec) >> 10));
     return SINE(mult(amp, dec), phase);    
   }
-  int cymbal(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    static HiPass hp(3 << 14);
+    fm_phase = norm_phase(fm_phase + fm);
+    phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
+    int out = SINE(mult(amp, dec), phase);
+    out = hp.next(out, dec << 1);
+    return out;
+  }
+  int ride(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    static HiPass hp(3 << 14);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    return SINE(mult(amp, dec), phase);    
+    int out = SINE(amp, phase);
+    out = hp.next(out, dec << 1);
+    return out;
   }
   // int bass(uint fm, uint amp, uint freq) {
   //   static LoPass lp(1 << 15);
