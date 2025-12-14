@@ -236,11 +236,11 @@ public:
     for (uint i = 0; i < n_leds; i++) on(i, g & (1 << i));
   }
   void index(uint value, bool full) {
-    if (value) set(value - 1, LED_MAX, full);
-    else all_off();
+    all_off();
+    if (value) set(value - 1, INTERNAL_MAX, full);
   }
   void bin(uint value, bool full) {
-    for (uint i = 0; i < n_leds; i++) set(i, (value & (1 << i)) ? LED_MAX : 0, full);
+    for (uint i = 0; i < n_leds; i++) set(i, (value & (1 << i)) ? INTERNAL_MAX : 0, full);
   }
 };
 
@@ -895,7 +895,7 @@ protected:
     if (pot == active) STATE.led_5(*destn, enabled[pot]);
   }
   void update_bin(uint* destn, uint pot) {
-    uint shift = INTERNAL_BITS - 4;  // TODO ?
+    static const uint shift = INTERNAL_BITS - 4;  // TODO ?
     uint target = *destn << shift;
     if (check_enabled(target, pot)) *destn = POTS[pot].state >> shift;
     if (pot == active) STATE.led_bin(*destn, enabled[pot]);
