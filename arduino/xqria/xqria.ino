@@ -17,6 +17,8 @@ const uint SAMPLE_RATE_HZ = 40000;
 const uint INTERNAL_BITS = 16;
 const uint INTERNAL_N = 1 << INTERNAL_BITS;
 const uint INTERNAL_MAX = INTERNAL_N - 1;
+const uint INTERNAL_MSB = INTERNAL_N >> 1;
+const uint INTERNAL_NO_MSB = INTERNAL_MAX >> 1;
 const uint POT_BITS = 12;
 const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
@@ -479,74 +481,80 @@ public:
     time = 0;
     phase = 0;
     fm_phase = 0;
-    fm_phase2 = 0;
   }
   int output() {
     if (!on) return 0;
     // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
-    uint durn_scaled = (durn * durn) >> (INTERNAL_BITS - 2 - OVERSAMPLE_BITS);
+    uint durn_scaled = non_linear(durn, 2) >> (1 - OVERSAMPLE_BITS);  // currently this is not -ve
     if (time >= durn_scaled) {
       STATE.voice(idx, false);    
       on = false;
       return 0;
     }
-    uint nv_fm = fm;
-    uint waveform = nv_fm >> 14;
-    // 16 bits, but waveform removed
-    uint fm_drum = (nv_fm & 0x7fff) << 1;
-    uint fm_other = (nv_fm & 0x3fff) << 2;
-    uint dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));
+    uint dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));  // RESOLN is a fudge to avoid overflow
+    int nv_freq = freq;
+    int nv_amp = amp;
     int out = 0;
-    switch (waveform) {
-      case 0:
-      case 1:
-        out = drum(fm_drum, instantaneous_amp(amp, durn_scaled, dec, 2), 1 + non_linear(freq, 2), non_linear(dec, 2), non_linear(dec, 2));
-        break;
-      case 2:
-        out = crash(fm_other, instantaneous_amp(amp, durn_scaled, dec, 4), 1 + non_linear(freq, 2), non_linear(dec, 3), non_linear(dec, 3));
-        break;
-      case 3:
-      default:
-        out = bass(fm_other, instantaneous_amp(amp, durn_scaled, dec, 1), 1 + non_linear(freq, 4));
-        break;
+    if (nv_freq & INTERNAL_MSB) {
+      out = cymbal(non_linear(amp, 2), 1 + nv_freq, durn_scaled, fm, dec);
+    } else {
+      if (nv_amp & INTERNAL_MSB) {
+        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + (non_linear(nv_freq, 2) >> 4), durn_scaled, fm, dec);
+      } else {
+        out = bdrum(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), durn_scaled, fm, dec);
+      }
     }
     time++;
     return out;
   }
-  int bass(uint fm, uint amp, uint freq) {
-    static LoPass lp(1 << 15);
-    if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-    uint low_freq = freq >> 4;
-    fm_phase = norm_phase(fm_phase + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
-    phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase) + TRIANGLE(fm >> 9, fm_phase));
-    int out = SINE(amp, phase);
-    // return lp.next(out);
-    return out;
+  int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    fm_phase = norm_phase(fm_phase + (fm >> 6));
+    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm, fm_phase));
+    return mult(amp, SQUARE(dec, phase) + LFSR.scaled_bit(mult(non_linear(dec, 2), fm)));    
   }
-  int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
-    if (DBG_CRASH && !random(DBG_LOTTERY)) Serial.printf("fm %d amp %d freq %d filter_dec %d noise_dec %d\n", fm, amp, freq, filter_dec, noise_dec);
-    static HiPass hp(3 << 14);
-    fm_phase = norm_phase(fm_phase + (fm << 1));
-    fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
-    phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
-    int out = SINE(amp, phase);
-    out += LFSR.scaled_bit(noise_dec >> 5);  // aliasing from noise at sample freq seems to help?
-    out = hp.next(out, filter_dec << 1);
-    out = imult(out, amp);
-    return out;
+  int bdrum(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    phase = norm_phase(phase + freq + (mult(fm, dec) >> 10));
+    return SINE(mult(amp, dec), phase);    
   }
-  int drum(uint fm, uint amp, uint freq, uint fm_dec, uint noise_dec) {
-    if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
-    // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
-    uint high_fm = (fm & 0xf800) >> 11;
-    uint low_fm = (fm & 0x07e0) >> 5;
-    freq >>= 6;
-    phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 14));
-    int out = SINE(amp, phase);
-    out += LFSR.scaled_bit(mult(mult(amp, noise_dec), high_fm << 8));
-    // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
-    return out;
+  int cymbal(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    fm_phase = norm_phase(fm_phase + fm);
+    phase = norm_phase(phase + freq + SINE(dec, fm_phase));
+    return SINE(mult(amp, dec), phase);    
   }
+  // int bass(uint fm, uint amp, uint freq) {
+  //   static LoPass lp(1 << 15);
+  //   if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
+  //   uint low_freq = freq >> 4;
+  //   fm_phase = norm_phase(fm_phase + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
+  //   phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase) + TRIANGLE(fm >> 9, fm_phase));
+  //   int out = SINE(amp, phase);
+  //   // return lp.next(out);
+  //   return out;
+  // }
+  // int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
+  //   if (DBG_CRASH && !random(DBG_LOTTERY)) Serial.printf("fm %d amp %d freq %d filter_dec %d noise_dec %d\n", fm, amp, freq, filter_dec, noise_dec);
+  //   static HiPass hp(3 << 14);
+  //   fm_phase = norm_phase(fm_phase + (fm << 1));
+  //   fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
+  //   phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
+  //   int out = SINE(amp, phase);
+  //   out += LFSR.scaled_bit(noise_dec >> 5);  // aliasing from noise at sample freq seems to help?
+  //   out = hp.next(out, filter_dec << 1);
+  //   out = imult(out, amp);
+  //   return out;
+  // }
+  // int drum(uint fm, uint amp, uint freq, uint fm_dec, uint noise_dec) {
+  //   if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
+  //   // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
+  //   uint high_fm = (fm & 0xf800) >> 11;
+  //   uint low_fm = (fm & 0x07e0) >> 5;
+  //   freq >>= 6;
+  //   phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 14));
+  //   int out = SINE(amp, phase);
+  //   out += LFSR.scaled_bit(mult(mult(amp, noise_dec), high_fm << 8));
+  //   // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
+  //   return out;
+  // }
   void to(Voice& other) {
     other.amp = amp;
     other.freq = freq;
@@ -783,7 +791,7 @@ public:
 // assorted ways to apply changes from a pot to some underlying parameter (implements the catch-up mechanism)
 class PotsReader {
 private:
-  static const uint thresh = 256;
+  static const uint thresh = 400;
   static const uint unknown = INTERNAL_N << 8;  // big enough to be unique
   std::array<bool, 4> enabled = {false, false, false, false};
   std::array<uint, 4> posn = {unknown, unknown, unknown, unknown};
@@ -901,9 +909,9 @@ private:
     if (pressed && STATE.n_buttons == 1) {
       editing = true;
       update_no_msb(&voice.amp, 0);
-      update(&voice.freq, 1);
+      update_no_msb(&voice.freq, 1);
       update(&voice.durn, 2);
-      update_fm(&voice.fm, 3);
+      update(&voice.fm, 3);
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
       if (editing) {
