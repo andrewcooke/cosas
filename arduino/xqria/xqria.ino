@@ -523,49 +523,15 @@ public:
   int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
-    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, fm >> 6)));
+    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, dec) >> 3));
     return out;
   }
   int ride(uint amp, uint freq, uint durn, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, fm >> 4)));
+    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, dec) >> 4));
     return out;
   }
-  // int bass(uint fm, uint amp, uint freq) {
-  //   static LoPass lp(1 << 15);
-  //   if (DBG_MINIFM && !random(DBG_LOTTERY)) Serial.printf("%d fm %d amp %d freq %d\n", idx, fm, amp, freq);
-  //   uint low_freq = freq >> 4;
-  //   fm_phase = norm_phase(fm_phase + (freq >> 3) + LFSR.n_bits(std::bit_width(fm >> 4)));
-  //   phase = norm_phase(phase + low_freq + SINE(fm >> 7, fm_phase) + TRIANGLE(fm >> 9, fm_phase));
-  //   int out = SINE(amp, phase);
-  //   // return lp.next(out);
-  //   return out;
-  // }
-  // int crash(uint fm, uint amp, uint freq, uint filter_dec, uint noise_dec) {
-  //   if (DBG_CRASH && !random(DBG_LOTTERY)) Serial.printf("fm %d amp %d freq %d filter_dec %d noise_dec %d\n", fm, amp, freq, filter_dec, noise_dec);
-  //   static HiPass hp(3 << 14);
-  //   fm_phase = norm_phase(fm_phase + (fm << 1));
-  //   fm_phase2 = norm_phase(fm_phase2 + fm + SQUARE(filter_dec >> 8, fm_phase));
-  //   phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX >> 1, fm_phase2));
-  //   int out = SINE(amp, phase);
-  //   out += LFSR.scaled_bit(noise_dec >> 5);  // aliasing from noise at sample freq seems to help?
-  //   out = hp.next(out, filter_dec << 1);
-  //   out = imult(out, amp);
-  //   return out;
-  // }
-  // int drum(uint fm, uint amp, uint freq, uint fm_dec, uint noise_dec) {
-  //   if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("%d drum\n", idx);
-  //   // separate fm, a 16 bit value whose 11 upper bits are varying, into 5 top and 6 low
-  //   uint high_fm = (fm & 0xf800) >> 11;
-  //   uint low_fm = (fm & 0x07e0) >> 5;
-  //   freq >>= 6;
-  //   phase = norm_phase(phase + freq + ((fm_dec * low_fm) >> 14));
-  //   int out = SINE(amp, phase);
-  //   out += LFSR.scaled_bit(mult(mult(amp, noise_dec), high_fm << 8));
-  //   // out += (fmhi > 16 && !(time & 0xf)) ? LFSR.scaled_bit((final_amp * quad_dec * fmhi) >> 19) : 0;  // TODO wtf
-  //   return out;
-  // }
   void to(Voice& other) {
     other.amp = amp;
     other.freq = freq;
