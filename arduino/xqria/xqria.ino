@@ -497,9 +497,9 @@ public:
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + nv_freq, durn_scaled, fm, dec);
+        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 3, 1 + nv_freq, durn_scaled, fm, non_linear(dec, 2));
       } else {
-        out = ride(non_linear(amp, 2) >> 4, 1 + nv_freq, durn_scaled, fm, dec);
+        out = ride(non_linear(amp, 2) >> 2, 1 + nv_freq, durn_scaled, fm, non_linear(dec, 2));
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
@@ -521,19 +521,15 @@ public:
     return SINE(mult(amp, dec), phase);    
   }
   int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
-    static HiPass hp(3 << 14);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
-    int out = SINE(mult(amp, dec), phase);
-    out = hp.next(out, dec << 1);
+    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, fm >> 6)));
     return out;
   }
   int ride(uint amp, uint freq, uint durn, uint fm, uint dec) {
-    static HiPass hp(3 << 14);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    int out = SINE(amp, phase);
-    out = hp.next(out, dec << 1);
+    int out = mult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, fm >> 4)));
     return out;
   }
   // int bass(uint fm, uint amp, uint freq) {
