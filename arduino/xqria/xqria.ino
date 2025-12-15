@@ -103,7 +103,7 @@ template<typename T> int sgn(T val) {
   return (T(0) < val) - (val < T(0));
 }
 
-inline uint mult(uint a, uint b) {
+inline uint umult(uint a, uint b) {
   return (a * b) >> INTERNAL_BITS;
 }
 
@@ -114,11 +114,11 @@ inline int imult(int a, int b) {
 uint non_linear(uint val, uint n) {
   if (n == 0) return 1;
   else if (n == 1) return val;
-  uint val2 = mult(val, val);
+  uint val2 = umult(val, val);
   if (n == 2) return (val + val2) >> 1;
-  uint val3 = mult(val, val2);
+  uint val3 = umult(val, val2);
   if (n == 3) return (val + val2 + 2 * val3) >> 2;
-  uint val4 = mult(val, val3);
+  uint val4 = umult(val, val3);
   return (val + (val2 << 1) + (val3 << 2) + val4 + (val4 << 3)) >> 4;
 }
 
@@ -351,7 +351,7 @@ public:
       sign = -1;
     };
     if (phase >= quarter) phase = half - phase;
-    int result = sign * static_cast<int>(mult(amp, lookup(phase)));
+    int result = sign * static_cast<int>(umult(amp, lookup(phase)));
     return result;
   }
 };
@@ -462,9 +462,9 @@ private:
   bool on = false;
   uint instantaneous_amp(uint amp, uint durn, uint dec, uint hard_deg) {
     uint low_amp = (amp & 0x7fff) << 1;
-    uint hard_amp = mult(non_linear(low_amp, 4), non_linear(dec, hard_deg));
+    uint hard_amp = umult(non_linear(low_amp, 4), non_linear(dec, hard_deg));
     uint phase = (INTERNAL_N * time) / (1 + 2 * durn);
-    uint soft_amp = abs(SINE(mult(non_linear(low_amp, 4), dec), phase));
+    uint soft_amp = abs(SINE(umult(non_linear(low_amp, 4), dec), phase));
     return amp & 0x8000 ? soft_amp : hard_amp;
   }
 public:
@@ -514,11 +514,11 @@ public:
   int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 3, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
-    return imult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(non_linear(dec, 2), fm)));    
+    return imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(non_linear(dec, 2), fm)));    
   }
   int bass(uint amp, uint freq, uint durn, uint fm, uint dec) {
-    phase = norm_phase(phase + freq + (mult(fm, dec) >> 10));
-    return SINE(mult(amp, dec), phase);    
+    phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
+    return SINE(umult(amp, dec), phase);    
   }
   int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
     static HiPass hp(INTERNAL_MAX >> 1);
@@ -530,7 +530,7 @@ public:
     static HiPass hp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    int out = imult(amp, SINE(dec, phase) + LFSR.scaled_bit(mult(dec, fm >> 4)));
+    int out = imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(dec, fm >> 4)));
     return hp.next(out, dec >> 1);
   }
   void to(Voice& other) {

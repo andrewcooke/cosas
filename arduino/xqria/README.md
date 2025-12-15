@@ -57,6 +57,9 @@ first pot pin, forming the first control group.
 
 ## using xqria
 
+**warning** - some details have changed in the latest code; tis needs
+updating.
+
 ### voices
 
 to edit a voice, press the corresponding button and then turn a pot.
@@ -125,6 +128,27 @@ be (for extra variety, select combinations where the total number of
 beats and the number of triggers don't have the same factors.  values
 when no leds are lit - primes larger than 7 - give particularly long
 patterns).
+
+### cpu use
+
+the entire instrument is running on a tiny chip with two cores.  if
+you push the limits of what is possible you may exhaust the cpu.  and
+if that happens you will start to hear noise/clicks in the audio.
+
+to fix this, reduce the complexity of the sound.  it's probaby
+sufficient to reduce the duration of a few voices.  you could also,
+for example, silence a pair of voices (EXPLAIN HOW HERE), record that,
+and then swap to the other two voices and record that.
+
+but please dont be alarmed!  this doesn't happen in "normal" use.  i
+mention it here to be fully transparent, and because the behaiour is a
+deliberate design choice - i could have made things so simple they
+would never starve, but that would have made a much less interesting
+machine.
+
+to explore further, compile with DBG_TIMING set to true and look at
+the output in the serial monitor.  if the "duty" value exceeds 100
+(percent) then audio quality is affected.
 
 ### timing (TODO - rename in code from global)
 
