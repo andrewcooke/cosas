@@ -503,7 +503,7 @@ public:
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + (non_linear(nv_freq, 2) >> 3), durn_scaled, fm, dec);
+        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, 1 + (non_linear(nv_freq, 2) >> 3), durn_scaled, fm, dec);
       } else {
         out = bass(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), durn_scaled, fm, dec);
       }
@@ -512,9 +512,12 @@ public:
     return out;
   }
   int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
+    // static LoPass lp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
-    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 3, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
-    return imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(non_linear(dec, 2), fm)));    
+    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
+    // return lp.next(imult(amp, SQUARE(dec, phase) + LFSR.scaled_bit(umult(non_linear(dec, 2), fm))));    
+    // return lp.next(imult(amp, SQUARE(dec, phase)));
+    return imult(amp, SQUARE(dec, phase));
   }
   int bass(uint amp, uint freq, uint durn, uint fm, uint dec) {
     phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
