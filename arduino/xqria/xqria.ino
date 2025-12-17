@@ -512,11 +512,8 @@ public:
     return out;
   }
   int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
-    // static LoPass lp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
-    // return lp.next(imult(amp, SQUARE(dec, phase) + LFSR.scaled_bit(umult(non_linear(dec, 2), fm))));    
-    // return lp.next(imult(amp, SQUARE(dec, phase)));
     return imult(amp, SQUARE(dec, phase));
   }
   int bass(uint amp, uint freq, uint durn, uint fm, uint dec) {
@@ -524,7 +521,6 @@ public:
     return SINE(umult(amp, dec), phase);    
   }
   int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
-    static HiPass hp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
     return imult(amp, SINE(dec, phase));
@@ -533,8 +529,8 @@ public:
     static HiPass hp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    int out = imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(dec, fm >> 4)));
-    return hp.next(out, dec >> 1);
+    int out = imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(dec, fm >> 5)));
+    return hp.next(out, (INTERNAL_MAX - dec) >> 1);
   }
   void to(Voice& other) {
     other.amp = amp;
