@@ -228,8 +228,8 @@ public:
       value -= quarter;
     }
   }
-  void prime(uint value) {
-     for (uint i = 0; i < n_leds; i++) on(!(value % primes[i]));
+  void prime(uint value, bool full) {
+     for (uint i = 0; i < n_leds; i++) set(i, (value % primes[i]) ? 0: INTERNAL_MAX, full);
   }
   void gray(uint value) {
     uint g = ::gray(value);
@@ -284,8 +284,8 @@ public:
     if (value < 0x7fff) led_bar(value << 1, full);
     else led_bar((value << 2) & 0xffff, full);
   }
-  void led_prime(uint value) {
-    leds.prime(value);
+  void led_prime(uint value, bool full) {
+    leds.prime(value, full);
   }
   void led_gray(uint value) {
     leds.gray(value);
@@ -815,20 +815,20 @@ protected:
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_fm(*destn, enabled[pot]);
   }
-  void update_subdiv(volatile uint* destn, uint zero, int bits, uint pot) {
-    int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
-    if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.led_prime(SUBDIVS[*destn]);  // TODO - no enabled?
+  void update_subdiv(volatile uint* destn, int bits, uint pot) {
+    int pot_target = bits < 0 ? *destn << -bits : *destn >> bits;
+    if (check_enabled(pot_target, pot)) *destn = bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits;
+    if (pot == active) STATE.led_prime(SUBDIVS[*destn], enabled[pot]);
   }
   void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
     int pot_target = bits < 0 ? (*destn - zero) << -bits : (*destn - zero) >> bits;
     if (check_enabled(pot_target, pot)) *destn = zero + (bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits);
-    if (pot == active) STATE.led_prime(*destn);  // TODO - no enabled?
+    if (pot == active) STATE.led_prime(*destn, enabled[pot]);
   }
   void update_prime(float* destn, uint scale, uint pot) {
     int pot_target = *destn * INTERNAL_MAX;
     if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / INTERNAL_MAX;
-    if (pot == active) STATE.led_prime(*destn * scale);  // TODO - no enabled?
+    if (pot == active) STATE.led_prime(*destn * scale, enabled[pot]);
   }
   void update_lr(float* destn, uint pot, bool p1) {
     static const int EDGE = 4;  // guarantee 0-1 float full range
@@ -910,20 +910,20 @@ std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
                                             VoiceButton(3, 19, VOICES[3])};
 
 // global parameters - hold down middle two buttons
-class GlobalButtons : public PotsReader {
+class TimingButtons : public PotsReader {
 public:
-  GlobalButtons() = default;
+  TimingButtons() = default;
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -6, 0);
-      update_subdiv(&SUBDIV_IDX, 0, -12, 1);
+      update_subdiv(&SUBDIV_IDX, -12, 1);
     } else {
       disable();
     }
   }
 };
 
-static GlobalButtons GLOBAL_BUTTONS;
+static TimingButtons TIMING_BUTTONS;
 
 // handle passing of complex state between threads (everything else is a volatile uint, i think, but the Euclidean class is complex)
 // this stores three things:
@@ -1076,7 +1076,7 @@ public:
 
 static PerfButtons PERFORMANCE_BUTTONS;
 
-// post-process - outer two buttons
+// obscure system controls
 class SysButtons : public PotsReader {
 private:
   uint buffer_frac = ((LOCAL_BUFFER_SIZE * (INTERNAL_MAX >> 1)) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : (INTERNAL_MAX >> 1));
@@ -1224,7 +1224,7 @@ public:
   }
 };
 
-class EditButtons : public PotsReader {
+class SaveButtons : public PotsReader {
 private:
   ButtonState state = ButtonState(0xe);
   uint source = 0;
@@ -1232,7 +1232,7 @@ private:
   uint save = 0;
   uint read = 0;
 public:
-  EditButtons() = default;
+  SaveButtons() = default;
   void read_state() {
     state.update();
     if (state.selected) {
@@ -1267,7 +1267,7 @@ public:
   }
 };
 
-static EditButtons EDIT_BUTTONS = EditButtons();
+static SaveButtons SAVE_BUTTONS = SaveButtons();
 
 // use a timer to give regular sampling and (hopefully) reduce noise
 SemaphoreHandle_t timer_semaphore;
@@ -1373,12 +1373,12 @@ void ui_loop(void*) {
   while (1) {
     for (Pot& p : POTS) p.read_state();
     for (Button& b : VOICE_BUTTONS) b.read_state();  // each button individually
-    GLOBAL_BUTTONS.read_state();                     // central pair
+    TIMING_BUTTONS.read_state();                     // central pair
     EUCLIDEAN_BUTTONS_LEFT.read_state();             // left pair
     EUCLIDEAN_BUTTONS_RIGHT.read_state();            // right pair
     POST_BUTTONS.read_state();                       // outer pair
     PERFORMANCE_BUTTONS.read_state();                // left triplet
-    EDIT_BUTTONS.read_state();                       // right triplet
+    SAVE_BUTTONS.read_state();                       // right triplet
     SYS_BUTTONS.read_state();                        // all
     if (count < 2 && DBG_STARTUP) Serial.printf("ui loop %d/2 on core %d\n", ++count, xPortGetCoreID());
     vTaskDelay(1);
