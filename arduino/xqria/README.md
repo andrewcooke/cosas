@@ -6,7 +6,7 @@
 * two euclidean patterns
 * two voices per pattern
 * four engines (two "drums" and two "cymbals") per voice, each with
-  adjustable volume, picth, tone, duration and swing
+  adjustable volume, pitch, tone, duration and swing
 * compression and reverb
 * 14 memories to save configurations
 * simple (breadboard-able), low price electronics using esp32
@@ -47,7 +47,7 @@ for example) to have
   compiler.optimization_flags.release=-O3
   ````
 
-(this optimzises the code to reduce the chance of noise spikes).
+(this optimises the code to reduce the chance of noise spikes).
 
 finally, you may need to edit the pins to match your hardware - see
 "PINS" comments in code.  the pins are ordered in control group order,
@@ -55,9 +55,6 @@ so the first button pin is in the same group as the first led pin and
 the first pot pin, forming the first control group.
 
 ## user manual
-
-**warning** - some details have changed in the latest code; this needs
-updating.
 
 ### user interface
 
@@ -72,7 +69,7 @@ pot.  for example, to adjust voice 1 parameters, you hold button 1
 down.  the different pots control different parameters:
 
 1. volume (split in two to select an engine)
-2. pitch (split into two to sleect an engine)
+2. pitch (split into two to select an engine)
 3. duration
 4. tone
 
@@ -89,7 +86,7 @@ change anything.  it may not be clear at first, but the pot only
 starts to take effect when it arrives at the position of the current
 value.
 
-this is a useful feature, not a bug, becasue the pots are used to
+this is a useful feature, not a bug, because the pots are used to
 adjust many parameters.  for example, amongst many other things, the
 first pot controls the volume for all the voices.  if you have just
 turned voice 3 as loud as possible and then select voice 1 you might
@@ -114,7 +111,7 @@ be on the first and third beats.
 
 xqria has two patterns.  one pattern controls voices 1 and 2; the
 other controls voices 3 and 4.  to adjust parameters associated with a
-pattern hold down the buttons correspodning to the voices in that
+pattern hold down the buttons corresponding to the voices in that
 pattern.
 
 with buttons 1 and 2 held down, for example, to select the first
@@ -142,14 +139,14 @@ patterns).
 
 ### timing (TODO - rename in code from global)
 
-holding down the central buttons (2 and 3) gives accesss to timing
+holding down the central buttons (2 and 3) gives access to timing
 parameters.  the pots adjust:
 
 1. overall bpm
 
 2. subdivision.  this controls the BPM for the second rhythm (voices 3
    and 4), relative to the first.  the default value is 1 (same
-   speed); available values are expressed as mutliples of 1/60.  the
+   speed); available values are expressed as multiples of 1/60.  the
    available multiples are 5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40,
    45, 48, 50, 55, and 60.
 
@@ -162,7 +159,7 @@ that corresponds to a beat for the second pattern.  so a subdivision
 of 30/60 means the second pattern runs twice as fast (it cycles twice
 for each cycle of the first pattern), a value of 5/60 means 12x as
 fast, and a value of 55/60 means that it runs only slightly faster, so
-that the second patterm cycles 11 times for every 10 cycles of the
+that the second pattern cycles 11 times for every 10 cycles of the
 first.
 
 second, the leds show the multiple (5, 10, 12 etc, as above) as
@@ -172,7 +169,7 @@ the first and second leds, etc.
 
 ### post-processing
 
-the outer buttons control recervebation, compression and quantisation.
+the outer buttons control reverberation, compression and quantisation.
 the pots adjust:
 
 1. reverb delay.
@@ -217,7 +214,7 @@ entire configuration saved and restored.  the pots control:
 memory 15 works a little like "trash" on a computer desktop - it
 contains the overwritten settings when reading from memory, or the
 previously slot settings when writing.  with careful use this can let
-you move settings aroud without losing anything.
+you move settings around without losing anything.
 
 the memory is NOT preserved if the system is re-deployed.
 
@@ -230,7 +227,7 @@ similar.
 1. buffer size.  this is the size (in samples) of the internal buffer
    that contains a fragment of sound before it is passed to the dac.
    the default is the largest buffer possible.  the two ranges
-   correspond to event and odd buffer sizes (odd is not recomended).
+   correspond to event and odd buffer sizes (odd is not recommended).
 
 ### cpu use
 
@@ -243,13 +240,13 @@ as described in the "install" section above, since that makes a huge
 difference in avoiding overloading the cpu.
 
 if you still have problems, you need to reduce the complexity of the
-sound.  it's probaby sufficient to reduce the duration of a few
-voices, or reduce use of the rde cymbal (the most expensive sound to
+sound.  it's probably sufficient to reduce the duration of a few
+voices, or reduce use of the ride cymbal (the most expensive sound to
 calculate).  you could also, for example, silence a pair of voices
 (EXPLAIN HOW HERE), record that, and then swap to the other two voices
 and record that.
 
-but please dont be alarmed!  this doesn't happen in "normal" use.  i
+but please don't be alarmed!  this doesn't happen in "normal" use.  i
 mention it here to be fully transparent, and because the behaviour is
 a deliberate design choice - i could have made things so simple they
 would never starve, but that would have made a much less interesting
