@@ -23,7 +23,7 @@ const uint POT_BITS = 12;
 const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
-const uint OVERSAMPLE_BITS = 1;  // currently can't quite suppoer 2 bits - get underruns when all voices active
+const uint OVERSAMPLE_BITS = 1;  // currently can't quite support 2 bits - get underruns when all voices active
 const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
 const uint TAU_N = 1 << TAU_BITS;
 const uint TAU_MAX = TAU_N - 1;
@@ -32,11 +32,6 @@ const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint MAX_COMP_BITS = 12;
-
-// used in crash sound
-const uint NOISE_BITS = 6;
-const uint N_NOISE = 1 << NOISE_BITS;
-const uint NOISE_MASK = N_NOISE - 1;
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
@@ -456,17 +451,7 @@ private:
   uint time = 0;  // ticks since triggered
   int phase = 0;
   int fm_phase = 0;
-  int fm_phase2 = 0;
-  int noise[N_NOISE] = { 0 };
-  uint noise_idx = 0;
   bool on = false;
-  uint instantaneous_amp(uint amp, uint durn, uint dec, uint hard_deg) {
-    uint low_amp = (amp & 0x7fff) << 1;
-    uint hard_amp = umult(non_linear(low_amp, 4), non_linear(dec, hard_deg));
-    uint phase = (INTERNAL_N * time) / (1 + 2 * durn);
-    uint soft_amp = abs(SINE(umult(non_linear(low_amp, 4), dec), phase));
-    return amp & 0x8000 ? soft_amp : hard_amp;
-  }
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -491,46 +476,49 @@ public:
       on = false;
       return 0;
     }
-    uint dec = (INTERNAL_MAX / RESOLN) * ((RESOLN * (durn_scaled - time)) / (durn_scaled + 1));  // RESOLN is a fudge to avoid overflow
+    // TODO - overflow here?
+    uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
+    uint dec = INTERNAL_MAX - rise;
     int nv_freq = freq;
     int nv_amp = amp;
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + nv_freq, durn_scaled, fm, non_linear(dec, 2));
+        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + nv_freq, fm, non_linear(dec, 2));
       } else {
-        out = ride(non_linear(amp, 2), 1 + nv_freq, durn_scaled, fm, non_linear(dec, 2));
+        uint env = min(rise, dec);
+        out = ride(non_linear(amp, 2), 1 + nv_freq, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, 1 + (non_linear(nv_freq, 2) >> 3), durn_scaled, fm, dec);
+        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, 1 + (non_linear(nv_freq, 2) >> 3), fm, dec);
       } else {
-        out = bass(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), durn_scaled, fm, dec);
+        out = kick(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), fm, dec);
       }
     }
     time++;
     return out;
   }
-  int snare(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int snare(uint amp, uint freq, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
     return imult(amp, SQUARE(dec, phase));
   }
-  int bass(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int kick(uint amp, uint freq, uint fm, uint dec) {
     phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
     return SINE(umult(amp, dec), phase);    
   }
-  int crash(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int crash(uint amp, uint freq, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
     return imult(amp, SINE(dec, phase));
   }
-  int ride(uint amp, uint freq, uint durn, uint fm, uint dec) {
+  int ride(uint amp, uint freq, uint fm, uint env) {
     static HiPass hp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + fm);
-    phase = norm_phase(phase + freq + SINE(dec, fm_phase));
-    int out = imult(amp, SINE(dec, phase) + LFSR.scaled_bit(umult(dec, fm >> 5)));
-    return hp.next(out, (INTERNAL_MAX - dec) >> 1);
+    phase = norm_phase(phase + freq + SINE(INTERNAL_MAX, fm_phase));
+    int out = imult(amp, SINE(env, phase) + LFSR.scaled_bit(fm >> 3));
+    return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
   void to(Voice& other) {
     other.amp = amp;
