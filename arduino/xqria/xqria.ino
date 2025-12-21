@@ -120,40 +120,19 @@ uint non_linear(uint val, uint n) {
 // efficient random bits from an LFSR (random quality is not important here!)
 class LFSR16 {
 private:
-  uint16_t state;
+  uint state;
 public:
-  LFSR16(uint16_t seed = 0xACE1) : state(seed) {}
-  uint next() {
-    uint16_t lsb = state & 0x1;
+  LFSR16(uint seed = 0xace1u) : state(seed) {}
+  int next(uint scale) {
+    uint lsb = state & 0x1;
     state >>= 1;
-    if (lsb) state ^= 0xB400;
-    return lsb;
-  }
-  int scaled_bit(uint scale) {
-    return scale * (next() ? 1 : -1);
-  }
-  int n_bits(uint n) {
-    int bits = un_bits(n);
-    // remove most of the bias (shift to be around zero rather than all +ve)
-    if (n > 0) bits -= 1 << (n - 1);
-    return bits;
-  }
-  uint un_bits(uint n) {
-    static uint line = 0;
-    int bits = 0;
-    while (n) {
-      uint bit = next();
-      if (DBG_LFSR) {
-        Serial.print(bit ? "1" : "0");
-        if (line++ == 80) {
-          line = 0;
-          Serial.println();
-        }
-      }
-      bits = bits << 1 | bit;
-      n--;
+    if (lsb) {
+      state ^= 0xb400;
+      return scale;
+    } else {
+      return -scale;
     }
-    return bits;
+    return lsb;
   }
 };
 
@@ -447,11 +426,11 @@ public:
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
 private:
-  static const uint RESOLN = 1 << 12;  // hack because d > 16 bits so we get overflow
   uint time = 0;  // ticks since triggered
   int phase = 0;
   int fm_phase = 0;
   bool on = false;
+  HiPass hp;
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -460,7 +439,7 @@ public:
   volatile uint durn;
   volatile uint fm;
   volatile int shift;
-  Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
+  Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : hp(INTERNAL_MAX >> 1), idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
     on = true;
     time = 0;
@@ -501,7 +480,7 @@ public:
   }
   int snare(uint amp, uint freq, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + (fm >> 6));
-    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase) + SINE(INTERNAL_N >> 6, freq >> 1));
+    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase));
     return imult(amp, SQUARE(dec, phase));
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
@@ -514,10 +493,9 @@ public:
     return imult(amp, SINE(dec, phase));
   }
   int ride(uint amp, uint freq, uint fm, uint env) {
-    static HiPass hp(INTERNAL_MAX >> 1);
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + SINE(INTERNAL_MAX, fm_phase));
-    int out = imult(amp, SINE(env, phase) + LFSR.scaled_bit(fm >> 3));
+    int out = imult(amp, SINE(env, phase) + LFSR.next(fm >> 3));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
   void to(Voice& other) {
