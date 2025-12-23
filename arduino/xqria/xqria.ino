@@ -396,32 +396,17 @@ public:
 
 class LoPass {
 private:
-  int prev_in = 0;
-  int prev_prev_in = 0;
+  int prev_out = 0;
   int alpha;
   int beta;
 public:
-  LoPass(int alpha) : alpha(alpha), beta((INTERNAL_MAX - alpha) >> 1) {};
+  LoPass(int alpha) : alpha(alpha), beta(INTERNAL_MAX - alpha) {};
   int next(int in) {
-    int out = imult(beta, in) + imult(alpha, prev_in) + imult(beta, prev_prev_in);
-    prev_prev_in = prev_in;
-    prev_in = in;
+    int out = imult(alpha, in) + imult(beta, prev_out);
+    prev_out = out;
     return out;
   }
 };
-
-// class Latch {
-// private:
-//   bool saved = false;
-//   int prev = 0;
-// public:
-//   int next(int value) {
-//     if (saved) value = prev;
-//     else prev = value;
-//     saved = !saved;
-//     return value;
-//   }
-// };
 
 // generate the sound for each voice (which means tracking time and phase)
 class Voice {
@@ -431,6 +416,7 @@ private:
   int fm_phase = 0;
   bool on = false;
   HiPass hp;
+  LoPass lp;
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -439,7 +425,8 @@ public:
   volatile uint durn;
   volatile uint fm;
   volatile int shift;
-  Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) : hp(INTERNAL_MAX >> 1), idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
+  Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) 
+  : hp(INTERNAL_MAX >> 1), lp(INTERNAL_MAX >> 1), idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
     on = true;
     time = 0;
@@ -472,7 +459,7 @@ public:
       if (nv_amp & INTERNAL_MSB) {
         out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, 1 + (non_linear(nv_freq, 2) >> 3), fm, dec);
       } else {
-        out = kick(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 6), fm, dec);
+        out = kick(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 4), fm, dec);
       }
     }
     time++;
@@ -481,7 +468,8 @@ public:
   int snare(uint amp, uint freq, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase));
-    return imult(amp, SQUARE(dec, phase));
+    int out = imult(amp, SQUARE(dec, phase));
+    return lp.next(out);
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
     phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
