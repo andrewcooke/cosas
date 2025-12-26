@@ -13,7 +13,7 @@
 const uint DMA_BUFFER_SIZE = 4092;  // 32 to 4092, multiple of 4; padded 16 bit; audible artefacts at 256 (even 1024) and below and i don't understand why
 const uint MAX_LOCAL_BUFFER_SIZE = DMA_BUFFER_SIZE / 2;  // 8 bit
 const uint MIN_LOCAL_BUFFER_SIZE = 10;  // anything lower grinds
-const uint SAMPLE_RATE_HZ = 40000;
+const uint BASE_RATE_HZ = 40000;
 const uint INTERNAL_BITS = 16;
 const uint INTERNAL_N = 1 << INTERNAL_BITS;
 const uint INTERNAL_MAX = INTERNAL_N - 1;
@@ -24,14 +24,19 @@ const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
 const uint OVERSAMPLE_BITS = 1;  // currently can't quite support 2 bits - get underruns when all voices active
+const uint SAMPLE_RATE_HZ = BASE_RATE_HZ << OVERSAMPLE_BITS;
 const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
 const uint TAU_N = 1 << TAU_BITS;
 const uint TAU_MAX = TAU_N - 1;
 const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
-const uint BEAT_SCALE = (SAMPLE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
+const uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint MAX_COMP_BITS = 12;
+const uint FREQ_BITS = 7;
+const uint FREQ_N = 1 << FREQ_BITS;  // 128 - 10 octaves from 20hz to 20khz, 12 notes per octave
+
+uint FREQ[FREQ_N] = {0};
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
@@ -47,7 +52,7 @@ volatile static uint SHIFT_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 // volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
-volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / (SAMPLE_RATE_HZ << OVERSAMPLE_BITS);
+volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
@@ -137,6 +142,53 @@ public:
 };
 
 static LFSR16 LFSR;
+
+uint freq_to_phase(float f) {
+  return static_cast<uint>(0.5 + (f * TAU_N) / static_cast<float>(SAMPLE_RATE_HZ));
+}
+
+float phase_to_freq(uint offset) {
+  return (static_cast<float>(SAMPLE_RATE_HZ) * offset) / TAU_N;
+}
+
+bool in_range(int idx) {
+  return idx > -1 && idx < FREQ_N;
+}
+
+void set_freq_around(float a, int a_idx) {
+  Serial.printf("around %d %f\n", a_idx, a);
+  if (in_range(a_idx)) FREQ[a_idx] = freq_to_phase(a);
+  for (int i = 1; i < 7; i++) {
+    if (in_range(a_idx + i)) FREQ[a_idx + i] = freq_to_phase(a * pow(2.0f, i / 12.0f));
+  }
+  for (int i = 1; i < 6; i++) {
+    if (in_range(a_idx - i)) FREQ[a_idx - i] = freq_to_phase(a * pow(2.0f, -i / 12.0f));
+  }
+}
+
+void set_freq_up(float a, int a_idx) {
+  while (a_idx < FREQ_N + 12) {
+    set_freq_around(a, a_idx);
+    a *= 2;
+    a_idx += 12;
+  }
+}
+
+void set_freq_down(float a, int a_idx) {
+  while (a_idx > -12) {
+    set_freq_around(a, a_idx);
+    a /= 2;
+    a_idx -= 12;
+  }
+}
+
+void set_freq() {
+  float a = 440;
+  uint a_idx = 61;  // from trial and error so that we don't exceed half sampling freq
+  set_freq_down(a, a_idx);
+  set_freq_up(a * 2, a_idx + 12);
+  for (uint i = 0; i < FREQ_N; i++) Serial.printf("%d %d %.1f\n", i, FREQ[i], phase_to_freq(FREQ[i]));
+}
 
 // wrapper for LEDs
 // assumes values are INTERNAL_BITS and converts to LED_BITS
@@ -1053,7 +1105,7 @@ public:
             if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
           }
         }
-        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
+        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / BASE_RATE_HZ;
       }
     } else {
       disable();
@@ -1403,6 +1455,7 @@ void setup() {
   for (Button& b : VOICE_BUTTONS) b.init();
   if (DBG_STARTUP) Serial.printf("pots %d/4\n", POTS.size());
   for (Pot& p : POTS) p.init();
+  set_freq();
   STATE.init();
 
   int ok = xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
@@ -1416,7 +1469,7 @@ void setup() {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
     .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
-    .freq_hz = SAMPLE_RATE_HZ << OVERSAMPLE_BITS,
+    .freq_hz = BASE_RATE_HZ << OVERSAMPLE_BITS,
     .offset = 0,
     .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
     .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel

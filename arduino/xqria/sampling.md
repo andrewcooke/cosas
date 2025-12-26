@@ -85,3 +85,25 @@ possible with the current code (we cannot fill the buffer in time when
 all 4 voices are active).  When development is (largely) complete it
 would be worth seeing if performance tuning could extend this to 2
 bits.
+
+## Frequency Lookup
+
+After all the above, I still wasn't happy with frequency range and so
+considered using a lookup table from knob value to note frequency,
+with note frequency pre-calculated.  This means that the generated
+signals will be (1) exponentially distributed and (2) in "correct"
+tune (ignoring FM).
+
+By "note frequency" I mean the phase increment necessary to generate a
+particular frequency.
+
+To make this work I need to calculate the audio frequency, given the
+phase increment.  Remember that the base frequency is 40Hz and tau is
+17 bits.  A step of tau generates the base frequency, so, scaling:
+
+    f = BASE x step / (2 ^ tau)
+
+And inverting for step size:
+
+    step = f x (2 ^ tau) / BASE
+
