@@ -498,20 +498,21 @@ public:
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
     int nv_freq = freq;
+    int exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // todo - this could be set earlier to avoid lookup in main loop?
     int nv_amp = amp;
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, 1 + nv_freq, fm, non_linear(dec, 2));
+        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, exp_freq, fm, non_linear(dec, 2));
       } else {
         uint env = min(rise, dec);
-        out = ride(non_linear(amp, 2), 1 + nv_freq, fm, env);
+        out = ride(non_linear(amp, 2), exp_freq, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, 1 + (non_linear(nv_freq, 2) >> 3), fm, dec);
+        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, exp_freq >> 1, fm, dec);
       } else {
-        out = kick(non_linear(amp, 2) >> 2, 1 + (non_linear(nv_freq, 2) >> 4), fm, dec);
+        out = kick(non_linear(amp, 2) >> 2, exp_freq >> 1, fm, dec);
       }
     }
     time++;
