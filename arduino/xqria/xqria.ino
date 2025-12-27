@@ -31,12 +31,17 @@ const uint TAU_MAX = TAU_N - 1;
 const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
-const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+const uint SUBDIVS[] = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint MAX_COMP_BITS = 12;
 const uint FREQ_BITS = 7;
 const uint FREQ_N = 1 << FREQ_BITS;  // 128 - 10 octaves from 20hz to 20khz, 12 notes per octave
+const uint A_IDX = 61;  // from trial and error (location of 440hz)
+const uint AMP_BITS = 7;
+const uint AMP_N = 1 << AMP_BITS;
+const float AMP_SCALE = 9.0f;  // from trial and error (for good low end response)
 
 uint FREQ[FREQ_N] = {0};
+uint AMP[AMP_N] = {0};
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
@@ -184,10 +189,16 @@ void set_freq_down(float a, int a_idx) {
 
 void set_freq() {
   float a = 440;
-  uint a_idx = 61;  // from trial and error so that we don't exceed half sampling freq
-  set_freq_down(a, a_idx);
-  set_freq_up(a * 2, a_idx + 12);
-  for (uint i = 0; i < FREQ_N; i++) Serial.printf("%d %d %.1f\n", i, FREQ[i], phase_to_freq(FREQ[i]));
+  set_freq_down(a, A_IDX);
+  set_freq_up(a * 2, A_IDX + 12);
+  if (DBG_STARTUP) for (uint i = 0; i < FREQ_N; i++) Serial.printf("f %d %d %.1f\n", i, FREQ[i], phase_to_freq(FREQ[i]));
+}
+
+void set_amp() {
+  for (int i = 0; i < AMP_N; i++) {
+    AMP[AMP_N - 1 - i] = static_cast<uint>(0.5f + INTERNAL_MAX * pow(2.0f, -i / AMP_SCALE));
+  }
+  if (DBG_STARTUP) for (uint i = 0; i < AMP_N; i++) Serial.printf("a %d %d\n", i, AMP[i]);
 }
 
 // wrapper for LEDs
@@ -497,22 +508,23 @@ public:
     // TODO - overflow here?
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
-    int nv_freq = freq;
-    int exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // todo - this could be set earlier to avoid lookup in main loop?
-    int nv_amp = amp;
+    uint nv_freq = freq;
+    uint exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // todo - this could be set earlier to avoid lookup in main loop?
+    uint nv_amp = amp;
+    uint exp_amp = AMP[(nv_amp & 0x7fff) >> (INTERNAL_BITS - 1 - AMP_BITS)];  // ditto
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(non_linear(amp & INTERNAL_NO_MSB, 2) >> 4, exp_freq, fm, non_linear(dec, 2));
+        out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
       } else {
         uint env = min(rise, dec);
-        out = ride(non_linear(amp, 2), exp_freq, fm, env);
+        out = ride(exp_amp, exp_freq, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        out = snare(non_linear(amp & INTERNAL_NO_MSB, 2) >> 5, exp_freq >> 1, fm, dec);
+        out = snare(exp_amp, exp_freq >> 1, fm, dec);
       } else {
-        out = kick(non_linear(amp, 2) >> 2, exp_freq >> 1, fm, dec);
+        out = kick(exp_amp, exp_freq >> 1, fm, dec);
       }
     }
     time++;
@@ -822,9 +834,9 @@ protected:
     if (check_enabled(*destn, pot)) *destn = POTS[pot].state;
     if (pot == active) STATE.led_fm(*destn, enabled[pot]);
   }
-  void update_subdiv(volatile uint* destn, int bits, uint pot) {
-    int pot_target = bits < 0 ? *destn << -bits : *destn >> bits;
-    if (check_enabled(pot_target, pot)) *destn = bits < 0 ? POTS[pot].state >> -bits : POTS[pot].state << bits;
+  void update_subdiv(volatile uint* destn, uint pot) {  // has hardcoded length of SUBDIVS in bit shifts
+    int pot_target = *destn << 12;
+    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state >> 12;
     if (pot == active) STATE.led_prime(SUBDIVS[*destn], enabled[pot]);
   }
   void update_prime(volatile uint* destn, uint zero, int bits, uint pot) {
@@ -923,7 +935,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -6, 0);
-      update_subdiv(&SUBDIV_IDX, -12, 1);
+      update_subdiv(&SUBDIV_IDX, 1);
     } else {
       disable();
     }
@@ -1457,6 +1469,7 @@ void setup() {
   if (DBG_STARTUP) Serial.printf("pots %d/4\n", POTS.size());
   for (Pot& p : POTS) p.init();
   set_freq();
+  set_amp();
   STATE.init();
 
   int ok = xTaskCreatePinnedToCore(&ui_loop, "UI Loop", 10000, NULL, 1, &ui_handle, 0);
