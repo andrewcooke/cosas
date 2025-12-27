@@ -31,7 +31,7 @@ const uint TAU_MAX = TAU_N - 1;
 const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
 const uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
-const uint SUBDIVS[] = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
+const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint MAX_COMP_BITS = 12;
 const uint FREQ_BITS = 7;
 const uint FREQ_N = 1 << FREQ_BITS;  // 128 - 10 octaves from 20hz to 20khz, 12 notes per octave
@@ -40,8 +40,8 @@ const uint AMP_BITS = 7;
 const uint AMP_N = 1 << AMP_BITS;
 const float AMP_SCALE = 9.0f;  // from trial and error (for good low end response)
 
-uint FREQ[FREQ_N] = {0};
-uint AMP[AMP_N] = {0};
+static std::array<uint, FREQ_N> FREQ = {0};
+static std::array<uint, AMP_N> AMP = {0};
 
 const uint LED_FREQ = 1000;
 const uint LED_BITS = 8;
@@ -509,7 +509,7 @@ public:
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
     uint nv_freq = freq;
-    uint exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // todo - this could be set earlier to avoid lookup in main loop?
+    uint exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // difficult to cache because a bit discarded and reverse lookup expensive
     uint nv_amp = amp;
     uint exp_amp = AMP[(nv_amp & 0x7fff) >> (INTERNAL_BITS - 1 - AMP_BITS)];  // ditto
     int out = 0;
@@ -547,8 +547,8 @@ public:
   }
   int ride(uint amp, uint freq, uint fm, uint env) {
     fm_phase = norm_phase(fm_phase + fm);
-    phase = norm_phase(phase + freq + SINE(INTERNAL_MAX, fm_phase));
-    int out = imult(amp, SINE(env, phase) + LFSR.next(fm >> 3));
+    phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX, fm_phase));
+    int out = imult(amp, SINE(env, phase) + LFSR.next(fm >> 4));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
   void to(Voice& other) {
@@ -911,7 +911,6 @@ private:
       if (DBG_VOICE) Serial.printf("a %d, f %d, d %d, n %d\n", voice.amp, voice.freq, voice.durn, voice.fm);
     } else {
       if (editing) {
-        // Serial.printf("Voice(%d, %d, %d, %d, %d)\n", idx, voice.amp, voice.freq, voice.durn, voice.fm);
         editing = false;
         STATE.led_clear();
       }
@@ -1483,7 +1482,7 @@ void setup() {
     .chan_mask = DAC_CHANNEL_MASK_CH0,
     .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
     .buf_size = DMA_BUFFER_SIZE,
-    .freq_hz = BASE_RATE_HZ << OVERSAMPLE_BITS,
+    .freq_hz = SAMPLE_RATE_HZ,
     .offset = 0,
     .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
     .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
