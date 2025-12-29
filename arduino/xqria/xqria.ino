@@ -23,14 +23,8 @@ const uint POT_BITS = 12;
 const uint POT_N = 1 << POT_BITS;
 const uint POT_MAX = POT_N - 1;
 const uint DAC_BITS = 8;
-const uint OVERSAMPLE_BITS = 1;  // currently can't quite support 2 bits - get underruns when all voices active
-const uint SAMPLE_RATE_HZ = BASE_RATE_HZ << OVERSAMPLE_BITS;
-const uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
-const uint TAU_N = 1 << TAU_BITS;
-const uint TAU_MAX = TAU_N - 1;
 const uint TABLE_BITS = 12;
 const uint TABLE_N = 1 << TABLE_BITS;
-const uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
 const std::array<uint, 16> SUBDIVS = {5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40, 45, 48, 50, 55, 60};  // by luck length is power of 2
 const uint MAX_COMP_BITS = 12;
 const uint FREQ_BITS = 7;
@@ -57,6 +51,14 @@ volatile static uint SHIFT_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 // volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
+volatile static uint OVERSAMPLE_BITS = 2;  // can be lowered via sys buttons if starving
+
+// derived from above
+volatile static uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
+volatile static uint SAMPLE_RATE_HZ = BASE_RATE_HZ << OVERSAMPLE_BITS;
+volatile static uint TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
+volatile static uint TAU_N = 1 << TAU_BITS;
+volatile static uint TAU_MAX = TAU_N - 1;
 volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
 
 const uint DBG_LOTTERY = 10000;
@@ -75,7 +77,8 @@ const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 const bool DBG_COPY = false;
 const bool DBG_STARTUP = true;
-const bool DBG_POT = false;
+const bool DBG_POT = true;
+const bool DBG_CONFIG = false;
 
 struct VoiceData {
   uint amp;
@@ -499,7 +502,7 @@ public:
   int output() {
     if (!on) return 0;
     // sampling freq is 15.5 bits, internal is 16 bits, would like max durn to be about 4s.
-    uint durn_scaled = non_linear(durn, 2) >> (1 - OVERSAMPLE_BITS);  // currently this is not -ve
+    uint durn_scaled = OVERSAMPLE_BITS > 1 ? non_linear(durn, 2) << (OVERSAMPLE_BITS - 1) : non_linear(durn, 2) >> (1 - OVERSAMPLE_BITS);  // currently this is not -ve
     if (time >= durn_scaled) {
       STATE.voice(idx, false);    
       on = false;
@@ -1094,44 +1097,11 @@ public:
 
 static PerfButtons PERFORMANCE_BUTTONS;
 
-// obscure system controls
-class SysButtons : public PotsReader {
-private:
-  uint buffer_frac = ((LOCAL_BUFFER_SIZE * (INTERNAL_MAX >> 1)) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : (INTERNAL_MAX >> 1));
-public:
-  SysButtons() = default;
-  void read_state() {
-    if (STATE.button_mask == 0xf) {
-      float prev = buffer_frac;
-      update_no_msb(&buffer_frac, 0);
-      if (buffer_frac != prev) {
-        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
-        if (buffer_frac > (INTERNAL_MAX >> 1)) {
-          if (LOCAL_BUFFER_SIZE & 0x1) {
-            LOCAL_BUFFER_SIZE += 1;
-            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
-          }
-        } else {
-          if (!(LOCAL_BUFFER_SIZE & 0x1)) {
-            LOCAL_BUFFER_SIZE += 1;
-            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
-          }
-        }
-        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / BASE_RATE_HZ;
-      }
-    } else {
-      disable();
-    }
-  }
-};
-
-static SysButtons SYS_BUTTONS;
-
 class Config {
 private:
   Preferences prefs;
   AllData build() {
-    Serial.printf("build\n");
+    if (DBG_CONFIG) Serial.printf("build\n");
     AllData current;
     for (uint i = 0; i < 4; i++) VOICES[i].to(current.voices[i]);
     for (uint i = 0; i < 2; i++) {
@@ -1150,7 +1120,7 @@ private:
     return current;
   }
   void apply(AllData data) {
-    Serial.printf("apply\n");
+    if (DBG_CONFIG) Serial.printf("apply\n");
     for (uint i = 0; i < 4; i++) VOICES[i].from(data.voices[i]);
     for (uint i = 0; i < 2; i++) {
       VAULTS[i].n_places = data.vaults[i].n_places;
@@ -1170,11 +1140,11 @@ private:
     char* key = new_key(idx);
     bool exists = prefs.isKey(key);
     delete[] key;
-    Serial.printf("exists %d %d\n", idx, exists);
+    if (DBG_CONFIG) Serial.printf("exists %d %d\n", idx, exists);
     return exists;
   }
   void remove(uint idx) {
-    Serial.printf("remove %d\n", idx);
+    if (DBG_CONFIG) Serial.printf("remove %d\n", idx);
     if (exists(idx)) {
       char *key = new_key(idx);
       prefs.remove(key);
@@ -1182,7 +1152,7 @@ private:
     }
   }
   AllData really_read(uint idx) {
-    Serial.printf("really_read %d\n", idx);
+    if (DBG_CONFIG) Serial.printf("really_read %d\n", idx);
     byte tmp[sizeof(AllData)];
     char *key = new_key(idx);
     prefs.getBytes(key, tmp, sizeof(AllData));
@@ -1192,31 +1162,31 @@ private:
     return data;
   }
   void really_save(AllData data, uint idx) {
-    Serial.printf("really_save %d\n", idx);
+    if (DBG_CONFIG) Serial.printf("really_save %d\n", idx);
     byte tmp[sizeof(AllData)];
     memcpy(tmp, &data, sizeof(AllData));
     char *key = new_key(idx);
     uint len = prefs.putBytes(key, tmp, sizeof(AllData));
-    Serial.printf("wrote %d/%d bytes\n", len, sizeof(AllData));
+    if (DBG_CONFIG) Serial.printf("wrote %d/%d bytes\n", len, sizeof(AllData));
     delete[] key;
   }
   char* new_key(uint idx) {
     char *key = new char[2];
     sprintf(key, "%x", idx);
-    Serial.printf("key %d %s\n", idx, key);
+    if (DBG_CONFIG) Serial.printf("key %d %s\n", idx, key);
     return key;
   }
 public:
   Config() {
     bool ok = prefs.begin("xqria", false);
-    Serial.printf("prefs opened %d\n", ok);
+    if (DBG_CONFIG) Serial.printf("prefs opened %d\n", ok);
   }
   ~Config() {
     prefs.end();
-    Serial.printf("prefs closed\n");
+    if (DBG_CONFIG) Serial.printf("prefs closed\n");
   }
   void save(uint idx) {
-    Serial.printf("save %d\n", idx);
+    if (DBG_CONFIG) Serial.printf("save %d\n", idx);
     if (idx > 0 && idx < 15) {
       if (exists(idx)) {
         AllData data = really_read(idx);
@@ -1229,7 +1199,7 @@ public:
     }
   }
   void read(uint idx) {
-    Serial.printf("read %d\n", idx);
+    if (DBG_CONFIG) Serial.printf("read %d\n", idx);
     if (idx > 0 && idx < 16) {
       if (exists(idx)) {
         AllData data = really_read(idx);
@@ -1288,8 +1258,7 @@ public:
 static SaveButtons SAVE_BUTTONS = SaveButtons();
 
 // use a timer to give regular sampling and (hopefully) reduce noise
-SemaphoreHandle_t timer_semaphore;
-esp_timer_handle_t timer_handle;
+static SemaphoreHandle_t timer_semaphore;
 
 void IRAM_ATTR timer_callback(void*) {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
@@ -1385,6 +1354,76 @@ public:
 // run the ui on other core
 static TaskHandle_t ui_handle = NULL;
 
+static Audio AUDIO(Trigger(VAULTS[0], VOICES[0], true, false), 
+                   Trigger(VAULTS[0], VOICES[1], false, false), 
+                   Trigger(VAULTS[1], VOICES[2], true, true),
+                   Trigger(VAULTS[1], VOICES[3], false, true));
+static uint8_t BUFFER[2][MAX_LOCAL_BUFFER_SIZE];
+volatile static uint dma_idx = 0;  // not needed, afaict, because dma buffer is always large enough for what we have
+static SemaphoreHandle_t dma_semaphore;
+static BaseType_t dma_flag = pdFALSE;
+static dac_continuous_handle_t dac_handle;
+volatile static uint dma_time = 0;
+volatile static uint dma_errors = 0;
+volatile static uint dma_late = 0;
+static dac_continuous_config_t dac_config = {
+  .chan_mask = DAC_CHANNEL_MASK_CH0,
+  .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
+  .buf_size = DMA_BUFFER_SIZE,
+  .freq_hz = SAMPLE_RATE_HZ,
+  .offset = 0,
+  .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
+  .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
+};
+
+// obscure system controls
+class SysButtons : public PotsReader {
+private:
+  uint buffer_frac = ((LOCAL_BUFFER_SIZE * (INTERNAL_MAX >> 1)) / MAX_LOCAL_BUFFER_SIZE) + (LOCAL_BUFFER_SIZE & 0x1 ? 0 : (INTERNAL_MAX >> 1));
+  uint oversample_bits = OVERSAMPLE_BITS;
+public:
+  SysButtons() = default;
+  void read_state() {
+    if (STATE.button_mask == 0xf) {
+      float prev_buffer_frac = buffer_frac;
+      update_no_msb(&buffer_frac, 0);
+      if (buffer_frac != prev_buffer_frac) {
+        LOCAL_BUFFER_SIZE = max(MIN_LOCAL_BUFFER_SIZE, min(MAX_LOCAL_BUFFER_SIZE, (buffer_frac & (INTERNAL_MAX >> 1)) * MAX_LOCAL_BUFFER_SIZE / (INTERNAL_MAX >> 1)));
+        if (buffer_frac > (INTERNAL_MAX >> 1)) {
+          if (LOCAL_BUFFER_SIZE & 0x1) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        } else {
+          if (!(LOCAL_BUFFER_SIZE & 0x1)) {
+            LOCAL_BUFFER_SIZE += 1;
+            if (LOCAL_BUFFER_SIZE > MAX_LOCAL_BUFFER_SIZE) LOCAL_BUFFER_SIZE -= 2;
+          }
+        }
+        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / BASE_RATE_HZ;
+      }
+      uint prev_oversample_bits = oversample_bits;
+      update(&oversample_bits, 0, -14, 1);
+      if (oversample_bits != prev_oversample_bits) {
+        OVERSAMPLE_BITS = oversample_bits;
+        BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
+        SAMPLE_RATE_HZ = BASE_RATE_HZ << OVERSAMPLE_BITS;
+        TAU_BITS = INTERNAL_BITS + 1 + OVERSAMPLE_BITS;
+        TAU_N = 1 << TAU_BITS;
+        TAU_MAX = TAU_N - 1;
+        REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ;
+        stop_dac();
+        dac_config.freq_hz = SAMPLE_RATE_HZ;
+        start_dac();
+      }
+    } else {
+      disable();
+    }
+  }
+};
+
+static SysButtons SYS_BUTTONS;
+
 // main loop on other core for slow/ui operations
 void ui_loop(void*) {
   uint count = 0;
@@ -1403,18 +1442,6 @@ void ui_loop(void*) {
   }
 }
 
-static Audio AUDIO(Trigger(VAULTS[0], VOICES[0], true, false), 
-                   Trigger(VAULTS[0], VOICES[1], false, false), 
-                   Trigger(VAULTS[1], VOICES[2], true, true),
-                   Trigger(VAULTS[1], VOICES[3], false, true));
-static uint8_t BUFFER[2][MAX_LOCAL_BUFFER_SIZE];
-volatile static uint dma_idx = 0;  // not needed, afaict, because dma buffer is always large enough for what we have
-static SemaphoreHandle_t dma_semaphore;
-static BaseType_t dma_flag = pdFALSE;
-static dac_continuous_handle_t dac_handle;
-volatile static uint dma_time = 0;
-volatile static uint dma_errors = 0;
-
 // fast copy of existing data into buffer - seems to take a very consistent 200us
 static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_event_data_t* event, void* user_data) {
   unsigned long start = micros();
@@ -1432,20 +1459,19 @@ static IRAM_ATTR bool dac_callback(dac_continuous_handle_t handle, const dac_eve
 // slow fill of buffer - time depends on number of voices active (obvs)
 void update_buffer() {
   static uint burst = 0;
-  static uint late = 0;
   static EMA<uint> avg_duty = EMA<uint>(8, 1, 4, 100);
   unsigned long start = micros();
   AUDIO.generate(LOCAL_BUFFER_SIZE, BUFFER[dma_idx]);
   uint calc_time = micros() - start;
   uint duty = (100 * (dma_time + calc_time)) / REFRESH_US;
-  if (duty > 100) late++;
+  if (duty > 100) dma_late += 1;
   uint avg = avg_duty.next(duty);
   if (DBG_TIMING && !burst && !random(DBG_LOTTERY / max(1u, LOCAL_BUFFER_SIZE >> 3))) {
     burst = 3;
     Serial.println("---");
   }
   if (burst) {
-    Serial.printf("buffer %d; dma %d, calc %d, duty %d/%d; errors %d, late %d\n", LOCAL_BUFFER_SIZE, dma_time, calc_time, duty, avg, dma_errors, late);
+    Serial.printf("buffer %d; ov %d, dma %d, calc %d, duty %d/%d; errors %d, late %d\n", LOCAL_BUFFER_SIZE, OVERSAMPLE_BITS, dma_time, calc_time, duty, avg, dma_errors, dma_late);
     burst--;
   }
   static uint startup_count = 0;
@@ -1457,6 +1483,30 @@ void loop() {
   for (;;) {
     if (xSemaphoreTake(dma_semaphore, portMAX_DELAY) == pdTRUE) update_buffer();
   }
+}
+
+void start_dac() {
+  dma_errors = 0;
+  dma_late = 0;
+  int ok = dac_continuous_new_channels(&dac_config, &dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac new channels %d/0\n", ok);
+  ok = dac_continuous_enable(dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac continuous enable %d/0\n", ok);
+  dac_event_callbacks_t callbacks = {
+    .on_convert_done = dac_callback,
+    .on_stop = nullptr
+  };
+  ok = dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
+  if (DBG_STARTUP) Serial.printf("callback registered %d/0\n", ok);
+  ok = dac_continuous_start_async_writing(dac_handle);
+  if (DBG_STARTUP) Serial.printf("asynch started %d/0\n", ok);
+}
+
+void stop_dac() {
+  int ok = dac_continuous_disable(dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac continuous disable %d/0\n", ok);
+  ok = dac_continuous_del_channels(dac_handle);
+  if (DBG_STARTUP) Serial.printf("dac continuous del channels %d/0\n", ok);
 }
 
 void setup() {
@@ -1478,25 +1528,5 @@ void setup() {
   if (DBG_STARTUP) Serial.printf("first buffer updated\n");
   dma_semaphore = xSemaphoreCreateBinary();
   if (DBG_STARTUP) Serial.printf("semaphore created %d/1\n", dma_semaphore != nullptr);
-  dac_continuous_config_t dac_config = {
-    .chan_mask = DAC_CHANNEL_MASK_CH0,
-    .desc_num = 8,  // 2 allows pinpong for large buffers, but a larger value seems to help small buffers
-    .buf_size = DMA_BUFFER_SIZE,
-    .freq_hz = SAMPLE_RATE_HZ,
-    .offset = 0,
-    .clk_src = DAC_DIGI_CLK_SRC_DEFAULT,
-    .chan_mode = DAC_CHANNEL_MODE_SIMUL  // not used for single channel
-  };
-  ok = dac_continuous_new_channels(&dac_config, &dac_handle);
-  if (DBG_STARTUP) Serial.printf("dac new channels %d/0\n", ok);
-  ok = dac_continuous_enable(dac_handle);
-  if (DBG_STARTUP) Serial.printf("dac continuous %d/0\n", ok);
-  dac_event_callbacks_t callbacks = {
-    .on_convert_done = dac_callback,
-    .on_stop = nullptr
-  };
-  ok = dac_continuous_register_event_callback(dac_handle, &callbacks, nullptr);
-  if (DBG_STARTUP) Serial.printf("callback registered %d/0\n", ok);
-  ok = dac_continuous_start_async_writing(dac_handle);
-  if (DBG_STARTUP) Serial.printf("asynch started %d/0\n", ok);
+  start_dac();
 };

@@ -229,6 +229,15 @@ similar.
    the default is the largest buffer possible.  the two ranges
    correspond to event and odd buffer sizes (odd is not recommended).
 
+2. oversample bits.  this is relative to the base clock of 40khz.  by
+   default this is 2, which means we 4x oversample (160khz).  however,
+   the cpu may not be able to generate complex sounds sufficiently
+   quickly, in which case this can be reduced.  to monitor, set
+   DBG_TIMING and look at "errors" and "late" in the serial output
+   (there will likely be audible problems too).
+
+   a value of 3 bits is supported for curiousity / glitching.
+
 ### cpu use
 
 the entire instrument is running on a tiny chip with two cores.  if
@@ -238,6 +247,9 @@ if that happens you will start to hear noise/clicks in the audio.
 if you are having problems, please check you have compiled with -O3
 as described in the "install" section above, since that makes a huge
 difference in avoiding overloading the cpu.
+
+if you still have problems, you can reduce the oversample rate (see
+system above), but this may reduce sound quality.
 
 if you still have problems, you need to reduce the complexity of the
 sound.  it's probably sufficient to reduce the duration of a few
