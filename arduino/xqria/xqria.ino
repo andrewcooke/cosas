@@ -46,8 +46,9 @@ const uint LED_DIM_BITS = 3;
 //volatile static uint BPM = 90;
 volatile static uint BPM = 200;
 volatile static uint SUBDIV_IDX = 15;
+volatile static uint PATT_OFFSET = 0;
 volatile static uint COMP_BITS = 0;
-volatile static uint SHIFT_BITS = 0;
+volatile static uint DROP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 // volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
@@ -102,8 +103,10 @@ struct AllData {
   uint reverb_size;
   uint reverb_head_num;
   uint bpm;
+  uint patt_offset;
   uint subdiv_idx;
   uint comp_bits;
+  uint drop_bits;
   uint local_buffer_size;
 };
 
@@ -882,7 +885,7 @@ protected:
     if (check_enabled(target, pot)) *destn = (POTS[pot].state * 5) / (INTERNAL_MAX + 1);
     if (pot == active) STATE.led_5(*destn, enabled[pot]);
   }
-  void update_bin(uint* destn, uint pot) {
+  void update_bin(volatile uint* destn, uint pot) {
     static const uint shift = INTERNAL_BITS - 4;  // TODO ?
     uint target = *destn << shift;
     if (check_enabled(target, pot)) *destn = POTS[pot].state >> shift;
@@ -930,7 +933,7 @@ std::array<VoiceButton, 4> VOICE_BUTTONS = {VoiceButton(0, 18, VOICES[0]),
                                             VoiceButton(2, 15, VOICES[2]),
                                             VoiceButton(3, 19, VOICES[3])};
 
-// global parameters - hold down middle two buttons
+// timing parameters - hold down middle two buttons
 class TimingButtons : public PotsReader {
 public:
   TimingButtons() = default;
@@ -938,6 +941,7 @@ public:
     if (STATE.button_mask == 0x6) {
       update(&BPM, 30, -6, 0);
       update_subdiv(&SUBDIV_IDX, 1);
+      update_bin(&PATT_OFFSET, 2);
     } else {
       disable();
     }
@@ -952,7 +956,7 @@ static TimingButtons TIMING_BUTTONS;
 // - a "next" euclidean object created when editing last exited
 // - a "current" euclidean object that is used for sound generation
 // it is responsible for:
-// - creating of the "next" instance when editing finishes
+// - creation of the "next" instance when editing finishes
 // - moving "next" to "current" when a new cycle begins (avoiding copy/assignment)
 // - holding the "current" instance in memory while it is in use
 // - avoiding access conflicts
@@ -1067,7 +1071,7 @@ public:
       update(&REVERB.size, 0, -3, 0);
       update(&REVERB.head.num, 1, 0, 1);
       update_frac(&COMP_BITS, 0, MAX_COMP_BITS, 2);
-      update(&SHIFT_BITS, 0, -12, 3);
+      update(&DROP_BITS, 0, -12, 3);
     } else {
       disable();
     }
@@ -1095,7 +1099,7 @@ public:
   }
 };
 
-static PerfButtons PERFORMANCE_BUTTONS;
+static PerfButtons PERF_BUTTONS;
 
 class Config {
 private:
@@ -1114,8 +1118,10 @@ private:
     current.reverb_size = REVERB.size;
     current.reverb_head_num = REVERB.head.num;
     current.bpm = BPM;
+    current.patt_offset = PATT_OFFSET;
     current.subdiv_idx = SUBDIV_IDX;
     current.comp_bits = COMP_BITS;
+    current.drop_bits = DROP_BITS;
     current.local_buffer_size = LOCAL_BUFFER_SIZE;
     return current;
   }
@@ -1132,8 +1138,10 @@ private:
     REVERB.size = data.reverb_size;
     REVERB.head.num = data.reverb_head_num;
     BPM = data.bpm;
+    PATT_OFFSET = data.patt_offset;
     SUBDIV_IDX = data.subdiv_idx;
     COMP_BITS = data.comp_bits;
+    DROP_BITS = data.drop_bits;
     LOCAL_BUFFER_SIZE = data.local_buffer_size;
   }
   bool exists(uint idx) {
@@ -1283,7 +1291,7 @@ uint post_process(int amp) {
   // apply compressor
   int soft_clipped = compress(amp, COMP_BITS, MAX_COMP_BITS);
   // apply quantisation
-  int shifted = (soft_clipped >> SHIFT_BITS) << SHIFT_BITS;  // implementation dependent but signed here
+  int shifted = (soft_clipped >> DROP_BITS) << DROP_BITS;  // implementation dependent but signed here
   // apply reverb
   // int reverbed = soft_clipped;
   int reverbed = REVERB.next(shifted);
@@ -1304,13 +1312,18 @@ private:
   Euclidean* rhythm = nullptr;
   enum Phase {Idle, Jiggle, Update};
   Phase phase = Idle;
-  uint trigger = 0;
+  uint offset = 0;
+  uint64_t trigger = 0;
   void recalculate(int64_t ticks) {
     rhythm = vault.get();
     uint nv_interval = BEAT_SCALE / BPM;
     if (subdiv) nv_interval = (nv_interval * SUBDIVS[SUBDIV_IDX]) / 60;
-    uint beat = 1 + (ticks / nv_interval);
+    uint64_t beat = 1 + (ticks / nv_interval);
     trigger = nv_interval * beat;
+    if (subdiv) {
+      offset = PATT_OFFSET * BEAT_SCALE / BPM;
+      offset += voice.shift / static_cast<int>(BPM * SUBDIVS[SUBDIV_IDX] / 60);  // TODO - scaling here
+    }
     // Serial.printf("reacalculate: voice %d major %d trigger %d\n", voice.idx, major, trigger);
   }
 public:
@@ -1318,7 +1331,7 @@ public:
     recalculate(0);
   }
   void on(int64_t ticks) {  // try to spread work across multiple ticks
-    ticks += voice.shift / static_cast<int>(BPM * SUBDIVS[SUBDIV_IDX] / 60);
+    ticks += offset;
     if (phase == Idle && ticks > trigger) {
       rhythm->on_beat(major);
       phase = Jiggle;
@@ -1434,7 +1447,7 @@ void ui_loop(void*) {
     EUCLIDEAN_BUTTONS_LEFT.read_state();             // left pair
     EUCLIDEAN_BUTTONS_RIGHT.read_state();            // right pair
     POST_BUTTONS.read_state();                       // outer pair
-    PERFORMANCE_BUTTONS.read_state();                // left triplet
+    PERF_BUTTONS.read_state();                // left triplet
     SAVE_BUTTONS.read_state();                       // right triplet
     SYS_BUTTONS.read_state();                        // all
     if (count < 2 && DBG_STARTUP) Serial.printf("ui loop %d/2 on core %d\n", ++count, xPortGetCoreID());

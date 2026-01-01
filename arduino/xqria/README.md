@@ -150,6 +150,9 @@ parameters.  the pots adjust:
    available multiples are 5, 10, 12, 15, 20, 24, 25, 30, 35, 36, 40,
    45, 48, 50, 55, and 60.
 
+3. pattern offset.  this is the offset between the two patterns, in
+   number of beats in the first.
+
 the way subdivision is calculated is, unfortunately, complicated.  you
 may prefer to simply adjust things by ear, but here i will explain in
 more detail what is happening.
