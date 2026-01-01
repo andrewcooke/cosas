@@ -118,8 +118,11 @@ with buttons 1 and 2 held down, for example, to select the first
 pattern, the pots then adjust:
 
 1. the total number of beats
+
 2. the number of triggers (as a fraction of the number of beats)
+
 3. the division in work between the two voices
+
 4. the probability that some triggers shift which beat they occur on
 
 pots 1 and 2 use the leds in an unusual way: the leds correspond to

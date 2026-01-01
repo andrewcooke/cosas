@@ -67,7 +67,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
@@ -78,7 +78,7 @@ const bool DBG_JIGGLE = false;
 const bool DBG_PATTERN = false;
 const bool DBG_COPY = false;
 const bool DBG_STARTUP = true;
-const bool DBG_POT = true;
+const bool DBG_POT = false;
 const bool DBG_CONFIG = false;
 
 struct VoiceData {
@@ -267,8 +267,8 @@ public:
   void bar_right(uint value, bool full) {
     uint quarter = INTERNAL_MAX >> 2;
     for (uint i = 0; i < n_leds; i++) {
-      set(n_leds - i + 1, (value > quarter ? INTERNAL_MAX : value << 2) >> (full ? 0 : LED_DIM_BITS));
-      value -= quarter;
+      set(n_leds - i - 1, (value > quarter ? INTERNAL_MAX : value << 2) >> (full ? 0 : LED_DIM_BITS));
+      value = value > quarter ? value - quarter : 0;
     }
   }
   void prime(uint value, bool full) {
@@ -872,12 +872,13 @@ protected:
     if (pot == active) STATE.led_gray(*destn);  // TODO - no enabled?
   }
   void update_signed(volatile int* destn, uint pot) {
-    uint target = (*destn + (INTERNAL_MAX >> 1));
-    if (check_enabled(target, pot)) *destn = POTS[pot].state - (INTERNAL_MAX >> 1);
+    uint target = static_cast<uint>(static_cast<int64_t>(*destn) + static_cast<int64_t>(INTERNAL_MAX >> 1));
+    if (check_enabled(target, pot)) *destn = static_cast<int>(static_cast<int64_t>(POTS[pot].state) - static_cast<int64_t>(INTERNAL_MAX >> 1));
+    Serial.printf("pot %d destn %d target %d\n", pot, *destn, target);
     if (pot == active) {
-      if (abs(*destn) < 16) STATE.led_centre(enabled[pot]);
-      else if (*destn >= 0) STATE.led_bar(((INTERNAL_MAX >> 1) - *destn) << 1, enabled[pot]);
-      else STATE.led_bar_right(((INTERNAL_MAX >> 1) + *destn) << 1, enabled[pot]);
+      if (abs(*destn) <= 64) STATE.led_centre(enabled[pot]);
+      else if (*destn >= 0) STATE.led_bar(static_cast<uint>(*destn) << 1, enabled[pot]);
+      else STATE.led_bar_right(static_cast<uint>(-1 * *destn) << 1, enabled[pot]);
     }
   }
   void update_5(uint* destn, uint pot) {
