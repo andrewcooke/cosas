@@ -874,7 +874,6 @@ protected:
   void update_signed(volatile int* destn, uint pot) {
     uint target = static_cast<uint>(static_cast<int64_t>(*destn) + static_cast<int64_t>(INTERNAL_MAX >> 1));
     if (check_enabled(target, pot)) *destn = static_cast<int>(static_cast<int64_t>(POTS[pot].state) - static_cast<int64_t>(INTERNAL_MAX >> 1));
-    Serial.printf("pot %d destn %d target %d\n", pot, *destn, target);
     if (pot == active) {
       if (abs(*destn) <= 64) STATE.led_centre(enabled[pot]);
       else if (*destn >= 0) STATE.led_bar(static_cast<uint>(*destn) << 1, enabled[pot]);
@@ -1012,7 +1011,7 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update_prime(&vault.n_places, 2, -7, 0);
+      update_prime(&vault.n_places, 2, -11, 0);
       update_prime(&vault.frac_beats, vault.n_places, 1);
       update_lr(&vault.frac_main, 2, mask == 0x3u);
       update(&vault.prob, 3);
@@ -1313,7 +1312,7 @@ private:
   Euclidean* rhythm = nullptr;
   enum Phase {Idle, Jiggle, Update};
   Phase phase = Idle;
-  uint offset = 0;
+  int offset = 0;
   uint64_t trigger = 0;
   void recalculate(int64_t ticks) {
     rhythm = vault.get();
@@ -1323,7 +1322,8 @@ private:
     trigger = nv_interval * beat;
     if (subdiv) {
       offset = PATT_OFFSET * BEAT_SCALE / BPM;
-      offset += voice.shift / static_cast<int>(BPM * SUBDIVS[SUBDIV_IDX] / 60);  // TODO - scaling here
+      int voice_offset = (voice.shift * static_cast<int>(nv_interval >> 4)) >> (INTERNAL_BITS - 5);  // spread bits to avoid overflow
+      offset += voice_offset;
     }
     // Serial.printf("reacalculate: voice %d major %d trigger %d\n", voice.idx, major, trigger);
   }
