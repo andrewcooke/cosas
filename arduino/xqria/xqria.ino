@@ -852,7 +852,7 @@ protected:
   }
   void update_prime(float* destn, uint scale, uint pot) {
     int pot_target = *destn * INTERNAL_MAX;
-    if (check_enabled(pot_target, pot)) *destn = POTS[pot].state / INTERNAL_MAX;
+    if (check_enabled(pot_target, pot)) *destn = static_cast<float>(POTS[pot].state) / INTERNAL_MAX;
     if (pot == active) STATE.led_prime(*destn * scale, enabled[pot]);
   }
   void update_lr(float* destn, uint pot, bool p1) {
