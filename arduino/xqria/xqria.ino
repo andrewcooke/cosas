@@ -122,6 +122,10 @@ inline int imult(int a, int b) {
   return (a * b) >> INTERNAL_BITS;
 }
 
+template<uint BITS> uint lookup(std::array<uint, 1 << BITS> data, uint idx) {
+  return data[idx >> (INTERNAL_BITS - BITS)];
+}
+
 uint non_linear(uint val, uint n) {
   if (n == 0) return 1;
   else if (n == 1) return val;
@@ -515,15 +519,15 @@ public:
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
     uint nv_freq = freq;
-    uint exp_freq = FREQ[(nv_freq & 0x7fff) >> (INTERNAL_BITS - 1 - FREQ_BITS)];  // difficult to cache because a bit discarded and reverse lookup expensive
+    uint exp_freq = lookup<FREQ_BITS>(FREQ, (nv_freq & 0x7fff) << 1);
     uint nv_amp = amp;
-    uint exp_amp = AMP[(nv_amp & 0x7fff) >> (INTERNAL_BITS - 1 - AMP_BITS)];  // ditto
+    uint exp_amp = lookup<AMP_BITS>(AMP, (nv_amp & 0x7fff) << 1);
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
         out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
       } else {
-        uint env = min(rise, dec);
+        uint env = min(rise << 1, lookup<AMP_BITS>(AMP, dec));
         out = ride(exp_amp, exp_freq, fm, env);
       }
     } else {
@@ -554,7 +558,7 @@ public:
   int ride(uint amp, uint freq, uint fm, uint env) {
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX, fm_phase));
-    int out = imult(amp, SINE(env, phase) + LFSR.next(fm >> 4));
+    int out = imult(amp, SINE(env, phase) + LFSR.next(imult(fm, env) >> 6));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
   void to(Voice& other) {
