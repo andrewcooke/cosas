@@ -39,7 +39,7 @@ once you have the board working the "ino" file in this directory can
 be loaded into an arduino ide and written via usb to the board.
 
 you should edit the platform.txt (mine is in
-/home/andrew/.arduino15/packages/esp32/hardware/esp32/3.3.3/platform.txt
+/home/andrew/.arduino15/packages/esp32/hardware/esp32/3.X.Y/platform.txt
 for example) to have
 
   ````
@@ -48,6 +48,9 @@ for example) to have
   ````
 
 (this optimises the code to reduce the chance of noise spikes).
+
+note that this must be re-applied if the ide package updates to a
+newer version.
 
 finally, you may need to edit the pins to match your hardware - see
 "PINS" comments in code.  the pins are ordered in control group order,
@@ -248,7 +251,8 @@ similar.
 
 the entire instrument is running on a tiny chip with two cores.  if
 you push the limits of what is possible you may exhaust the cpu.  and
-if that happens you will start to hear noise/clicks in the audio.
+if that happens you will start to hear distrtion/noise/clicks in the
+audio.
 
 if you are having problems, please check you have compiled with -O3
 as described in the "install" section above, since that makes a huge
@@ -264,11 +268,9 @@ calculate).  you could also, for example, silence a pair of voices
 (EXPLAIN HOW HERE), record that, and then swap to the other two voices
 and record that.
 
-but please don't be alarmed!  this doesn't happen in "normal" use.  i
-mention it here to be fully transparent, and because the behaviour is
-a deliberate design choice - i could have made things so simple they
-would never starve, but that would have made a much less interesting
-machine.
+but please don't be alarmed!  the behaviour is a deliberate design
+choice - i could have made things so simple they would never starve,
+but that would have made a much less interesting machine.
 
 to explore further, compile with DBG_TIMING set to true and look at
 the output in the serial monitor.  if the "duty" value exceeds 100

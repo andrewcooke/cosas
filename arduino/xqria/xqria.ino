@@ -122,8 +122,12 @@ inline int imult(int a, int b) {
   return (a * b) >> INTERNAL_BITS;
 }
 
-template<uint BITS> uint lookup(std::array<uint, 1 << BITS> data, uint idx) {
+template<uint BITS> uint array_lookup(std::array<uint, 1 << BITS> data, uint idx) {
   return data[idx >> (INTERNAL_BITS - BITS)];
+}
+
+template<uint BITS> uint array_lookup_msb(std::array<uint, 1 << BITS> data, uint idx) {
+  return data[(idx & 0xefff) >> (INTERNAL_BITS - 1 - BITS)];
 }
 
 uint non_linear(uint val, uint n) {
@@ -490,6 +494,7 @@ private:
   bool on = false;
   HiPass hp;
   LoPass lp;
+  uint detune = 0;
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -505,6 +510,7 @@ public:
     time = 0;
     phase = 0;
     fm_phase = 0;
+    detune = LFSR.next(2) + LFSR.next(4);
   }
   int output() {
     if (!on) return 0;
@@ -519,15 +525,15 @@ public:
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
     uint nv_freq = freq;
-    uint exp_freq = lookup<FREQ_BITS>(FREQ, (nv_freq & 0x7fff) << 1);
+    uint exp_freq = array_lookup_msb<FREQ_BITS>(FREQ, nv_freq);
     uint nv_amp = amp;
-    uint exp_amp = lookup<AMP_BITS>(AMP, (nv_amp & 0x7fff) << 1);
+    uint exp_amp = array_lookup_msb<AMP_BITS>(AMP, nv_amp);
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
         out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
       } else {
-        uint env = min(rise << 1, lookup<AMP_BITS>(AMP, dec));
+        uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
         out = ride(exp_amp << 2, exp_freq, fm, env);
       }
     } else {
@@ -557,7 +563,7 @@ public:
   }
   int ride(uint amp, uint freq, uint fm, uint env) {
     fm_phase = norm_phase(fm_phase + fm);
-    phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX, fm_phase));
+    phase = norm_phase(phase + freq + detune + TRIANGLE(INTERNAL_MAX, fm_phase));
     int out = imult(amp, SINE(env, phase) + LFSR.next(imult(fm, env) >> 6));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
