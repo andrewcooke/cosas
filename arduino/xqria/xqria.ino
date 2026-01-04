@@ -457,15 +457,14 @@ private:
   int prev_in = 0;
   int prev_out = 0;
   int alpha;
-  int beta;
 public:
-  HiPass(int alpha) : alpha(alpha), beta(static_cast<int>(INTERNAL_MAX) - alpha) {};
+  HiPass(int alpha) : alpha(alpha) {};
   int next(int in, int alpha2) {
     alpha = alpha2;
     return next(in);
   }
   int next(int in) {
-    prev_out = imult(alpha, in) - imult(alpha, prev_in) + imult(beta, prev_out);  // TODO - really?
+    prev_out = imult(alpha, prev_out + in - prev_in);
     prev_in = in;
     return prev_out;
   }
