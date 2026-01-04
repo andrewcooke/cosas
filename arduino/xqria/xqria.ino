@@ -67,7 +67,7 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
@@ -528,13 +528,13 @@ public:
         out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
       } else {
         uint env = min(rise << 1, lookup<AMP_BITS>(AMP, dec));
-        out = ride(exp_amp, exp_freq, fm, env);
+        out = ride(exp_amp << 2, exp_freq, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
         out = snare(exp_amp, exp_freq >> 1, fm, dec);
       } else {
-        out = kick(exp_amp, exp_freq >> 1, fm, dec);
+        out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
       }
     }
     time++;
@@ -584,10 +584,6 @@ public:
   }
 };
 
-// std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 1200 << 4,   0, 0),
-//                                Voice(1, 0x7fff, 240 << 4, 1000 << 4, 240 << 4, 0),
-//                                Voice(2, 0x7fff, 213 << 4, 1300 << 4, 150 << 4, 0),
-//                                Voice(3, 0x7fff, 320 << 4,  900 << 4, 240 << 4, 0)};
 std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 0xffff, 0xffff, 0),
                                Voice(1, 0x7fff, 240 << 4, 0xffff, 0xffff, 0),
                                Voice(2, 0x7fff, 213 << 4, 0xffff, 0xffff, 0),
@@ -701,7 +697,6 @@ public:
     int beat = index_by_place[current_place];
     if (beat != -1 && is_main[beat] == main) {
       trigger(main ? 0 : 1);
-      // Serial.printf("on_beat: place %d, beat %d, voice %d\n", current_place, beat, voice + (main ? 0 : 1));
       if (DBG_PATTERN) Serial.printf("%d", voice + (main ? 0 : 1));
     } else if (DBG_PATTERN) Serial.printf("-");
     if (!main) {  // main is done before minor
@@ -1237,7 +1232,7 @@ public:
     state.update();
     if (state.selected) {
       update_5(&source, 0);
-      update_gray(&destn, 0, 4, 1);
+      update_gray(&destn, 11, 4, 1);
       update_bin(&read, 2);
       update_bin(&save, 3);
     }
