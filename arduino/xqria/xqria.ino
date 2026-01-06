@@ -52,7 +52,7 @@ volatile static uint DROP_BITS = 0;
 volatile static uint ENABLED = 10;  // all enabled (gray(10) = 9xf)
 // volatile static uint ENABLED = 1;
 volatile static uint LOCAL_BUFFER_SIZE = MAX_LOCAL_BUFFER_SIZE;  // has to be even
-volatile static uint OVERSAMPLE_BITS = 2;  // can be lowered via sys buttons if starving
+volatile static uint OVERSAMPLE_BITS = 1;  // can be adjusted via sys
 
 // derived from above
 volatile static uint BEAT_SCALE = (BASE_RATE_HZ << OVERSAMPLE_BITS) * 60;  // ticks for 1 bpm
@@ -127,7 +127,7 @@ template<uint BITS> uint array_lookup(std::array<uint, 1 << BITS> data, uint idx
 }
 
 template<uint BITS> uint array_lookup_msb(std::array<uint, 1 << BITS> data, uint idx) {
-  return data[(idx & 0xefff) >> (INTERNAL_BITS - 1 - BITS)];
+  return data[(idx & 0x7fff) >> (INTERNAL_BITS - 1 - BITS)];
 }
 
 uint non_linear(uint val, uint n) {
@@ -157,6 +157,10 @@ public:
       return -scale;
     }
     return lsb;
+  }
+  uint get_state() {
+    next(1);
+    return state;
   }
 };
 
@@ -477,10 +481,14 @@ private:
   int beta;
 public:
   LoPass(int alpha) : alpha(alpha), beta(INTERNAL_MAX - alpha) {};
+  int next(int in, int alpha2) {
+    alpha = alpha2;
+    beta = INTERNAL_MAX - alpha;
+    return next(in);
+  }
   int next(int in) {
-    int out = imult(alpha, in) + imult(beta, prev_out);
-    prev_out = out;
-    return out;
+    prev_out = imult(alpha, in) + imult(beta, prev_out);
+    return prev_out;
   }
 };
 
@@ -493,7 +501,6 @@ private:
   bool on = false;
   HiPass hp;
   LoPass lp;
-  uint detune = 0;
 public:
   uint idx;
   // parameters madified by UI (all INTERNAL_BITS)
@@ -503,13 +510,13 @@ public:
   volatile uint fm;
   volatile int shift;
   Voice(uint idx, uint amp, uint freq, uint durn, uint fm, int shift) 
-  : hp(INTERNAL_MAX >> 1), lp(INTERNAL_MAX >> 1), idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
+  : hp(INTERNAL_MAX >> 1), lp(INTERNAL_MAX >> 3), idx(idx), amp(amp), freq(freq), durn(durn), fm(fm), shift(shift) {};
   void trigger() {
     on = true;
     time = 0;
+    phase = LFSR.get_state();
     phase = 0;
     fm_phase = 0;
-    detune = LFSR.next(2) + LFSR.next(4);
   }
   int output() {
     if (!on) return 0;
@@ -520,7 +527,6 @@ public:
       on = false;
       return 0;
     }
-    // TODO - overflow here?
     uint rise = (((INTERNAL_MAX >> 4) * time) / (durn_scaled + 1)) << 4;
     uint dec = INTERNAL_MAX - rise;
     uint nv_freq = freq;
@@ -546,10 +552,11 @@ public:
     return out;
   }
   int snare(uint amp, uint freq, uint fm, uint dec) {
+    uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
-    phase = norm_phase(phase + freq + (dec >> 8) + TRIANGLE(fm >> 4, fm_phase));
-    int out = imult(amp, SQUARE(dec, phase));
-    return lp.next(out);
+    phase = norm_phase(phase + freq + TRIANGLE(dec2 >> 6, fm_phase));
+    int out = imult(amp, SINE(dec, phase) + LFSR.next(umult(fm, dec2)));
+    return lp.next(out, dec2 >> 1);
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
     phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
@@ -562,7 +569,7 @@ public:
   }
   int ride(uint amp, uint freq, uint fm, uint env) {
     fm_phase = norm_phase(fm_phase + fm);
-    phase = norm_phase(phase + freq + detune + TRIANGLE(INTERNAL_MAX, fm_phase));
+    phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX, fm_phase));
     int out = imult(amp, SINE(env, phase) + LFSR.next(imult(fm, env) >> 6));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
@@ -1015,7 +1022,7 @@ public:
   void read_state() {
     if (STATE.button_mask == mask) {
       editing = true;
-      update_prime(&vault.n_places, 2, -11, 0);
+      update_prime(&vault.n_places, 1, -10, 0);
       update_prime(&vault.frac_beats, vault.n_places, 1);
       update_lr(&vault.frac_main, 2, mask == 0x3u);
       update(&vault.prob, 3);
