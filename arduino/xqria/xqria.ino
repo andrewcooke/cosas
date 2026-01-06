@@ -555,11 +555,12 @@ public:
     uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + TRIANGLE(dec2 >> 6, fm_phase));
-    int out = imult(amp, SINE(dec, phase) + LFSR.next(umult(fm, dec2)));
+    int out = imult(amp, TRIANGLE(dec, phase) + LFSR.next(umult(fm, dec2) << 1));
     return lp.next(out, dec2 >> 1);
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
-    phase = norm_phase(phase + freq + (umult(fm, umult(dec, dec)) >> 4));
+    uint dec2 = umult(dec, dec);
+    phase = norm_phase(phase + freq + (umult(fm, dec2) >> 4));
     return SINE(umult(amp, dec), phase);    
   }
   int crash(uint amp, uint freq, uint fm, uint dec) {
