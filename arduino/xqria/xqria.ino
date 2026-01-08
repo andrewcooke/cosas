@@ -32,6 +32,8 @@ const uint FREQ_N = 1 << FREQ_BITS;  // 128 - 10 octaves from 20hz to 20khz, 12 
 const uint A_IDX = 61;  // from trial and error (location of 440hz)
 const uint AMP_BITS = 7;
 const uint AMP_N = 1 << AMP_BITS;
+const uint REVERB_EXTRA = 4;
+const uint REVERB_DENOM_BITS = 12;
 
 static std::array<uint, FREQ_N> FREQ = {0};
 static std::array<uint, AMP_N> AMP = {0};
@@ -64,9 +66,9 @@ volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
-const bool DBG_VOLUME = false;
+const bool DBG_VOLUME = true;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = true;
+const bool DBG_TIMING = false;
 const bool DBG_BEEP = false;
 const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
@@ -552,26 +554,18 @@ public:
     uint nv_amp = amp;
     uint exp_amp = array_lookup_msb<AMP_BITS>(AMP, nv_amp);
     int out = 0;
-    phase = norm_phase(phase + exp_freq);
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        // out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
-        out = TMHS(amp, phase);  // weird pwm
+        out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
       } else {
-        // uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
-        // out = ride(exp_amp << 2, exp_freq, fm, env);
-        out = TMHS(amp, phase);  // weird pwm
-        // out = SQUARE(amp, phase);  // ok
+        uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
+        out = ride(exp_amp << 2, exp_freq, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        // out = snare(exp_amp, exp_freq >> 1, fm, dec);
-        out = TMHS(amp, phase);  // weird pwm
-        // out = TRIANGLE(amp, phase);
+        out = snare(exp_amp, exp_freq >> 1, fm, dec);
       } else {
-        // out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
-        out = TMHS(amp, phase);  // weird pwm
-        // out = TMHS(amp, phase);
+        out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
       }
     }
     time++;
@@ -1089,7 +1083,7 @@ private:
 public:
   uint size = max_size;
   TapeEMA head;
-  Reverb() : head(TapeEMA(this, INTERNAL_BITS, INTERNAL_MAX, 4)) {};  // by default disabled
+  Reverb() : head(TapeEMA(this, REVERB_DENOM_BITS, 1 << REVERB_DENOM_BITS, REVERB_EXTRA)) {};  // by default disabled
   int next(int val) {
     write = (write + 1) % max(1u, size);  // can't be "& mask" because size can vary
     return head.next(val);
@@ -1107,7 +1101,7 @@ public:
   void read_state() {
     if (STATE.button_mask == 0x9) {
       update(&REVERB.size, 0, -3, 0);
-      update(&REVERB.head.num, 1, 0, 1);
+      update(&REVERB.head.num, 0, REVERB_DENOM_BITS - INTERNAL_BITS, 1);
       update_frac(&COMP_BITS, 0, MAX_COMP_BITS, 2);
       update(&DROP_BITS, 0, -12, 3);
     } else {
@@ -1337,7 +1331,8 @@ uint post_process(int amp) {
   // hard clip
   int offset = reverbed + 0x80;
   int hard_clipped = max(0, min(0xff, offset));
-  // if (DBG_VOLUME && !random(DBG_LOTTERY)) Serial.printf("comp %d; vol %d; soft %d; hard %d\n", 8 - COMP_BITS, vol, soft_clipped, hard_clipped);
+  if (DBG_VOLUME && !random(DBG_LOTTERY)) Serial.printf("amp %d; soft %d; bits %d; revb %d; off %d; hard %d\n", 
+                                                        amp, soft_clipped, shifted, reverbed, offset, hard_clipped);
   return hard_clipped;
 }
 
