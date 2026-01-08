@@ -32,7 +32,6 @@ const uint FREQ_N = 1 << FREQ_BITS;  // 128 - 10 octaves from 20hz to 20khz, 12 
 const uint A_IDX = 61;  // from trial and error (location of 440hz)
 const uint AMP_BITS = 7;
 const uint AMP_N = 1 << AMP_BITS;
-const float AMP_SCALE = 9.0f;  // from trial and error (for good low end response)
 
 static std::array<uint, FREQ_N> FREQ = {0};
 static std::array<uint, AMP_N> AMP = {0};
@@ -214,7 +213,8 @@ void set_freq() {
 
 void set_amp() {
   for (int i = 0; i < AMP_N; i++) {
-    AMP[AMP_N - 1 - i] = static_cast<uint>(0.5f + INTERNAL_MAX * pow(2.0f, -i / AMP_SCALE));
+    // at AMP_N we want it to be near 1.  INTERNAL_MAX is INTERNAL_N bits, so we want 1/2^INTERNAL_N at TABLE_N
+    AMP[AMP_N - 1 - i] = max(0u, min(INTERNAL_MAX, static_cast<uint>(0.5f + (INTERNAL_MAX * 1.01f) * pow(2.0f, -i / static_cast<float>(INTERNAL_N - TABLE_N)))));
   }
   if (DBG_STARTUP) for (uint i = 0; i < AMP_N; i++) Serial.printf("a %d %d\n", i, AMP[i]);
 }
@@ -397,8 +397,8 @@ private:
 public:
   Quarter() = default;
   int operator()(uint amp, uint phase) {
-    // NOTE - this all works on INTERNAL_BITS, so lookup needs to reduce to TABLE_BITS if necessary
-    uint half = TAU_N >> 1;
+    // NOTE - this all works on TAU_BITS, so lookup needs to reduce to TABLE_BITS if necessary
+    uint half = TAU_N >> 1;  // not const because TAU itself can vary
     uint quarter = half >> 1;
     int sign = 1;
     if (phase >= half) {
@@ -411,21 +411,35 @@ public:
   }
 };
 
-// implement sine as lookup
-class Sine : public Quarter {
-private:
+class Lookup : public Quarter {
+protected:
   std::array<uint16_t, 1 + TABLE_N / 4> table;
 public:
-  Sine() : Quarter() {
-    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / TABLE_N));
-  }
   uint lookup(uint phase) override {
     // phase already in first quadrant
     return table[phase >> (TAU_BITS - TABLE_BITS)];
   }
 };
 
+class Sine : public Lookup {
+public:
+  Sine() : Lookup() {
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) table[i] = static_cast<uint16_t>(INTERNAL_MAX * sin(2 * PI * i / TABLE_N));
+  }
+};
+
 Sine SINE;
+
+class TriangleMinusHalfSine : public Lookup {
+public:
+  TriangleMinusHalfSine() : Lookup() {
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) {
+      table[i] = (i << (INTERNAL_BITS - (TABLE_BITS - 2))) - static_cast<uint16_t>((INTERNAL_MAX >> 1) * sin(2 * PI * i / TABLE_N));
+    }
+  }
+};
+
+TriangleMinusHalfSine TMHS;
 
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
@@ -442,8 +456,12 @@ class Triangle : public Quarter {
 public:
   Triangle() : Quarter() {}
   uint lookup(uint phase) override {
-    // this should only be called in first quadrant and phase is internal bits
-    return phase << 2;
+    // this should only be called in first quadrant and phase is between 0 and tau/4
+    if ((TAU_BITS - 2) < INTERNAL_BITS) {
+      return phase << (INTERNAL_BITS - (TAU_BITS - 2));
+    } else {
+      return phase >> ((TAU_BITS - 2) - INTERNAL_BITS);
+    }
   }
 };
 
@@ -534,18 +552,26 @@ public:
     uint nv_amp = amp;
     uint exp_amp = array_lookup_msb<AMP_BITS>(AMP, nv_amp);
     int out = 0;
+    phase = norm_phase(phase + exp_freq);
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
+        // out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
+        out = TMHS(amp, phase);  // weird pwm
       } else {
-        uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
-        out = ride(exp_amp << 2, exp_freq, fm, env);
+        // uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
+        // out = ride(exp_amp << 2, exp_freq, fm, env);
+        out = TMHS(amp, phase);  // weird pwm
+        // out = SQUARE(amp, phase);  // ok
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
-        out = snare(exp_amp, exp_freq >> 1, fm, dec);
+        // out = snare(exp_amp, exp_freq >> 1, fm, dec);
+        out = TMHS(amp, phase);  // weird pwm
+        // out = TRIANGLE(amp, phase);
       } else {
-        out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
+        // out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
+        out = TMHS(amp, phase);  // weird pwm
+        // out = TMHS(amp, phase);
       }
     }
     time++;
@@ -555,7 +581,7 @@ public:
     uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + TRIANGLE(dec2 >> 6, fm_phase));
-    int out = imult(amp, TRIANGLE(dec, phase) + LFSR.next(umult(fm, dec2) << 1));
+    int out = imult(amp, TMHS(dec, phase) + LFSR.next(umult(fm, dec2) >> 1));
     return lp.next(out, dec2 >> 1);
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
@@ -1450,7 +1476,7 @@ public:
 
 static SysButtons SYS_BUTTONS;
 
-// main loop on other core for slow/ui operations
+// main loop on other core for slow/ui operationso
 void ui_loop(void*) {
   uint count = 0;
   while (1) {
