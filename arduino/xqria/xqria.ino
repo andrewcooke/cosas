@@ -66,11 +66,11 @@ volatile static uint REFRESH_US = (1000000 * LOCAL_BUFFER_SIZE) / SAMPLE_RATE_HZ
 const uint DBG_LOTTERY = 10000;
 const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
-const bool DBG_VOLUME = true;
+const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
 const bool DBG_TIMING = false;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = false;
+const bool DBG_DRUM = true;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
@@ -214,9 +214,10 @@ void set_freq() {
 }
 
 void set_amp() {
+  float k = pow(2.0f, INTERNAL_BITS / static_cast<float>(AMP_N - 1));
   for (int i = 0; i < AMP_N; i++) {
-    // at AMP_N we want it to be near 1.  INTERNAL_MAX is INTERNAL_N bits, so we want 1/2^INTERNAL_N at TABLE_N
-    AMP[AMP_N - 1 - i] = max(0u, min(INTERNAL_MAX, static_cast<uint>(0.5f + (INTERNAL_MAX * 1.01f) * pow(2.0f, -i / static_cast<float>(INTERNAL_N - TABLE_N)))));
+    // at i=AMP_N we want it to be near 1.  INTERNAL_MAX is INTERNAL_N bits, so we want 1/2^INTERNAL_N at TABLE_N
+    AMP[i] = max(0u, min(INTERNAL_MAX, static_cast<uint>(0.5f + pow(k, i))));
   }
   if (DBG_STARTUP) for (uint i = 0; i < AMP_N; i++) Serial.printf("a %d %d\n", i, AMP[i]);
 }
@@ -432,16 +433,22 @@ public:
 
 Sine SINE;
 
-class TriangleMinusHalfSine : public Lookup {
+class TriangleMinusSine : public Lookup {
 public:
-  TriangleMinusHalfSine() : Lookup() {
+  TriangleMinusSine(double k) : Lookup() {
+    double norm = 0;
     for (uint i = 0; i < 1 + (TABLE_N / 4); i++) {
-      table[i] = (i << (INTERNAL_BITS - (TABLE_BITS - 2))) - static_cast<uint16_t>((INTERNAL_MAX >> 1) * sin(2 * PI * i / TABLE_N));
+      norm = max(norm, (i << (INTERNAL_BITS - (TABLE_BITS - 2))) - k * INTERNAL_MAX * sin(2 * PI * i / TABLE_N));
+    }
+    norm = ((1 << 16) - 1) / norm;
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) {
+      table[i] = static_cast<uint16_t>(norm * max(0.0, ((i << (INTERNAL_BITS - (TABLE_BITS - 2))) - k * INTERNAL_MAX * sin(2 * PI * i / TABLE_N))));
     }
   }
 };
 
-TriangleMinusHalfSine TMHS;
+TriangleMinusSine TM81S(0.81);
+TriangleMinusSine TM50S(0.50);
 
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
@@ -565,7 +572,7 @@ public:
       if (nv_amp & INTERNAL_MSB) {
         out = snare(exp_amp, exp_freq >> 1, fm, dec);
       } else {
-        out = kick(exp_amp << 2, exp_freq >> 1, fm, dec);
+        out = kick(exp_amp << 2, exp_freq >> 4, fm, dec);
       }
     }
     time++;
@@ -575,13 +582,15 @@ public:
     uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
     phase = norm_phase(phase + freq + TRIANGLE(dec2 >> 6, fm_phase));
-    int out = imult(amp, TMHS(dec, phase) + LFSR.next(umult(fm, dec2) >> 1));
-    return lp.next(out, dec2 >> 1);
+    int xxx = TM50S(dec, phase) + LFSR.next(umult(fm, dec2) >> 2);
+    int out = imult(amp, xxx);
+    if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("amp %d: %d -> %d\n", amp, xxx, out);
+    return lp.next(out, dec >> 1);
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
     uint dec2 = umult(dec, dec);
-    phase = norm_phase(phase + freq + (umult(fm, dec2) >> 4));
-    return SINE(umult(amp, dec), phase);    
+    phase = norm_phase(phase + freq + (umult(fm, dec2) >> 6));
+    return SINE(umult(amp, dec), phase);
   }
   int crash(uint amp, uint freq, uint fm, uint dec) {
     fm_phase = norm_phase(fm_phase + fm);
