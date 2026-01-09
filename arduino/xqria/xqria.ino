@@ -68,9 +68,9 @@ const bool DBG_VOICE = false;
 const bool DBG_LFSR = false;
 const bool DBG_VOLUME = false;
 const bool DBG_COMP = false;
-const bool DBG_TIMING = false;
+const bool DBG_TIMING = true;
 const bool DBG_BEEP = false;
-const bool DBG_DRUM = true;
+const bool DBG_DRUM = false;
 const bool DBG_CRASH = false;
 const bool DBG_MINIFM = false;
 const bool DBG_REVERB = false;
@@ -450,6 +450,22 @@ public:
 TriangleMinusSine TM81S(0.81);
 TriangleMinusSine TM50S(0.50);
 
+class SquareMinusSine : public Lookup {
+public:
+  SquareMinusSine(double k) : Lookup() {
+    double norm = 0;
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) {
+      norm = max(norm, INTERNAL_MAX * (1 - k * sin(2 * PI * i / TABLE_N)));
+    }
+    norm = ((1 << 16) - 1) / norm;
+    for (uint i = 0; i < 1 + (TABLE_N / 4); i++) {
+      table[i] = static_cast<uint16_t>(norm * max(0.0, INTERNAL_MAX * (1 - k * sin(2 * PI * i / TABLE_N))));
+    }
+  }
+};
+
+SquareMinusSine SM50S(0.50);
+
 // implement square (no need for table, can just use constant)
 class Square : public Quarter {
 public:
@@ -563,10 +579,10 @@ public:
     int out = 0;
     if (nv_freq & INTERNAL_MSB) {
       if (nv_amp & INTERNAL_MSB) {
-        out = crash(exp_amp, exp_freq, fm, non_linear(dec, 2));
+        out = crash(exp_amp, exp_freq << 1, fm, non_linear(dec, 2));
       } else {
         uint env = min(rise << 1, array_lookup<AMP_BITS>(AMP, dec));
-        out = ride(exp_amp << 2, exp_freq, fm, env);
+        out = ride(exp_amp << 2, exp_freq  << 1, fm, env);
       }
     } else {
       if (nv_amp & INTERNAL_MSB) {
@@ -581,7 +597,7 @@ public:
   int snare(uint amp, uint freq, uint fm, uint dec) {
     uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + (fm >> 6));
-    phase = norm_phase(phase + freq + TRIANGLE(dec2 >> 6, fm_phase));
+    phase = norm_phase(phase + freq + SM50S(dec2 >> 6, fm_phase));
     int xxx = TM50S(dec, phase) + LFSR.next(umult(fm, dec2) >> 2);
     int out = imult(amp, xxx);
     if (DBG_DRUM && !random(DBG_LOTTERY)) Serial.printf("amp %d: %d -> %d\n", amp, xxx, out);
@@ -593,14 +609,15 @@ public:
     return SINE(umult(amp, dec), phase);
   }
   int crash(uint amp, uint freq, uint fm, uint dec) {
+    uint dec2 = umult(dec, dec);
     fm_phase = norm_phase(fm_phase + fm);
-    phase = norm_phase(phase + freq + TRIANGLE(dec, fm_phase));
+    phase = norm_phase(phase + freq + SM50S(dec, fm_phase) + LFSR.next(dec2 >> 2));
     return imult(amp, SINE(dec, phase));
   }
   int ride(uint amp, uint freq, uint fm, uint env) {
     fm_phase = norm_phase(fm_phase + fm);
     phase = norm_phase(phase + freq + TRIANGLE(INTERNAL_MAX, fm_phase));
-    int out = imult(amp, SINE(env, phase) + LFSR.next(imult(fm, env) >> 6));
+    int out = imult(amp, SINE(env, phase) + LFSR.next(imult(fm, env) >> 4));
     return hp.next(out, (INTERNAL_MAX - env) >> 1);
   }
   void to(Voice& other) {
