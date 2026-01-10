@@ -1344,12 +1344,22 @@ int compress(int out, uint bits, uint ceiling) {
   return sign * static_cast<int>(absolute);
 }
 
+int drop_bits(int amp) {
+  uint nv_bits = DROP_BITS;
+  if (nv_bits) {
+    int k = 1 << nv_bits;
+    return k * (amp / k);
+  } else {
+    return amp;
+  }
+}
+
 // apply post-processing
 uint post_process(int amp) {
   // apply compressor
   int soft_clipped = compress(amp, COMP_BITS, MAX_COMP_BITS);
   // apply quantisation
-  int shifted = (soft_clipped >> DROP_BITS) << DROP_BITS;  // implementation dependent but signed here
+  int shifted = drop_bits(soft_clipped);
   // apply reverb
   // int reverbed = soft_clipped;
   int reverbed = REVERB.next(shifted);
