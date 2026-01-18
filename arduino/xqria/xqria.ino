@@ -605,8 +605,11 @@ public:
   }
   int kick(uint amp, uint freq, uint fm, uint dec) {
     uint dec2 = umult(dec, dec);
-    phase = norm_phase(phase + freq + (umult(fm, dec2) >> 6));
-    return SINE(umult(amp, dec), phase);
+    uint local_freq = freq + (umult(fm, dec2) >> 6);
+    phase = norm_phase(phase + local_freq);
+    fm_phase = norm_phase(fm_phase + (local_freq >> 3));
+    uint local_amp = umult(amp, dec);
+    return SINE(local_amp, phase) + TM50S(local_amp >> 2, fm_phase);
   }
   int crash(uint amp, uint freq, uint fm, uint dec) {
     uint dec2 = umult(dec, dec);
@@ -643,10 +646,10 @@ public:
   }
 };
 
-std::array<Voice, 4> VOICES = {Voice(0, 0xffff, 160 << 4, 0xffff, 0xffff, 0),
-                               Voice(1, 0x7fff, 240 << 4, 0xffff, 0xffff, 0),
-                               Voice(2, 0x7fff, 213 << 4, 0xffff, 0xffff, 0),
-                               Voice(3, 0x7fff, 320 << 4, 0xffff, 0xffff, 0)};
+std::array<Voice, 4> VOICES = {Voice(0, 0xff00, 160 << 4, 0xff00, 0xff00, 0),
+                               Voice(1, 0x7fff, 240 << 4, 0xff00, 0xff00, 0),
+                               Voice(2, 0x7fff, 213 << 4, 0xff00, 0xff00, 0),
+                               Voice(3, 0x7fff, 320 << 4, 0xff00, 0xff00, 0)};
 
 // standard euclidean pattern
 class Euclidean {
@@ -1358,17 +1361,16 @@ int drop_bits(int amp) {
 uint post_process(int amp) {
   // apply compressor
   int soft_clipped = compress(amp, COMP_BITS, MAX_COMP_BITS);
-  // apply quantisation
-  int shifted = drop_bits(soft_clipped);
   // apply reverb
   // int reverbed = soft_clipped;
-  int reverbed = REVERB.next(shifted);
-  // if (DBG_REVERB && !random(DBG_LOTTERY)) Serial.printf("reverb %d -> %d\n", soft_clipped, reverbed);
+  int reverbed = REVERB.next(soft_clipped);
+  // apply quantisation
+  int shifted = drop_bits(reverbed);
   // hard clip
-  int offset = reverbed + 0x80;
+  int offset = shifted + 0x80;
   int hard_clipped = max(0, min(0xff, offset));
-  if (DBG_VOLUME && !random(DBG_LOTTERY)) Serial.printf("amp %d; soft %d; bits %d; revb %d; off %d; hard %d\n", 
-                                                        amp, soft_clipped, shifted, reverbed, offset, hard_clipped);
+  if (DBG_VOLUME && !random(DBG_LOTTERY)) Serial.printf("amp %d; soft %d; revb %d; bits %d; off %d; hard %d\n", 
+                                                        amp, soft_clipped, reverbed, shifted, offset, hard_clipped);
   return hard_clipped;
 }
 
